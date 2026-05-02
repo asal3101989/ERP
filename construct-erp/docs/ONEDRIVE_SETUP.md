@@ -82,8 +82,8 @@ STEP 3 — CREATE A CLIENT SECRET
    IMPORTANT: Copy this value IMMEDIATELY.
    Microsoft hides it permanently after you leave this page.
 
-value:24G8Q~KR2eKCBdlyLBNhV563jqtV139jXFloZcmf
-secerett:104ffddd-4d9d-484a-b8f5-864a97359645
+value: YOUR_CLIENT_SECRET_VALUE_HERE
+secret_id: YOUR_SECRET_ID_HERE
 
    This value becomes ONEDRIVE_CLIENT_SECRET.
 
