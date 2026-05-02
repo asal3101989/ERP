@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs ls:*)",
+      "Bash(node -e \":*)",
+      "Bash(node proc/public/_inject_extra.js)",
+      "Bash(node _apply_light_theme.js)",
+      "Bash(node _sync_login_theme.js)"
+    ]
+  }
+}

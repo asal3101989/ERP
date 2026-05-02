@@ -1,0 +1,145 @@
+// src/routes/variation.routes.js 
+const express = require('express');
+const router = express.Router();
+const { authenticate, authorize } = require('../middleware/auth');
+const { query, withTransaction } = require('../config/database');
+
+router.use(authenticate);
+
+// GET /api/v1/variations — List for a project
+router.get('/', async (req, res) => {
+  try {
+    const { project_id, status } = req.query;
+    let sql = `SELECT vo.*, p.name as project_name, u.name as requested_by_name 
+               FROM variation_orders vo
+               JOIN projects p ON vo.project_id = p.id
+               LEFT JOIN users u ON vo.requested_by = u.id
+               WHERE p.company_id = $1`;
+    const params = [req.user.company_id];
+    let idx = 2;
+
+    if (project_id) { sql += ` AND vo.project_id = $${idx++}`; params.push(project_id); }
+    if (status)     { sql += ` AND vo.status = $${idx++}`;     params.push(status); }
+
+    sql += ' ORDER BY vo.created_at DESC';
+    const result = await query(sql, params);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/v1/variations/:id — Get detail with items
+router.get('/:id', async (req, res) => {
+  try {
+    const voRes = await query(
+      `SELECT vo.*, p.name as project_name, u.name as requested_by_name 
+       FROM variation_orders vo
+       JOIN projects p ON vo.project_id = p.id
+       LEFT JOIN users u ON vo.requested_by = u.id
+       WHERE vo.id = $1`, [req.params.id]
+    );
+    if (!voRes.rows.length) return res.status(404).json({ error: 'VO not found' });
+    
+    const items = await query(
+      `SELECT vi.*, b.description as boq_description 
+       FROM variation_items vi
+       LEFT JOIN boq_items b ON vi.boq_item_id = b.id
+       WHERE vi.vo_id = $1`, [req.params.id]
+    );
+    
+    res.json({ data: { ...voRes.rows[0], items: items.rows } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/v1/variations — Create Request
+router.post('/', authorize('super_admin','admin','qs_engineer','project_manager'), async (req, res) => {
+  try {
+    const { project_id, description, items, remarks } = req.body;
+    
+    const result = await withTransaction(async (client) => {
+      // 1. Generate VO Number
+      const yr = new Date().getFullYear();
+      const countRes = await client.query('SELECT COUNT(*) FROM variation_orders');
+      const seq = String(parseInt(countRes.rows[0].count) + 1).padStart(3,'0');
+      const vo_number = `VO/${yr}/${seq}`;
+
+      // 2. Insert Header
+      const header = await client.query(
+        `INSERT INTO variation_orders (project_id, vo_number, description, requested_by, status, remarks)
+         VALUES ($1, $2, $3, $4, 'pending', $5) RETURNING *`,
+        [project_id, vo_number, description, req.user.id, remarks]
+      );
+      const voId = header.rows[0].id;
+
+      // 3. Insert Items
+      let total = 0;
+      for (const it of items) {
+        await client.query(
+          `INSERT INTO variation_items (vo_id, boq_item_id, new_item_description, unit, quantity, rate, reason)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [voId, it.boq_item_id || null, it.new_item_description || null, it.unit, it.quantity, it.rate, it.reason]
+        );
+        total += (parseFloat(it.quantity) * parseFloat(it.rate));
+      }
+
+      // 4. Update Header with total
+      const final = await client.query(
+        `UPDATE variation_orders SET total_variation_amount = $1 WHERE id = $2 RETURNING *`,
+        [total, voId]
+      );
+      
+      return final.rows[0];
+    });
+
+    res.status(201).json({ data: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/v1/variations/approved-items?project_id=
+// Returns all line items from approved VOs for a project (for MB abstract)
+router.get('/approved-items', async (req, res) => {
+  try {
+    const { project_id } = req.query;
+    let sql = `
+      SELECT
+        vi.id, vi.vo_id, vi.boq_item_id, vi.new_item_description, vi.unit,
+        vi.quantity, vi.rate, vi.reason,
+        (vi.quantity * vi.rate) AS amount,
+        vo.vo_number, vo.description AS vo_description,
+        b.description AS boq_description, b.sr_no AS csi_no
+      FROM variation_items vi
+      JOIN variation_orders vo ON vi.vo_id = vo.id
+      JOIN projects p ON vo.project_id = p.id
+      LEFT JOIN boq_items b ON vi.boq_item_id = b.id
+      WHERE vo.status = 'approved'
+        AND p.company_id = $1`;
+    const params = [req.user.company_id];
+    if (project_id) { sql += ` AND vo.project_id = $2`; params.push(project_id); }
+    sql += ` ORDER BY vo.created_at, vi.id`;
+    const result = await query(sql, params);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/v1/variations/:id/approve
+router.patch('/:id/approve', authorize('super_admin','admin','project_manager'), async (req, res) => {
+  try {
+    const result = await query(
+      `UPDATE variation_orders SET status = 'approved', approved_by = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [req.user.id, req.params.id]
+    );
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

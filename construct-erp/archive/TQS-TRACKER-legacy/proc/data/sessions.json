@@ -1,0 +1,74 @@
+[
+  [
+    "b8b280012cc0357ae87aaee337127df2a296091d9dec7c706c8a7e35d7c21247",
+    {
+      "userId": "USR-001",
+      "role": "ADMIN",
+      "expiresAt": 1775559159351
+    }
+  ],
+  [
+    "943f9408ede0ebbea72cbbe8789d2169be5ff401966f82ced173c883a742dd1b",
+    {
+      "userId": "USR-001",
+      "role": "ADMIN",
+      "expiresAt": 1775559190993
+    }
+  ],
+  [
+    "63036260b1ceaf840f8301b1cfd2163675e53a903a215888c8b8ec4195f013bc",
+    {
+      "userId": "USR-001",
+      "role": "ADMIN",
+      "expiresAt": 1775560156721
+    }
+  ],
+  [
+    "3fd8d8270488e614c98ab42598dc95bcefc2bb3b6d67b7f6e823cbbb17d0a0df",
+    {
+      "userId": "USR-001",
+      "role": "ADMIN",
+      "expiresAt": 1775560181621
+    }
+  ],
+  [
+    "4ee2aab0712ee42e13332f4d46520e9f6690af9b7d7e351a9fc3d95cb17643f8",
+    {
+      "userId": "USR-001",
+      "role": "ADMIN",
+      "expiresAt": 1775561443801
+    }
+  ],
+  [
+    "3b7a2af8e47367568ea101d9ff8e46b1ab42dd45c0862fa19ca7b9c816779432",
+    {
+      "userId": "USR-001",
+      "role": "ADMIN",
+      "expiresAt": 1775561636967
+    }
+  ],
+  [
+    "5b933bc279d3482412586a2247e63757c593525bbdf4335b916e69b93335dd6d",
+    {
+      "userId": "USR-001",
+      "role": "ADMIN",
+      "expiresAt": 1775564035256
+    }
+  ],
+  [
+    "4b39a117adb69137f937e7c5835d890596e5d3f285acb5105c2db3244f6468e6",
+    {
+      "userId": "USR-001",
+      "role": "ADMIN",
+      "expiresAt": 1775565147692
+    }
+  ],
+  [
+    "0e66b9ed1d53b709a8835c7e162a5b37ae787662487080ae76400d5b402927d6",
+    {
+      "userId": "USR-001",
+      "role": "ADMIN",
+      "expiresAt": 1775566405567
+    }
+  ]
+]

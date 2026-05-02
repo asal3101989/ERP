@@ -1,0 +1,156 @@
+# docker-compose.yml
+# ConstructERP India — Full Stack Docker Deployment
+# Run: docker-compose up -d
+#
+# REQUIRED environment variables (set in .env or shell — NO fallback defaults):
+#   DB_PASSWORD   — PostgreSQL password
+#   JWT_SECRET    — min 32-char random string
+#   FRONTEND_URL  — e.g. https://erp.yourcompany.com
+
+version: '3.9'
+
+services:
+
+  # ─── PostgreSQL Database ───────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: construct_erp_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: construct_erp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required — set it in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ─── DB Migration (runs once, then exits) ───────────
+  db-migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: construct_erp_migrate
+    command: node src/config/migrate.js
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: construct_erp
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - erp_network
+
+  # ─── Backend API ────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: construct_erp_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: construct_erp
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required — use a 32+ char random string}
+      JWT_EXPIRES_IN: 7d
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      UPLOAD_PROVIDER: local
+      BACKUP_DIR: /app/backups
+    volumes:
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
+      - backups_data:/app/backups
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    networks:
+      - erp_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  # ─── Frontend React App ─────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ${API_URL:-http://localhost:5000/api/v1}
+    container_name: construct_erp_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - erp_network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+
+  # ─── Nginx Reverse Proxy ─────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: construct_erp_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - uploads_data:/var/www/uploads:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - erp_network
+
+volumes:
+  postgres_data:
+  uploads_data:
+  logs_data:
+  backups_data:
+
+networks:
+  erp_network:
+    driver: bridge

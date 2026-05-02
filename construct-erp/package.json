@@ -1,0 +1,12 @@
+{
+  "name": "construct-erp",
+  "version": "1.0.0",
+  "description": "BCIM Engineering — ConstructERP monorepo launcher",
+  "private": true,
+  "scripts": {
+    "dev":     "node scripts/start-all.js",
+    "start":   "node scripts/start-all.js",
+    "backend": "cd backend && npm run dev",
+    "frontend": "cd frontend && npm start"
+  }
+}

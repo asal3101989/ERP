@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purchase Orders - BuildPro</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root {
+  --bg: #f4f7f9;
+  --surface: #ffffff;
+  --surface2: #f8fafc;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-2: #475569;
+  --text-3: #64748b;
+  --accent: #C17B3A;
+  --accent-bg: rgba(193, 123, 58, 0.08);
+  --accent-border: rgba(193, 123, 58, 0.15);
+  --amber: #f59e0b; --amber-bg: rgba(245, 158, 11, 0.08); --amber-border: rgba(245, 158, 11, 0.15);
+  --green: #10b981; --green-bg: rgba(16, 185, 129, 0.08); --green-border: rgba(16, 185, 129, 0.15);
+  --blue: #3b82f6; --blue-bg: rgba(59, 130, 246, 0.08); --blue-border: rgba(59, 130, 246, 0.15);
+  --red: #ef4444; --red-bg: rgba(239, 68, 68, 0.08); --red-border: rgba(239, 68, 68, 0.15);
+  --radius: 12px; --shadow: 0 2px 8px rgba(0,0,0,0.06)
+}
+html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+.layout { display: flex; height: 100%; }
+.sidebar {
+  width: 240px; min-width: 240px; background: #0B193A; border-right: 1px solid rgba(255,255,255,0.1);
+  display: flex; flex-direction: column; color: #fff;
+}
+.sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.logo-tag { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: .15em; text-transform: uppercase; }
+.logo-name { font-size: 20px; font-weight: 700; margin-top: 4px; color: #fff; }
+.logo-dot { color: var(--accent); }
+.sidebar-nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+.nav-group-label { font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 12px 10px 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; color: rgba(255,255,255,0.7); margin-bottom: 3px; cursor: pointer; text-decoration: none; transition: 0.2s; }
+.nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.nav-item.active { background: rgba(255,255,255,0.1); color: #fff; font-weight: 600; }
+.nav-badge { margin-left:auto; font-size:10px; font-weight:600; border-radius:8px; padding:1px 7px; font-family:'IBM Plex Mono',monospace; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.1); }
+.sidebar-footer { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+.user-row { display: flex; align-items: center; gap: 12px; }
+.uav { width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
+.uname { font-size: 13px; font-weight: 600; color: #fff; }
+.urole { font-size: 10px; color: rgba(255,255,255,0.5); }
+.proj-pill { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 6px 12px; font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 12px; }
+.pdot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.main { flex: 1; overflow-y: auto; }.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:5}.bc,.bc-cur{font-size:12px}.bc,.bc-sep{color:var(--text3)}.bc-cur{font-weight:500;color:var(--text)}.btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer}.btn-amber{background:var(--amber);color:#fff;border-color:var(--amber)}.content{padding:28px}.page-title{font-size:21px;font-weight:700}.page-sub{font-size:12px;color:var(--text3);margin-top:3px}.stats-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:24px 0}.card,.table-wrap,.detail-card,.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}.card{padding:14px 16px}.stat-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}.stat-value{font-size:22px;font-weight:700;margin-top:4px;font-family:'IBM Plex Mono',monospace}.stat-sub{font-size:10px;color:var(--text3);margin-top:2px}.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px}.search-input{width:280px;max-width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:'Outfit',sans-serif}.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}.po-table{width:100%;min-width:600px;border-collapse:collapse;font-size:12px}.po-table th,.po-table td{padding:13px 14px;border-bottom:1px solid var(--border);text-align:left}.po-table th{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;background:var(--surface2)}.po-table tr:last-child td{border-bottom:none}.mono{font-family:'IBM Plex Mono',monospace}.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:600}.issued{background:var(--blueBg);border:1px solid var(--blueBorder);color:var(--blue)}.sent{background:var(--amberBg);border:1px solid var(--amberBorder);color:var(--amber)}.received{background:var(--greenBg);border:1px solid var(--greenBorder);color:var(--green)}.cancelled{background:var(--redBg);border:1px solid var(--redBorder);color:var(--red)}.partial{background:var(--amberBg);border:1px solid var(--amberBorder);color:var(--amber)}.row-actions{display:flex;gap:8px;flex-wrap:wrap}.action-btn{padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-size:11px}.action-btn.primary{background:var(--blueBg);border-color:var(--blueBorder);color:var(--blue)}.action-btn.success{background:var(--greenBg);border-color:var(--greenBorder);color:var(--green)}.empty{padding:42px 16px;text-align:center;color:var(--text3)}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.detail-card{padding:16px 18px}.detail-title{font-size:13px;font-weight:600;margin-bottom:10px}.detail-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}.detail-row:last-child{border-bottom:none}.muted{color:var(--text3)}.history{margin-top:18px}.history-item{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}.history-item:last-child{border-bottom:none}.overlay{position:fixed;inset:0;background:rgba(26,25,22,.5);display:none;align-items:center;justify-content:center;padding:20px;z-index:100}.overlay.open{display:flex}.modal{width:100%;max-width:520px}.modal-header,.modal-footer{padding:18px 20px}.modal-header{border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px}.modal-title{font-size:15px;font-weight:600}.modal-sub{font-size:11px;color:var(--text3);margin-top:2px}.modal-body{padding:20px}.modal-close{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-group{display:flex;flex-direction:column;gap:5px}.form-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)}.form-input,.form-select{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:'Outfit',sans-serif}.toast{position:fixed;right:24px;bottom:24px;transform:translateY(80px);opacity:0;transition:all .25s ease;pointer-events:none;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;color:#fff;background:#1a1916;z-index:120}.toast.show{transform:translateY(0);opacity:1}.toast-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;background:rgba(255,255,255,.16)}@media(max-width:900px){.sidebar{display:none}.main{margin-left:0}.content{padding:20px}.topbar{padding:13px 20px}.stats-row,.detail-grid,.form-grid{grid-template-columns:1fr 1fr}}@media(max-width:640px){.stats-row,.detail-grid,.form-grid{grid-template-columns:1fr}.content{padding:16px}.toolbar{flex-wrap:wrap}.search-input{width:100%}}@media(max-width:480px){.po-table th:nth-child(4),.po-table td:nth-child(4){display:none}.page-title{font-size:18px}}
+/* LOGIN-THEME-SYNC */
+
+  .sidebar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .sidebar-logo, .sidebar-nav, .sidebar-footer { position: relative; z-index: 1; }
+
+  .topbar {
+    background: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+  }
+
+  .card, .chart-card, .list-card, .form-card, .section-card, .detail-card,
+  .vendor-card, .stat-card, .rpt-stat, .rpt-wrap, .modal-box, .modal-content,
+  .settings-panel, .sn-panel, .workflow-card, .timeline-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+  }
+
+  .form-input, .form-select, .filter-input, input[type="text"],
+  input[type="number"], input[type="date"], input[type="email"],
+  input[type="password"], select, textarea {
+    background: #f8fafc !important;
+    border: 1.5px solid #e2e8f0 !important;
+    color: #0f172a !important;
+    border-radius: 8px !important;
+    font-family: 'Outfit', sans-serif !important;
+  }
+  .form-input:focus, .form-select:focus, .filter-input:focus,
+  input:focus, select:focus, textarea:focus {
+    border-color: #C17B3A !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(193, 123, 58, 0.1) !important;
+    outline: none !important;
+  }
+
+  .btn-primary, button.btn-primary {
+    background: #C17B3A !important;
+    border-color: #C17B3A !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(193, 123, 58, 0.25) !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+  }
+  .btn-primary:hover, button.btn-primary:hover {
+    background: #a86629 !important;
+    border-color: #a86629 !important;
+  }
+  .btn { border-radius: 8px !important; }
+
+  .nav-item.active {
+    background: rgba(193, 123, 58, 0.15) !important;
+    color: #C17B3A !important;
+    border-left: 3px solid #C17B3A !important;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.06) !important; }
+
+  .rpt-table th, table th {
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+  }
+  .rpt-table td, table td { border-bottom: 1px solid #f1f5f9 !important; color: #0f172a !important; }
+  .rpt-table tr:hover td { background: #f8fafc !important; }
+
+  .badge { border-radius: 20px !important; font-weight: 600 !important; }
+
+  .kpi-label, .rpt-stat-label { color: #64748b !important; font-weight: 700 !important; }
+  .kpi-value, .rpt-stat-value { color: #0f172a !important; }
+  .kpi-sub { color: #94a3b8 !important; }
+
+  .page-title { color: #0f172a !important; font-weight: 800 !important; }
+  .page-sub, .bc, .bc-sep { color: #64748b !important; }
+  .bc-cur { color: #0f172a !important; font-weight: 600 !important; }
+
+/* END LOGIN-THEME-SYNC */
+/* LOGIN-THEME-EXTRA */
+
+  /* Sidebar logo dot and brand */
+  .logo-dot, .logo-dot { color: #C17B3A !important; }
+  .sidebar-logo { border-bottom: 1px solid rgba(255,255,255,0.08) !important; }
+
+  /* Active tab underline */
+  .tab-btn.active { color: #C17B3A !important; border-bottom-color: #C17B3A !important; }
+  .tab-btn:hover { color: #0f172a !important; }
+
+  /* Sidebar badge */
+  .nav-badge { background: rgba(193,123,58,0.15) !important; color: #C17B3A !important; }
+
+  /* Status tab bar (indents) */
+  .status-tab.active { color: #C17B3A !important; border-bottom-color: #C17B3A !important; }
+
+  /* Modal overlay */
+  .modal-overlay, .overlay { background: rgba(15,23,42,0.45) !important; }
+  .modal-box, .modal-content { border-radius: 16px !important; box-shadow: 0 16px 48px rgba(0,0,0,0.12) !important; }
+
+  /* Priority / status badges match login feel */
+  .priority-high, .b-high { background: #fff3e8 !important; color: #b45309 !important; border: 1px solid #fde68a !important; }
+  .priority-medium, .b-medium { background: #fefce8 !important; color: #a16207 !important; }
+  .priority-low, .b-low { background: #f0fdf4 !important; color: #15803d !important; }
+
+  /* Gen bar (reports) — match card style */
+  .gen-bar { background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important; }
+
+  /* Report doc header */
+  .rpt-doc-header { background: #ffffff !important; border: 1px solid #e2e8f0 !important; }
+  .rpt-doc-logo { color: #0f172a !important; }
+  .rpt-doc-logo span { color: #C17B3A !important; }
+
+  /* Sidebar footer user area */
+  .sidebar-footer { border-top: 1px solid rgba(255,255,255,0.08) !important; }
+  .uname { color: #ffffff !important; }
+  .urole { color: #94a3b8 !important; }
+  .proj-pill { background: rgba(0,0,0,0.2) !important; border-color: rgba(255,255,255,0.1) !important; }
+  .pdot { background: #22c55e !important; }
+
+  /* Page content area */
+  .content { background: transparent !important; }
+  .main { background: #f4f7f9 !important; }
+
+  /* Settings nav */
+  .sn-item.active { background: rgba(193,123,58,0.08) !important; color: #C17B3A !important; border-color: rgba(193,123,58,0.2) !important; }
+  .sn-item:hover { background: #f8fafc !important; }
+
+  /* Toggle active */
+  .toggle-thumb { background: #ffffff !important; }
+  .toggle.on { background: #C17B3A !important; }
+
+/* END */
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><div class="logo-tag">Procurement</div><div class="logo-name">Build<span class="logo-dot">Pro</span></div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-group-label">Main</div>
+      <a class="nav-item" href="index.html">Dashboard</a>
+      <a class="nav-item" href="material-indent.html">Material Indent</a>
+      <a class="nav-item" href="approval-workflow.html">Approval Workflow</a>
+      <a class="nav-item" href="quotations.html">Quotations</a>
+      <a class="nav-item active" href="purchase-orders.html">Purchase Orders <span class="nav-badge" id="nav-count">0</span></a>
+      <a class="nav-item" href="delivery-grn.html">Delivery &amp; GRN</a>
+      <a class="nav-item" href="invoice-payment.html">Invoice &amp; Payment</a>
+      <div class="nav-group-label">Manage</div>
+      <a class="nav-item" href="reports-analytics.html">Reports</a>
+      <a class="nav-item" href="settings.html">Settings</a>
+      <div class="nav-group-label" style="margin-top:12px;opacity:0.5">Suite</div>
+      <a class="nav-item" href="tqs.html" target="_blank" style="color:var(--accent);font-weight:600">⭐ TQS Bill Tracker</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-row"><div class="uav" id="user-avatar">--</div><div><div class="uname" id="user-name">Loading...</div><div class="urole" id="user-role">---</div></div></div>
+      <div class="proj-pill"><div class="pdot"></div><span id="project-name">Active Project</span></div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div><span class="bc">BuildPro</span><span class="bc-sep">›</span><span class="bc-cur">Purchase Orders</span></div>
+      <button class="btn btn-amber" type="button" onclick="openCreateModal()">Create PO</button>
+    </div>
+    <div class="content">
+      <div>
+        <div class="page-title">Purchase orders</div>
+        <div class="page-sub">Track issued purchase orders, vendor dispatch, and receipt progress from the live procurement flow.</div>
+      </div>
+      <div class="stats-row">
+        <div class="card"><div class="stat-label">Total POs</div><div class="stat-value" id="s-total">0</div><div class="stat-sub">All purchase orders</div></div>
+        <div class="card"><div class="stat-label">Issued</div><div class="stat-value" id="s-issued">0</div><div class="stat-sub">Created and ready to send</div></div>
+        <div class="card"><div class="stat-label">Sent</div><div class="stat-value" id="s-sent">0</div><div class="stat-sub">Shared with vendors</div></div>
+        <div class="card"><div class="stat-label">Received</div><div class="stat-value" id="s-received">0</div><div class="stat-sub">Fully delivered</div></div>
+        <div class="card"><div class="stat-label">PO value</div><div class="stat-value" id="s-value">Rs 0</div><div class="stat-sub">Gross commitment</div></div>
+      </div>
+      <div class="toolbar">
+        <input class="search-input" id="search-input" type="text" placeholder="Search PO, vendor, or material">
+      </div>
+      <div class="table-wrap"><div id="po-table-shell"></div></div>
+      <div class="detail-grid" style="margin-top:18px">
+        <div class="detail-card">
+          <div class="detail-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+            Selected PO
+            <div style="display:flex;gap:6px">
+              <button class="action-btn" id="edit-po-btn" style="display:none;font-size:11px" type="button" onclick="openEditModal()">Edit</button>
+              <button class="action-btn" id="cancel-po-btn" style="display:none;font-size:11px;color:var(--red)" type="button" onclick="confirmCancel()">Cancel PO</button>
+              <button class="action-btn" id="print-po-btn" style="display:none;font-size:11px" type="button" onclick="printPo()">&#9113; Print / PDF</button>
+              <button class="action-btn" id="mail-po-btn" style="display:none;font-size:11px" type="button" onclick="emailPo()">&#9993; Send Mail</button>
+              <button class="action-btn" id="delete-po-btn" style="display:none;font-size:11px;color:var(--red)" type="button" onclick="confirmDeletePo()">Delete PO</button>
+            </div>
+          </div>
+          <div id="po-detail-shell"><div class="empty">Select a PO to see details.</div></div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-title">Activity</div>
+          <div id="po-history-shell"><div class="empty">Status changes will appear here.</div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="overlay" id="create-po-overlay" onclick="handleOverlay(event)"><div class="modal"><div class="modal-header"><div><div class="modal-title">Create manual purchase order</div><div class="modal-sub">Use this when a PO is raised outside the quotation flow.</div></div><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div class="form-group"><label class="form-label" for="po-vendor">Vendor name</label><input class="form-input" id="po-vendor" type="text" placeholder="Vendor"></div><div class="form-group"><label class="form-label" for="po-material">Material</label><input class="form-input" id="po-material" type="text" placeholder="Material"></div><div class="form-group"><label class="form-label" for="po-qty">Quantity</label><input class="form-input" id="po-qty" type="number" min="0" step="0.01"></div><div class="form-group"><label class="form-label" for="po-unit">Unit</label><input class="form-input" id="po-unit" type="text" placeholder="Bags / MT / Nos"></div><div class="form-group"><label class="form-label" for="po-total">Total</label><input class="form-input" id="po-total" type="number" min="0" step="0.01"></div><div class="form-group"><label class="form-label" for="po-status">Status</label><select class="form-select" id="po-status"><option>Issued</option><option>Sent</option></select></div></div></div><div class="modal-footer"><button class="btn" type="button" onclick="closeCreateModal()">Cancel</button><button class="btn btn-amber" type="button" onclick="createPo()">Create PO</button></div></div></div><div class="toast" id="toast"><div class="toast-icon" id="toast-icon">OK</div><span id="toast-text">Saved</span></div>
+<div class="overlay" id="edit-po-overlay" onclick="if(event.target===this)closeEditModal()"><div class="modal"><div class="modal-header"><div><div class="modal-title" id="edit-modal-title">Edit PO</div><div class="modal-sub" id="edit-modal-sub"></div></div><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="form-grid"><div class="form-group"><label class="form-label" for="edit-vendor">Vendor name</label><input class="form-input" id="edit-vendor" type="text"></div><div class="form-group"><label class="form-label" for="edit-material">Material</label><input class="form-input" id="edit-material" type="text"></div><div class="form-group"><label class="form-label" for="edit-qty">Quantity</label><input class="form-input" id="edit-qty" type="number" min="0" step="0.01"></div><div class="form-group"><label class="form-label" for="edit-unit">Unit</label><input class="form-input" id="edit-unit" type="text" placeholder="Bags / MT / Nos"></div><div class="form-group"><label class="form-label" for="edit-total">Total (Rs)</label><input class="form-input" id="edit-total" type="number" min="0" step="0.01"></div></div></div><div class="modal-footer"><button class="btn" type="button" onclick="closeEditModal()">Cancel</button><button class="btn btn-amber" type="button" onclick="saveEdit()">Save changes</button></div></div></div>
+<script src="auth.js"></script>
+<script>
+const session=requireAuth('login.html');const isAdmin=session&&session.role==='ADMIN';const API=`${window.location.origin}/api`;let pos=[];let selectedPoId='';const esc=(v)=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');const byId=(id)=>document.getElementById(id);const inr=(n)=>`Rs ${Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:2})}`;const fmtDate=(v)=>{const d=new Date(v);return Number.isNaN(d.getTime())?esc(v):d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});};
+async function fetchJson(url,options={}){const response=await fetch(url,{headers:authHeaders(),...options});const payload=await response.json().catch(()=>({}));if(response.status===401){handleUnauthorized();return null;}if(!response.ok||!payload.success)throw new Error(payload.error||'Request failed');return payload.data;}
+function syncUser(){byId('user-avatar').textContent=session.initials||'PM';byId('user-name').textContent=session.name||'Procurement User';byId('user-role').textContent=(session.role||'PROCUREMENT').replaceAll('_',' ');byId('project-name').textContent=session.project||'Active Project';}
+function filteredPos(){const q=byId('search-input').value.trim().toLowerCase();if(!q)return pos;return pos.filter((row)=>[row.id,row.vendorName,row.material,row.status].join(' ').toLowerCase().includes(q));}
+function statusClass(status){return({Issued:'issued',Sent:'sent','Partially Received':'partial',Received:'received',Cancelled:'cancelled'}[status]||'issued');}
+function renderStats(){byId('nav-count').textContent=String(pos.length);byId('s-total').textContent=String(pos.length);byId('s-issued').textContent=String(pos.filter((row)=>row.status==='Issued').length);byId('s-sent').textContent=String(pos.filter((row)=>row.status==='Sent').length);byId('s-received').textContent=String(pos.filter((row)=>row.status==='Received').length);byId('s-value').textContent=inr(pos.reduce((sum,row)=>sum+Number(row.total||0),0));}
+function renderTable(){const rows=filteredPos();const shell=byId('po-table-shell');if(!rows.length){shell.innerHTML='<div class="empty">No purchase orders yet. Select a quotation winner or create one manually.</div>';return;}shell.innerHTML=`<table class="po-table"><thead><tr><th>PO</th><th>Vendor</th><th>Material</th><th>Qty</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows.map((row)=>`<tr onclick="selectPo('${esc(row.id)}')"><td class="mono">${esc(row.id)}</td><td><strong>${esc(row.vendorName)}</strong></td><td>${esc(row.material)}</td><td class="mono">${esc(row.qty)} ${esc(row.unit)}</td><td class="mono">${inr(row.total)}</td><td><span class="badge ${statusClass(row.status)}">${esc(row.status)}</span></td><td><div class="row-actions"><button class="action-btn" type="button" onclick="event.stopPropagation();selectPo('${esc(row.id)}')">View</button><button class="action-btn" type="button" onclick="event.stopPropagation();selectedPoId='${esc(row.id)}';renderDetail();printPo()">Print</button><button class="action-btn" type="button" onclick="event.stopPropagation();selectedPoId='${esc(row.id)}';renderDetail();emailPo()">Mail</button>${row.status==='Issued'?`<button class="action-btn primary" type="button" onclick="event.stopPropagation();advanceStatus('${esc(row.id)}','Sent')">Mark sent</button>`:''}${row.status==='Sent'||row.status==='Partially Received'?`<button class="action-btn success" type="button" onclick="event.stopPropagation();advanceStatus('${esc(row.id)}','Received')">Mark received</button>`:''}${['Issued','Sent'].includes(row.status)?`<button class="action-btn" type="button" onclick="event.stopPropagation();selectedPoId='${esc(row.id)}';renderDetail();openEditModal()">Edit</button>`:''}${!['Received','Cancelled'].includes(row.status)?`<button class="action-btn" style="color:var(--red)" type="button" onclick="event.stopPropagation();selectedPoId='${esc(row.id)}';renderDetail();confirmCancel()">Cancel</button>`:''}${isAdmin?`<button class="action-btn" style="color:var(--red);font-weight:700" type="button" onclick="event.stopPropagation();selectedPoId='${esc(row.id)}';confirmDeletePo()">Delete</button>`:''}</div></td></tr>`).join('')}</tbody></table>`;}
+function currentPo(){return pos.find((row)=>row.id===selectedPoId)||pos[0]||null;}
+function renderDetail(){const row=currentPo();const shell=byId('po-detail-shell');const pb=byId('print-po-btn');const mb=byId('mail-po-btn');if(!row){shell.innerHTML='<div class="empty">Select a PO to see details.</div>';if(pb)pb.style.display='none';if(mb)mb.style.display='none';return;}selectedPoId=row.id;if(pb)pb.style.display='';if(mb)mb.style.display='';const eb=byId('edit-po-btn');if(eb)eb.style.display=['Issued','Sent'].includes(row.status)?'':'none';const cb=byId('cancel-po-btn');if(cb)cb.style.display=['Received','Cancelled'].includes(row.status)?'none':'';const db=byId('delete-po-btn');if(db)db.style.display=isAdmin?'':'none';shell.innerHTML=`<div class="detail-row"><span class="muted">PO number</span><strong class="mono">${esc(row.id)}</strong></div><div class="detail-row"><span class="muted">Vendor</span><strong>${esc(row.vendorName)}</strong></div><div class="detail-row"><span class="muted">Material</span><strong>${esc(row.material)}</strong></div><div class="detail-row"><span class="muted">Quantity</span><strong class="mono">${esc(row.qty)} ${esc(row.unit)}</strong></div><div class="detail-row"><span class="muted">Total</span><strong class="mono">${inr(row.total)}</strong></div><div class="detail-row"><span class="muted">Status</span><span class="badge ${statusClass(row.status)}">${esc(row.status)}</span></div><div class="detail-row"><span class="muted">Created</span><strong class="mono">${fmtDate(row.created_at)}</strong></div>${row.indentId?`<div class="detail-row"><span class="muted">Indent</span><strong class="mono">${esc(row.indentId)}</strong></div>`:''}`; const lg=grns.filter(g=>g.poId===row.id);const lq=qsCerts.filter(q=>lg.some(g=>g.id===q.grnId));if(lg.length||lq.length){shell.innerHTML+=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Linked records</div>${lg.map(g=>`<div class="detail-row"><span class="muted">GRN ${esc(g.id)}</span><span style="font-size:11px">${g.receivedQty} ${esc(g.unit)} \u00b7 ${esc(g.status)}</span></div>`).join('')}${lq.map(q=>`<div class="detail-row"><span class="muted">QS ${esc(q.id)}</span><span style="font-size:11px">${esc(q.status)} \u00b7 ${inr(q.certifiedAmount||0)}</span></div>`).join('')}</div>`;}}
+function renderHistory(){const row=currentPo();const shell=byId('po-history-shell');if(!row){shell.innerHTML='<div class="empty">Status changes will appear here.</div>';return;}const items=[row.created_at?{label:'PO created',time:row.created_at,note:`Created for ${row.vendorName}`} : null,row.sent_at?{label:'PO sent',time:row.sent_at,note:'Shared with vendor'}:null,row.received_at?{label:row.status==='Partially Received'?'Partially received':'Received',time:row.received_at,note:'Goods marked as received'}:null,row.cancelled_at?{label:'Cancelled',time:row.cancelled_at,note:'PO was cancelled'}:null].filter(Boolean);shell.innerHTML=items.length?items.map((item)=>`<div class="history-item"><div><div><strong>${item.label}</strong></div><div class="muted">${item.note}</div></div><div class="mono muted">${fmtDate(item.time)}</div></div>`).join(''):'<div class="empty">No activity logged for this PO yet.</div>';}
+function selectPo(id){selectedPoId=id;renderDetail();renderHistory();}
+async function advanceStatus(id,status){try{await fetchJson(`${API}/pos/${encodeURIComponent(id)}/status`,{method:'PATCH',body:JSON.stringify({status})});await loadPos();showToast(`PO updated to ${status}.`,'green');}catch(error){showToast(error.message,'red');}}
+function openCreateModal(){byId('create-po-overlay').classList.add('open');}
+function closeCreateModal(){byId('create-po-overlay').classList.remove('open');}
+async function createPo(){const payload={vendorName:byId('po-vendor').value.trim(),material:byId('po-material').value.trim(),qty:Number(byId('po-qty').value||0),unit:byId('po-unit').value.trim(),total:Number(byId('po-total').value||0),status:byId('po-status').value,indentId:_prefillIndentId||''};try{await fetchJson(`${API}/pos`,{method:'POST',body:JSON.stringify(payload)});if(_prefillIndentId){try{await fetchJson(`${API}/indents/${encodeURIComponent(_prefillIndentId)}/status`,{method:'PATCH',body:JSON.stringify({status:'PO Raised'})});}catch(e){}}  _prefillIndentId='';closeCreateModal();['po-vendor','po-material','po-qty','po-unit','po-total'].forEach((id)=>byId(id).value='');byId('po-status').value='Issued';await loadPos();showToast('Purchase order created.','green');}catch(error){showToast(error.message,'red');}}
+function handleOverlay(event){if(event.target===byId('create-po-overlay'))closeCreateModal();}
+function showToast(message,type='green'){const toast=byId('toast');const icon=byId('toast-icon');const config={green:{bg:'var(--green)',icon:'OK'},red:{bg:'var(--red)',icon:'X'}}[type]||{bg:'var(--green)',icon:'OK'};toast.style.background=config.bg;icon.textContent=config.icon;byId('toast-text').textContent=message;toast.classList.add('show');clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>toast.classList.remove('show'),3000);}
+let grns=[],qsCerts=[],vendors=[];async function loadPos(){[pos,grns,qsCerts,vendors]=await Promise.all([fetchJson(`${API}/pos`),fetchJson(`${API}/grn`),fetchJson(`${API}/qs-certifications`),fetchJson(`${API}/vendors`)]);pos=pos||[];grns=grns||[];qsCerts=qsCerts||[];vendors=vendors||[];if(!pos.some((row)=>row.id===selectedPoId))selectedPoId=pos[0]?.id||'';renderStats();renderTable();renderDetail();renderHistory();}
+function emailPo() {
+  try {
+    const row = currentPo();
+    if(!row) { showToast('No PO selected','red'); return; }
+    console.log('PO Data:', row);
+    // Be very aggressive in finding matching vendor
+    const vNameClean = (row.vendorName || '').toLowerCase().trim();
+    const vendor = vendors.find(v => (v.id && v.id === row.vendorId) || (v.name && v.name.toLowerCase().trim() === vNameClean));
+    console.log('Matched Vendor:', vendor);
+    const email = vendor?.email || '';
+    if(!email) {
+      showToast(`No email found for ${row.vendorName}. Please check Vendor Master.`, 'red');
+      return;
+    }
+    const subject = `Purchase Order - ${row.id} - BCIM Engineering Pvt Ltd`;
+    const body = `Dear ${row.vendorName},\r\n\r\nPlease find the details of our Purchase Order ${row.id} for ${row.material} (${row.qty} ${row.unit}).\r\n\r\nTotal Amount: Rs ${Number(row.total||0).toLocaleString('en-IN')}\r\nProject: ${row.project || 'BCIM Engineering'}\r\n\r\nKindly acknowledge receipt and confirm delivery date.\r\n\r\nBest Regards,\r\nProcurement Team\r\nBCIM Engineering Pvt Ltd`;
+    const mailUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailUrl;
+  } catch(e) {
+    showToast(`Error: ${e.message}`, 'red');
+    console.error(e);
+  }
+}
+function printPo() {
+  const row = currentPo();
+  if (!row) { showToast('No PO selected', 'red'); return; }
+
+  /* ── Look up vendor master ── */
+  const vNameClean = (row.vendorName || '').toLowerCase().trim();
+  const vendor = vendors.find(v =>
+    (v.id && v.id === row.vendorId) ||
+    (v.name && v.name.toLowerCase().trim() === vNameClean)
+  ) || {};
+
+  const e2    = (v) => v ? String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+  const inrFmt = (n) => Number(n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const dtFmt  = (v) => { const d = new Date(v); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}); };
+
+  /* ── Amounts ── */
+  const total    = Number(row.total || 0);
+  const gstPct   = Number(row.gst || row.gstPercent || 18);
+  const subtotal = parseFloat((total / (1 + gstPct / 100)).toFixed(2));
+  const gstAmt   = parseFloat((total - subtotal).toFixed(2));
+  const cgst     = parseFloat((gstAmt / 2).toFixed(2));
+  const sgst     = cgst;
+  const qty      = Number(row.qty || 1);
+  const unitRate = parseFloat((subtotal / qty).toFixed(2));
+
+  /* ── Amount in Words ── */
+  function numToWords(n) {
+    n = Math.round(n);
+    if (n === 0) return 'Zero';
+    const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten',
+      'Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    function conv(x) {
+      if (x < 20)      return ones[x];
+      if (x < 100)     return tens[Math.floor(x/10)] + (x%10 ? ' '+ones[x%10] : '');
+      if (x < 1000)    return ones[Math.floor(x/100)] + ' Hundred' + (x%100 ? ' and '+conv(x%100) : '');
+      if (x < 100000)  return conv(Math.floor(x/1000))   + ' Thousand' + (x%1000    ? ' '+conv(x%1000)    : '');
+      if (x < 10000000)return conv(Math.floor(x/100000)) + ' Lakh'     + (x%100000  ? ' '+conv(x%100000)  : '');
+      return              conv(Math.floor(x/10000000))   + ' Crore'    + (x%10000000? ' '+conv(x%10000000): '');
+    }
+    return conv(n);
+  }
+  const amtWords = 'Rupees ' + numToWords(Math.round(total)) + ' Only';
+
+  /* ── Vendor address block ── */
+  const addrParts = [vendor.address, vendor.city, vendor.state, vendor.pincode].filter(Boolean);
+  const vendorAddrHtml = addrParts.length
+    ? addrParts.map(l => e2(l)).join('<br>')
+    : '<span style="color:#aaa;font-style:italic">Address not in vendor master</span>';
+
+  /* ── Open new window ── */
+  const win = window.open('', '_blank');
+  if (!win) { showToast('Allow pop-ups for this site to print', 'red'); return; }
+  win.document.open();
+  win.document.write(`<!DOCTYPE html>
+<html lang=”en”>
+<head>
+<meta charset=”UTF-8”>
+<title>Purchase Order – ${e2(row.id)}</title>
+<style>
+  @page { size: A4 portrait; margin: 12mm 12mm 14mm 12mm; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #111; background: #fff; }
+
+  /* ── Outer border ── */
+  .page { border: 1.5px solid #111; padding: 10px 12px 14px; min-height: 267mm; display: flex; flex-direction: column; }
+
+  /* ── Header ── */
+  .hdr { display: flex; align-items: center; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 8px; gap: 10px; }
+  .hdr-logo { width: 70px; flex-shrink: 0; }
+  .hdr-logo img { width: 100%; height: auto; display: block; }
+  .hdr-logo .no-logo { width: 70px; height: 50px; background: #0B193A; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 8pt; font-weight: 700; text-align: center; padding: 4px; }
+  .hdr-center { flex: 1; text-align: center; }
+  .hdr-center .co { font-size: 14pt; font-weight: 900; letter-spacing: 0.3px; line-height: 1.2; }
+  .hdr-center .addr { font-size: 8pt; color: #333; margin-top: 3px; line-height: 1.4; }
+  .hdr-center .gstin { font-size: 8.5pt; font-weight: 700; margin-top: 4px; }
+  .hdr-right { width: 120px; text-align: right; flex-shrink: 0; }
+  .hdr-right .doc-title { font-size: 15pt; font-weight: 900; text-decoration: underline; text-underline-offset: 3px; }
+  .hdr-right .doc-ref { font-size: 7.5pt; color: #555; margin-top: 4px; }
+
+  /* ── Vendor / meta grid ── */
+  .meta { display: flex; border: 1px solid #111; margin-bottom: 8px; }
+  .vendor-col { flex: 1.1; padding: 8px 10px; border-right: 1px solid #111; }
+  .vendor-col .lbl { font-size: 8pt; font-weight: 700; text-decoration: underline; margin-bottom: 6px; }
+  .vendor-col .vname { font-size: 11pt; font-weight: 700; margin-bottom: 3px; }
+  .vendor-col .vaddr { font-size: 8.5pt; line-height: 1.5; color: #222; }
+  .vendor-col .vgst  { font-size: 8.5pt; font-weight: 700; margin-top: 5px; }
+  .info-col { flex: 1; }
+  .info-row { display: flex; border-bottom: 1px solid #ccc; min-height: 22px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-k { width: 110px; padding: 5px 7px; font-size: 8pt; font-weight: 700; background: #f5f5f5; border-right: 1px solid #ccc; display: flex; align-items: center; }
+  .info-v { flex: 1; padding: 5px 8px; font-size: 9.5pt; font-weight: 700; font-family: 'Courier New', monospace; display: flex; align-items: center; word-break: break-word; }
+  .delivery-hdr { padding: 5px 7px; font-size: 8pt; font-weight: 700; background: #f5f5f5; border-top: 1px solid #ccc; color: #333; }
+
+  /* ── Preamble ── */
+  .preamble { font-size: 8.5pt; font-style: italic; margin-bottom: 6px; color: #333; }
+
+  /* ── Items table ── */
+  .items { width: 100%; border-collapse: collapse; border: 1px solid #111; font-size: 9pt; }
+  .items th { border: 1px solid #111; padding: 5px 4px; background: #e8e8e8; text-align: center; font-size: 8pt; font-weight: 900; text-transform: uppercase; }
+  .items td { border: 1px solid #aaa; padding: 7px 6px; vertical-align: top; }
+  .items .tc { text-align: center; }
+  .items .tr { text-align: right; }
+  .items .mono { font-family: 'Courier New', monospace; }
+  .mat-name { font-size: 10.5pt; font-weight: 700; }
+  .mat-spec { font-size: 7.5pt; color: #555; margin-top: 2px; }
+  .blank-row td { height: 55px; }
+
+  /* ── Summary ── */
+  .summary-wrap { display: flex; justify-content: flex-end; margin-top: -1px; }
+  .summary { width: 300px; border-collapse: collapse; border: 1px solid #111; border-top: none; }
+  .summary td { border: 1px solid #aaa; padding: 5px 10px; font-size: 9.5pt; }
+  .sum-k { font-weight: 700; text-align: right; background: #f5f5f5; width: 130px; }
+  .sum-v { font-weight: 700; text-align: right; font-family: 'Courier New', monospace; }
+  .grand td { background: #111 !important; color: #fff !important; font-size: 11pt !important; border-color: #111 !important; }
+
+  /* ── Amount in words ── */
+  .amt-words { border: 1px solid #aaa; border-top: none; padding: 5px 10px; font-size: 8.5pt; font-weight: 700; font-style: italic; color: #222; }
+
+  /* ── Terms ── */
+  .terms { margin-top: 12px; flex: 1; }
+  .terms-title { font-size: 9.5pt; font-weight: 900; text-decoration: underline; text-underline-offset: 2px; margin-bottom: 6px; }
+  .terms ol { padding-left: 16px; }
+  .terms li { font-size: 7.8pt; line-height: 1.45; margin-bottom: 3px; text-align: justify; color: #222; }
+
+  /* ── Signatures ── */
+  .sigs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 50px; margin-top: 36px; }
+  .sig-box { border-top: 1.5px solid #111; padding-top: 6px; text-align: center; font-size: 9pt; font-weight: 700; }
+
+  /* ── Footer tag ── */
+  .footer-tag { text-align: center; font-size: 7.5pt; font-weight: 700; color: #555; margin-top: 16px; border-top: 1px solid #ccc; padding-top: 6px; }
+
+  @media print {
+    html, body { height: auto; }
+    .page { border: 1.5px solid #111; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Print button visible on screen only -->
+<div class=”no-print” style=”background:#0B193A;color:#fff;padding:10px 18px;display:flex;align-items:center;gap:14px;font-family:Arial,sans-serif;font-size:11pt;”>
+  <strong>Purchase Order Preview — ${e2(row.id)}</strong>
+  <button onclick=”window.print()” style=”margin-left:auto;background:#C17B3A;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:11pt;font-weight:700;cursor:pointer;”>&#9113;&nbsp; Print / Save PDF</button>
+  <button onclick=”window.close()” style=”background:rgba(255,255,255,0.15);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:11pt;cursor:pointer;”>Close</button>
+</div>
+
+<div class=”page”>
+
+  <!-- ══ HEADER ══ -->
+  <div class=”hdr”>
+    <div class=”hdr-logo”>
+      <img src=”${window.location.origin}/BCIM LOGO 01 (SMALL).png”
+           onerror=”this.parentNode.innerHTML='<div class=\\'no-logo\\'>BCIM</div>'”
+           alt=”BCIM Logo”>
+    </div>
+    <div class=”hdr-center”>
+      <div class=”co”>BCIM ENGINEERING PRIVATE LIMITED</div>
+      <div class=”addr”># 11, “B” Wing, Divyasree Chambers, No. 11, O'Shaugnessy Road, Bangalore – 560 025</div>
+      <div class=”gstin”>GSTIN : 29AAHCB6485A1ZL &nbsp;|&nbsp; CIN : U45200KA2009PTC049845</div>
+    </div>
+    <div class=”hdr-right”>
+      <div class=”doc-title”>PURCHASE ORDER</div>
+      <div class=”doc-ref”>Ref: BCIM-PO-F-01</div>
+    </div>
+  </div>
+
+  <!-- ══ VENDOR + META ══ -->
+  <div class=”meta”>
+    <div class=”vendor-col”>
+      <div class=”lbl”>To,</div>
+      <div class=”vname”>${e2(row.vendorName)}</div>
+      <div class=”vaddr”>${vendorAddrHtml}</div>
+      ${vendor.gstin ? `<div class=”vgst”>GSTIN: ${e2(vendor.gstin)}</div>` : ''}
+      ${vendor.phone ? `<div class=”vaddr” style=”margin-top:3px”>Ph: ${e2(vendor.phone)}</div>` : ''}
+    </div>
+    <div class=”info-col”>
+      <div class=”info-row”><div class=”info-k”>PO Number</div><div class=”info-v”>${e2(row.id)}</div></div>
+      <div class=”info-row”><div class=”info-k”>PO Date</div><div class=”info-v”>${dtFmt(row.created_at)}</div></div>
+      <div class=”info-row”><div class=”info-k”>MR / Indent</div><div class=”info-v”>${e2(row.indentId || '—')}</div></div>
+      <div class=”info-row”><div class=”info-k”>Project</div><div class=”info-v”>${e2(row.project || session && session.project || 'BCIM Engineering')}</div></div>
+      <div class=”info-row”><div class=”info-k”>Payment</div><div class=”info-v”>${e2(row.paymentTerms || '60 days from supply')}</div></div>
+      <div class=”info-row”><div class=”info-k”>Delivery</div><div class=”info-v”>${e2(row.deliveryDays ? row.deliveryDays + ' days' : 'As per schedule')}</div></div>
+      <div class=”delivery-hdr”>DELIVERY ADDRESS: #11, B-Wing, Divyasree Chambers, Bangalore – 560 025</div>
+    </div>
+  </div>
+
+  <!-- ══ PREAMBLE ══ -->
+  <div class=”preamble”>We hereby place an order on you for supply of the following materials on the terms and conditions mentioned below:</div>
+
+  <!-- ══ ITEMS TABLE ══ -->
+  <table class=”items”>
+    <thead>
+      <tr>
+        <th style=”width:34px”>Sl.<br>No.</th>
+        <th style=”width:auto”>Description of Material</th>
+        <th style=”width:48px”>Unit</th>
+        <th style=”width:58px”>Qty</th>
+        <th style=”width:96px”>Rate<br>(INR)</th>
+        <th style=”width:96px”>Amount<br>(INR)</th>
+        <th style=”width:68px”>Heads</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class=”tc mono”>1</td>
+        <td>
+          <div class=”mat-name”>${e2(row.material)}</div>
+          <div class=”mat-spec”>Material specification and quality as per approved site requirements and IS standards.</div>
+        </td>
+        <td class=”tc mono”>${e2(row.unit)}</td>
+        <td class=”tc mono”>${e2(row.qty)}</td>
+        <td class=”tr mono”>${inrFmt(unitRate)}</td>
+        <td class=”tr mono”>${inrFmt(subtotal)}</td>
+        <td class=”tc”>PROJECTS</td>
+      </tr>
+      <tr class=”blank-row”><td colspan=”7”></td></tr>
+    </tbody>
+  </table>
+
+  <!-- ══ SUMMARY ══ -->
+  <div class=”summary-wrap”>
+    <div>
+      <table class=”summary”>
+        <tr><td class=”sum-k”>Sub Total</td><td class=”sum-v”>&#8377; ${inrFmt(subtotal)}</td></tr>
+        <tr><td class=”sum-k”>CGST @ ${gstPct/2}%</td><td class=”sum-v”>&#8377; ${inrFmt(cgst)}</td></tr>
+        <tr><td class=”sum-k”>SGST @ ${gstPct/2}%</td><td class=”sum-v”>&#8377; ${inrFmt(sgst)}</td></tr>
+        <tr class=”grand”><td class=”sum-k” style=”color:#fff”>Grand Total</td><td class=”sum-v” style=”font-size:12pt;color:#fff”>&#8377; ${inrFmt(total)}</td></tr>
+      </table>
+      <div class=”amt-words”>Amount in Words: <em>${e2(amtWords)}</em></div>
+    </div>
+  </div>
+
+  <!-- ══ TERMS ══ -->
+  <div class=”terms”>
+    <div class=”terms-title”>Terms &amp; Conditions:</div>
+    <ol>
+      <li>All Bills and Delivery Challans should contain the reference of this Purchase Order number.</li>
+      <li>All materials supplied will be subject to inspection and quality checks upon receipt at our site.</li>
+      <li>Final bill shall be cleared after certification by the Concerned Engineer and on actual measurements taken at site.</li>
+      <li>Any goods damaged or rejected must be replaced immediately at the supplier's own expense.</li>
+      <li>Payment: 60 days from the date of supply and acceptance at site.</li>
+      <li>Lead Time: Within 2–3 working days from the date of this order unless otherwise agreed.</li>
+      <li>Bill Requirement: Bills must carry the PO number, site acceptance signature with seal, buyer &amp; supplier GST numbers, HSN Code, Bill number, and LUT details wherever applicable.</li>
+      <li>Quantity Certification: Quantity mentioned in this Order may be approximate; actual &amp; mutually certified measurements will be accounted for payment.</li>
+      <li>Price Escalation: The price mentioned above is firm and frozen for this Order. Any request for price revision will be treated as a breach of contract terms and will not be entertained.</li>
+      <li>Cancellation: Time is of the essence. The Buyer reserves the right to cancel this order or any portion thereof without liability if: (a) delivery is not made as specified; or (b) Seller fails to meet commitments as to time, price, quality, or quantity.</li>
+      <li>GST Terms: In the event of denial of Input Tax Credit to BCIM ENGINEERING PRIVATE LIMITED due to non-payment of taxes or non-compliance with GST Laws by the Vendor, BCIM shall withhold equivalent amounts from subsequent payments to M/s. ${e2(row.vendorName)} until the credit is reinstated.</li>
+      <li>Submission: 3 copies of Tax Invoice (Original, Duplicate &amp; Triplicate) to be submitted along with each consignment.</li>
+      <li>Acknowledgement: This order is to be acknowledged within 4 hours of receipt. Non-response will be treated as acceptance of all terms.</li>
+      <li>Jurisdiction: Any dispute shall be resolved by arbitration under the Arbitration and Conciliation Act, 1996. All proceedings shall be subject to the jurisdiction of courts in Bangalore.</li>
+    </ol>
+  </div>
+
+  <!-- ══ SIGNATURES ══ -->
+  <div class=”sigs”>
+    <div class=”sig-box”>Prepared by</div>
+    <div class=”sig-box”>Authorised by<br><span style=”font-size:8pt;font-weight:400;color:#555”>(Director)</span></div>
+    <div class=”sig-box”>Accepted by Vendor<br><span style=”font-size:8pt;font-weight:400;color:#555”>(Seal &amp; Signature)</span></div>
+  </div>
+
+  <!-- ══ FOOTER ══ -->
+  <div class=”footer-tag”>
+    BCIM ENGINEERING PRIVATE LIMITED &nbsp;|&nbsp; “B” Wing, Divyasree Chambers, O'Shaugnessy Road, Bangalore – 560 025 &nbsp;|&nbsp; GSTIN: 29AAHCB6485A1ZL
+  </div>
+
+</div>
+</body>
+</html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 600);
+}
+function openEditModal(){const row=currentPo();if(!row)return;byId('edit-modal-title').textContent=`Edit ${row.id}`;byId('edit-modal-sub').textContent=row.vendorName;byId('edit-vendor').value=row.vendorName||'';byId('edit-material').value=row.material||'';byId('edit-qty').value=row.qty||'';byId('edit-unit').value=row.unit||'';byId('edit-total').value=row.total||'';byId('edit-po-overlay').classList.add('open');}
+function closeEditModal(){byId('edit-po-overlay').classList.remove('open');}
+async function saveEdit(){const row=currentPo();if(!row)return;const payload={vendorName:byId('edit-vendor').value.trim(),material:byId('edit-material').value.trim(),qty:Number(byId('edit-qty').value||0),unit:byId('edit-unit').value.trim(),total:Number(byId('edit-total').value||0)};if(!payload.vendorName||!payload.material){showToast('Vendor and material are required.','red');return;}try{await fetchJson(`${API}/pos/${encodeURIComponent(row.id)}`,{method:'PATCH',body:JSON.stringify(payload)});closeEditModal();await loadPos();showToast('PO updated.','green');}catch(error){showToast(error.message,'red');}}
+function confirmCancel(){const row=currentPo();if(!row)return;if(!confirm(`Cancel PO ${row.id}?\n\nThis will mark the purchase order as Cancelled.`))return;advanceStatus(row.id,'Cancelled');}
+function confirmDeletePo(){const row=currentPo();if(!row)return;if(!confirm(`Delete PO ${row.id}?\n\nThis permanently removes the purchase order.`))return;deletePo(row.id);}
+async function deletePo(id){try{await fetchJson(`${API}/pos/${encodeURIComponent(id)}`,{method:'DELETE'});await loadPos();showToast('PO deleted.','red');}catch(error){showToast(error.message,'red');}}
+byId('search-input').addEventListener('input',()=>renderTable());document.addEventListener('keydown',(event)=>{if(event.key==='Escape'){closeCreateModal();closeEditModal();}});let _prefillIndentId='';
+function syncUserInfo() {
+  const session = requireAuth('login.html');
+  if (!session) return;
+  const av = document.getElementById('user-avatar');
+  const nm = document.getElementById('user-name');
+  const rl = document.getElementById('user-role');
+  const pr = document.getElementById('project-name');
+  if (av) av.textContent = session.initials || 'BP';
+  if (nm) nm.textContent = session.name || 'BuildPro User';
+  if (rl) rl.textContent = (session.role || 'Procurement').replace(/_/g, ' ');
+  if (pr) pr.textContent = session.project || 'No project selected';
+}
+syncUserInfo();
+loadPos().then(() => {
+  syncUserInfo();
+  try {
+    const prefill = localStorage.getItem('buildpro_prefill_po');
+    if (prefill) {
+      const d = JSON.parse(prefill);
+      localStorage.removeItem('buildpro_prefill_po');
+      if (d.material) byId('po-material').value = d.material;
+      if (d.qty) byId('po-qty').value = d.qty;
+      if (d.unit) byId('po-unit').value = d.unit;
+      if (d.indentId) _prefillIndentId = d.indentId;
+      openCreateModal();
+    }
+  } catch (e) { }
+}).catch((error) => showToast(error.message || 'Unable to load purchase orders.', 'red'));
+</script>
+</body>
+</html>

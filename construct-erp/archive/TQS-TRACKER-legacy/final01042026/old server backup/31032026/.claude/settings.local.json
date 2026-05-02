@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"require\\(''pptxgenjs''\\); console.log\\(''pptxgenjs ok''\\)\")",
+      "Bash(node -e \"require\\(''react''\\); console.log\\(''react ok''\\)\")",
+      "Bash(node -e \"require\\(''react-dom/server''\\); console.log\\(''react-dom ok''\\)\")",
+      "Bash(node -e \"require\\(''sharp''\\); console.log\\(''sharp ok''\\)\")",
+      "Bash(node -e \"require\\(''react-icons/fa''\\); console.log\\(''react-icons ok''\\)\")",
+      "Bash(npm list:*)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"require\\(''pptxgenjs''\\); console.log\\(''ok''\\)\")",
+      "Bash(node -e \"const p = require.resolve.paths\\(''''pptxgenjs''''\\); console.log\\(JSON.stringify\\(p\\)\\)\")",
+      "Bash(NODE_PATH=\"/c/Users/BCIMIT/AppData/Roaming/npm/node_modules\" node -e \"require\\(''pptxgenjs''\\); console.log\\(''ok''\\)\")",
+      "Bash(NODE_PATH=\"/c/Users/BCIMIT/AppData/Roaming/npm/node_modules\" node tqs_pptx_gen.js)",
+      "Bash(SKILL_DIR=\"/c/Users/BCIMIT/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/e030d14e-e063-43c2-827a-d21ba2ca0f13/c3445ae5-b0ff-4316-b6f5-63c94bddf16d/skills/pptx\")",
+      "Bash(python \"$SKILL_DIR/scripts/office/soffice.py\" --headless --convert-to pdf TQS_ERP_MD_Presentation.pptx)",
+      "Bash(py --version)",
+      "Bash(where pdftoppm:*)",
+      "Bash(where pdfimages:*)",
+      "Bash(where convert:*)",
+      "Bash(unzip -l \"H:/TQS-SERVER/TEST/tqs-merged/TQS_ERP_MD_Presentation.pptx\")",
+      "Read(//tmp/**)",
+      "Bash(node -e \":*)"
+    ]
+  }
+}

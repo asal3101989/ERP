@@ -1,0 +1,1731 @@
+================================================================================
+     BCIM ENGINEERING — CONSTRUCT ERP v3.0
+     COMPLETE OPERATIONAL & FUNCTIONAL MANUAL
+================================================================================
+     Document Classification: CONFIDENTIAL
+     Version: 3.0 (Forensic Intelligence Platform)
+     Last Updated: April 2026
+     Prepared By: BCIM Technology Division
+================================================================================
+
+
+TABLE OF CONTENTS
+-----------------
+  0.  SYSTEM OVERVIEW & GOLDEN THREAD PHILOSOPHY
+  1.  LOGIN, AUTHENTICATION & SESSION SECURITY
+  2.  NAVIGATION & SIDEBAR MENU STRUCTURE
+  3.  OVERVIEW MODULE
+      3.1  Dashboard
+      3.2  Command Hub (Project 360)
+      3.3  Projects (Create / List / Detail)
+  4.  QS & BILLING MODULE
+      4.1  BOQ & Estimation
+      4.2  Measurement Book (MB)
+      4.3  RA Bills (Running Account Bills)
+      4.4  Material Reconciliation
+  5.  FINANCE MODULE
+      5.1  GST Billing (CGST/SGST/IGST)
+      5.2  TDS Register (Section 194C)
+      5.3  Vendor Payables (Bill Booking)
+      5.4  Budget vs Actual
+      5.5  Payments
+  6.  PROCUREMENT MODULE
+      6.1  Vendor Management
+      6.2  Quotations & Comparative Statement (CS)
+      6.3  Purchase Orders (PO)
+      6.4  Inventory
+  7.  QUALITY & SAFETY MODULE
+      7.1  QA/QC Dashboard
+      7.2  RFI Ledger (Request for Inspection)
+      7.3  Document Control
+      7.4  Checklist Masters (ITP Templates)
+      7.5  HSE Dashboard
+      7.6  Incident Hub
+      7.7  Site Permits (PTW — Permit to Work)
+      7.8  PPE Tracking
+  8.  SITE & HR MODULE
+      8.1  Daily Progress Report (DPR)
+      8.2  Workers Registry
+      8.3  Attendance
+      8.4  Payroll Processing
+  9.  STORES MODULE
+      9.1  Material Receipts (GRN — Goods Receipt Note)
+      9.2  Material Requisition Slips (MRS)
+      9.3  Issue Notes (MIN — Material Issue Note)
+      9.4  Store Ledger
+ 10.  SUBCONTRACTORS MODULE
+      10.1 Labor Work Orders
+      10.2 Subcontractor Measurement Book
+      10.3 Sub-Con RA Bills
+ 11.  ASSETS MODULE
+      11.1 Asset Register
+      11.2 Asset Stock & GRN
+ 12.  IT DEPARTMENT MODULE
+      12.1 IT Assets
+      12.2 Help Desk (Ticketing)
+      12.3 Licenses & AMC
+ 13.  CRM & REPORTS MODULE
+      13.1 Client Bookings
+      13.2 Reports & P&L
+ 14.  ADMINISTRATION MODULE
+      14.1 Team Members (User Management)
+ 15.  PRINTING & PDF EXPORT
+ 16.  SECURITY FEATURES
+ 17.  AUDIT TRAIL & LEAKAGE DETECTION GUIDE
+
+
+================================================================================
+0.  SYSTEM OVERVIEW & GOLDEN THREAD PHILOSOPHY
+================================================================================
+
+ConstructERP v3.0 is a forensic intelligence platform built for the
+construction industry. The core philosophy is called the "Golden Thread":
+
+  A single measurement recorded by a site engineer flows downstream to:
+    -> Update the Client Bill (RA Bill)
+    -> Update the Material Reconciliation (Theoretical vs Actual)
+    -> Update the Labor Efficiency Index
+    -> Update the Corporate Profit & Loss (Command Hub)
+
+DATA IS NEVER ENTERED TWICE. Every module reads from the same central
+database. This eliminates reconciliation errors and ensures 100% auditability.
+
+TECHNOLOGY STACK:
+  - Frontend: React.js with Framer Motion animations
+  - Backend:  Node.js / Express.js with PostgreSQL database
+  - Auth:     JWT tokens with 1-hour expiry + 60-minute idle timeout
+  - Hosting:  Self-hosted or cloud-deployed
+
+
+================================================================================
+1.  LOGIN, AUTHENTICATION & SESSION SECURITY
+================================================================================
+
+URL: /login
+
+WHAT YOU SEE:
+  - Email address input field
+  - Password input field
+  - "Sign In" button
+  - Link to Register page
+
+PASSWORD POLICY (enforced on registration):
+  - Minimum 8 characters
+  - Must contain at least 1 uppercase letter (A-Z)
+  - Must contain at least 1 lowercase letter (a-z)
+  - Must contain at least 1 number (0-9)
+  - Must contain at least 1 special character (@$!%*?&)
+
+SESSION SECURITY:
+  - JWT Access Token expires after 1 hour
+  - Global Idle Timeout: If no mouse movement or keyboard activity is
+    detected for 60 minutes, the user is automatically logged out
+  - Password hashing uses bcrypt with 12 salt rounds
+
+REGISTRATION (URL: /register):
+  Fields required:
+    - Full Name
+    - Email Address
+    - Password (must meet complexity rules above)
+    - Confirm Password (must match)
+
+DIGITAL SIGNATURE:
+  - After logging in, users should go to their Profile page
+  - Upload a PNG/JPG image of their handwritten signature
+  - This signature appears on all printed documents (MRS, PO, GRN, etc.)
+  - Without a signature, approval actions are still possible but a
+    warning banner appears: "Identity Verification Required"
+
+
+================================================================================
+2.  NAVIGATION & SIDEBAR MENU STRUCTURE
+================================================================================
+
+The left sidebar contains 13 menu groups organized as follows:
+
+GROUP 1: OVERVIEW
+  - Dashboard            -> /dashboard
+  - Command Hub [NEW]    -> /reports/360
+  - Projects             -> /projects
+
+GROUP 2: QS & BILLING
+  - BOQ & Estimation     -> /qs/boq
+  - Measurement Book     -> /qs/measurements
+  - RA Bills [badge: 3]  -> /qs/ra-bills
+  - Material Recon       -> /qs/material-recon
+
+GROUP 3: FINANCE
+  - GST Billing          -> /finance/gst
+  - TDS Register         -> /finance/tds
+  - Vendor Payables      -> /finance/invoices
+  - Budget vs Actual     -> /finance/budget
+  - Payments             -> /finance/payments
+
+GROUP 4: PROCUREMENT
+  - Vendors              -> /procurement/vendors
+  - Quotations & CS      -> /procurement/quotations
+  - Purchase Orders      -> /procurement/po
+  - Inventory            -> /procurement/inventory
+
+GROUP 5: QUALITY & SAFETY
+  - QA/QC Hub            -> /quality
+  - RFI Ledger           -> /quality/rfi
+  - Document Control     -> /quality/documents
+  - Checklist Masters    -> /quality/templates
+  - HSE Dashboard        -> /hse
+  - Incident Hub         -> /hse/incidents
+  - Site Permits         -> /hse/permits
+
+GROUP 6: SITE & HR
+  - Daily Progress       -> /site/dpr
+  - Workers              -> /hr/workers
+  - Attendance           -> /hr/attendance
+  - Payroll              -> /hr/payroll
+
+GROUP 7: HSE (Dedicated)
+  - Safety Dashboard [badge: 2]  -> /hse
+  - Incidents                    -> /hse/incidents
+  - Permit to Work               -> /hse/permits
+  - PPE Tracking                 -> /hse/ppe
+
+GROUP 8: STORES
+  - Material Receipts (GRN)      -> /stores/grn
+  - Material Requisition         -> /stores/mrs
+  - Issue Notes (MIN)            -> /stores/issue
+  - Store Ledger                 -> /stores/ledger
+
+GROUP 9: SUBCONTRACTORS
+  - Labor Work Orders            -> /procurement/work-orders
+  - Measurement Book (MB)        -> /subcontractor/measurements
+  - Sub-Con RA Bills             -> /subcontractor/bills
+
+GROUP 10: ASSETS
+  - Asset Register               -> /assets
+  - Stock & GRN                  -> /assets/inventory
+
+GROUP 11: IT DEPT
+  - IT Assets                    -> /it/assets
+  - Help Desk [badge: 5]         -> /it/tickets
+  - Licenses & AMC               -> /it/licenses
+
+GROUP 12: CRM & REPORTS
+  - Client Bookings              -> /crm/bookings
+  - Reports & P&L                -> /reports
+
+GROUP 13: ADMINISTRATION
+  - Team Members                 -> /users
+
+
+================================================================================
+3.  OVERVIEW MODULE
+================================================================================
+
+----------------------
+3.1  DASHBOARD (/dashboard)
+----------------------
+
+PURPOSE: The landing page after login. Shows high-level KPIs.
+
+WHAT YOU SEE:
+  - Revenue metrics (total billed, total collected)
+  - Active project count
+  - Pending approvals count
+  - Quick-access cards for recent activity
+
+HOW TO USE:
+  1. Log in with your credentials
+  2. The Dashboard loads automatically
+  3. Click on any metric card to navigate to the relevant module
+  4. Use the sidebar to navigate to specific modules
+
+----------------------
+3.2  COMMAND HUB (/reports/360)
+----------------------
+
+PURPOSE: Executive-level forensic analytics. Aggregates data from ALL
+projects into a single strategic view.
+
+WHAT YOU SEE:
+  - Project 360 view with drill-down capability
+  - Revenue Velocity: Monthly billing targets vs actual certification
+  - Forensic Margin: Certified Inflow minus Realized Outflow (Opex/Capex)
+  - Safety Index: Count of permits vs incidents across all sites
+  - Quality Pass Rate: Percentage of RFI approved by clients
+  - AI Insight Panel: Claude AI-driven forensic observations
+
+HOW TO USE:
+  1. Navigate to Overview > Command Hub
+  2. Select a project from the dropdown to see its 360-degree view
+  3. Review departmental report cards
+  4. Check the AI insights panel for automated observations
+  5. Print the full report using the Print button
+
+----------------------
+3.3  PROJECTS (/projects)
+----------------------
+
+PURPOSE: Create and manage construction projects. Every other module
+in the system requires a "Project" to operate against.
+
+PROJECT LIST VIEW:
+  - Shows all projects in a card/table format
+  - Columns: Project Name, Code, Location, Status, Created Date
+  - Search bar to filter projects
+  - "New Project" button to create
+
+CREATE NEW PROJECT (/projects/new):
+  Form Fields:
+    - Project Name *          (text, required)
+    - Project Code *          (text, unique identifier)
+    - Location / Address      (text)
+    - Client Name             (text)
+    - Start Date              (date picker)
+    - Expected End Date       (date picker)
+    - Project Value           (number, in INR)
+    - Description             (textarea)
+  
+  Buttons:
+    - "Create Project" -> saves and routes to project list
+    - "Cancel" -> returns to project list
+
+PROJECT DETAIL VIEW (/projects/:id):
+  - Shows project summary card with all fields
+  - Links to related modules (BOQ, MRS, PO for this project)
+
+
+================================================================================
+4.  QS & BILLING MODULE
+================================================================================
+
+----------------------
+4.1  BOQ & ESTIMATION (/qs/boq)
+----------------------
+
+PURPOSE: Upload and manage the Bill of Quantities — the financial DNA
+of every construction project. Every item here represents a line in the
+client contract.
+
+WHAT YOU SEE ON THE MAIN PAGE:
+  Left Panel:
+    - "Project Environment" dropdown -> select which project's BOQ to view
+    - "Registry Filter" search box -> search items by description or item code
+    - Summary cards showing:
+        * Contract Budget (total BOQ value in ₹)
+        * Execution Burn (total executed value based on MB progress)
+
+  Right Panel:
+    - BOQ items grouped by CHAPTER
+    - Each chapter has a collapsible header showing:
+        * Chapter Number (e.g., "Ch 1")
+        * Chapter Name (e.g., "Earthworks")
+        * Chapter Total (sum of all items in that chapter)
+    - Expanding a chapter reveals the item table:
+        * Code (item_no, e.g., "1.01")
+        * Specification (item description)
+        * Qty (quantity with 3 decimal places)
+        * Rate (unit rate in ₹)
+        * Sum (quantity × rate = total amount)
+
+  Top Right:
+    - "Add Item" button (disabled until a project is selected)
+
+ADD BOQ ITEM FORM (Modal):
+  Title: "Add BoQ Specification"
+  Fields:
+    - Chapter Index *     (text, e.g., "1")
+    - Chapter Title *     (text, e.g., "Earthworks")
+    - Serial Code *       (text, e.g., "1.01")
+    - Standard Unit *     (dropdown: CUM, SQM, RMT, MT, KG, NOS, SQFt, 
+                           LS, Bags, Ltr, Set)
+    - Description *       (textarea, full item specification)
+    - Quantity *          (number, step 0.001)
+    - Rate (₹) *         (number, step 0.01)
+  
+  Live Calculation:
+    - "Projected Item Summation" shows Quantity × Rate in real-time
+  
+  Buttons:
+    - "Cancel" -> closes modal
+    - "Commit Specification" -> saves the BOQ item to the database
+
+WORKFLOW:
+  1. Select a project from the dropdown
+  2. Click "Add Item" to add BOQ line items one by one
+  3. Items are automatically grouped by chapter
+  4. The Contract Budget updates in real-time as items are added
+  5. As Measurement Book entries are recorded, the "Execution Burn"
+     updates automatically
+
+----------------------
+4.2  MEASUREMENT BOOK (/qs/measurements)
+----------------------
+
+PURPOSE: The core of site recording. Engineers enter daily work progress
+measurements here. These measurements feed directly into RA Bills.
+
+WHAT YOU SEE:
+  - Project selector dropdown
+  - List of measurement entries with columns:
+      * Date of measurement
+      * BOQ Item reference
+      * Description of work done
+      * Length, Breadth, Height/Depth dimensions
+      * Number of times (repetitions)
+      * Calculated Quantity
+      * Remarks
+  - "Add Measurement" button
+
+ADD MEASUREMENT FORM:
+  Fields:
+    - Project *           (dropdown)
+    - BOQ Item *          (dropdown, filtered by selected project)
+    - Date of Work *      (date picker)
+    - Description of work (textarea)
+    - Dimensions:
+        * Length           (number)
+        * Breadth          (number)
+        * Height/Depth     (number)
+        * Number of times  (number)
+    - Quantity            (auto-calculated: L × B × H × Nos)
+    - Photo Upload        (file, for geo-verification proof)
+    - Remarks             (textarea)
+  
+  Buttons:
+    - "Save Measurement"
+    - "Cancel"
+
+WORKFLOW:
+  1. Site engineer selects the project
+  2. Selects the BOQ item being measured
+  3. Enters dimensions (L × B × H × Nos)
+  4. System auto-calculates the quantity
+  5. Optionally uploads a photo for forensic verification
+  6. Saves the entry
+  7. This data flows into RA Bills and Material Reconciliation
+
+FORENSIC VERIFICATION:
+  - Photos attached to measurements serve as geo-tagged proof
+  - This prevents "phantom measurements" (billing for un-done work)
+  - Auditors can cross-reference photos with GPS data
+
+----------------------
+4.3  RA BILLS (/qs/ra-bills)
+----------------------
+
+PURPOSE: Generate Running Account (RA) bills for client submission.
+Bills are auto-populated from approved Measurement Book entries.
+
+WHAT YOU SEE:
+  - List of existing RA Bills with columns:
+      * Bill Number (auto-generated serial)
+      * Project Name
+      * Bill Date
+      * This Bill Amount
+      * Cumulative Amount
+      * Status (Draft / Submitted / Approved)
+  - "Create New RA Bill" button
+  - Click any bill to view its detail
+
+CREATE NEW RA BILL (/qs/ra-bills/new):
+  Fields:
+    - Project *              (dropdown)
+    - Bill Date *            (date picker)
+    - Bill Period From       (date)
+    - Bill Period To         (date)
+    - Remarks                (textarea)
+  
+  The system automatically:
+    - Pulls all MB entries for the selected project
+    - Calculates "Up to Previous Bill" quantities
+    - Calculates "Up to This Bill" quantities
+    - Computes "This Bill Quantity" = Current - Previous
+    - Applies contractual rates from BOQ
+    - Generates the bill abstract
+  
+  Deductions Section:
+    - Mobilization Advance Recovery (%)
+    - Security Deposit / Retention (%)
+    - Material Advance Recovery
+    - Any other deductions
+  
+  Buttons:
+    - "Generate Bill"
+    - "Save as Draft"
+    - "Cancel"
+
+RA BILL DETAIL VIEW (/qs/ra-bills/:id):
+  Shows:
+    - Full bill abstract with item-wise breakdown
+    - Previous Bill vs Current Bill comparison
+    - Deductions applied
+    - Net payable amount
+    - Print button (generates A4 PDF-ready format)
+
+WORKFLOW:
+  1. QS creates a new RA Bill for a project
+  2. System auto-pulls MB data and calculates quantities
+  3. QS reviews and applies deductions
+  4. Bill is saved as "Draft" for internal review
+  5. After PM approval, status changes to "Submitted"
+  6. Client certifies, status becomes "Approved"
+  7. Finance team uses this for revenue recognition
+
+----------------------
+4.4  MATERIAL RECONCILIATION (/qs/material-recon)
+----------------------
+
+PURPOSE: Cross-references work done (from MB) against materials consumed
+(from Store Issue Notes). This is the primary tool for detecting site
+leakage, theft, or wastage.
+
+WHAT YOU SEE:
+  - Project selector
+  - Reconciliation table with columns:
+      * BOQ Item
+      * Work Done Quantity (from MB)
+      * Theoretical Consumption (calculated using standard coefficients)
+      * Actual Issue (from MIN/Store records)
+      * Variance (Actual - Theoretical)
+      * Variance % (percentage deviation)
+  - Items with high variance are highlighted in red
+
+HOW TO READ:
+  - If Variance is POSITIVE: More material was issued than theoretically
+    needed. This indicates potential wastage or theft.
+  - If Variance is NEGATIVE: Less material was issued. Either work was
+    done without proper material issue notes, or efficiency is high.
+  - Target: Keep variance within ±5% for most items.
+
+WORKFLOW:
+  1. Select a project
+  2. System auto-calculates theoretical consumption based on MB progress
+  3. System pulls actual consumption from Store Issue Notes (MIN)
+  4. Review the variance column
+  5. Investigate any items with >10% variance
+  6. Take corrective action (store audits, wastage reports)
+
+
+================================================================================
+5.  FINANCE MODULE
+================================================================================
+
+----------------------
+5.1  GST BILLING (/finance/gst)
+----------------------
+
+PURPOSE: Manage GST invoices for construction services. Tracks CGST, SGST,
+IGST, and TDS deductions. Includes a built-in GST Calculator.
+
+WHAT YOU SEE:
+  Top Bar:
+    - "GST Calculator" button (opens calculator modal)
+    - "Create Invoice" button (opens form modal)
+
+  Metrics Dashboard (4 cards):
+    - Total Collected (₹) -> sum of paid invoices
+    - GST Collected (₹) -> sum of all GST components
+    - Pending Collection (₹) -> sum of unpaid invoices
+    - Net GST Payable (₹) -> output tax minus input credit
+
+  Tab Navigation:
+    - "Invoices" -> list of all GST invoices
+    - "GST Rates" -> reference table of applicable rates
+    - "ITC" -> Input Tax Credit summary
+
+INVOICES TAB:
+  Table columns:
+    - Invoice No. (e.g., INV/2425/090)
+    - Date
+    - Client / GSTIN (client name + 15-digit GSTIN number)
+    - Taxable Amount (₹)
+    - GST breakdown (CGST + SGST for intra-state, or IGST for inter-state)
+    - Total Amount (₹)
+    - TDS deducted (₹)
+    - Type (Intra-state / Inter-state badge)
+    - Status (Paid / Unpaid badge)
+
+GST RATES TAB:
+  Reference table showing applicable rates for construction:
+    - Affordable Housing (CLSS)         -> 1%
+    - Residential (Under Construction)  -> 5%
+    - Commercial Construction           -> 12%
+    - Works Contract (Govt)             -> 12%
+    - Works Contract (Other)            -> 18%
+    - Cement                            -> 28%
+    - Steel / TMT                       -> 18%
+
+  Filing deadlines shown:
+    - GSTR-1: Due 11th of following month
+    - GSTR-3B: Due 20th of following month
+    - ITC claimable on eligible material purchases
+    - Reverse Charge applies on unregistered GTA services
+
+ITC TAB (Input Tax Credit):
+  Two-column layout:
+    Left: Output Tax (GST Collected)
+      - CGST Collected
+      - SGST Collected
+      - IGST Collected
+      - Total Output
+    Right: Input Tax Available
+      - ITC on Cement (28%)
+      - ITC on Steel (18%)
+      - ITC on Services
+      - Total ITC
+    Bottom: Net GST Payable = Output - ITC
+
+GST CALCULATOR (Modal):
+  Fields:
+    - Taxable Amount (₹)     (number input)
+    - GST Type               (dropdown: Intra-state CGST+SGST / Inter-state
+                              IGST / Exempt)
+    - GST Rate (%)           (dropdown: 1% / 5% / 12% / 18% / 28%)
+  
+  Live Calculation Output:
+    - Taxable Amount
+    - CGST @ X% (if intra-state)
+    - SGST @ X% (if intra-state)
+    - IGST @ X% (if inter-state)
+    - Invoice Total
+    - Less: TDS u/s 194C (2%)
+    - Net Receivable
+  
+  Note: HSN Code for Construction Services = 9954
+
+CREATE INVOICE FORM (Modal):
+  Fields:
+    - Invoice Number *     (text, e.g., "INV/2425/090")
+    - Invoice Date *       (date, defaults to today)
+    - Client Name *        (text)
+    - Client GSTIN         (text, 15 characters max, e.g., "27AABCS1234C1Z5")
+    - Taxable Amount (₹) * (number)
+    - GST Type *           (dropdown: Intra-state / Inter-state / Exempt)
+    - GST Rate (%) *       (dropdown: 1% / 5% / 12% / 18%)
+    - HSN Code             (text, defaults to "9954")
+  
+  Buttons:
+    - "Cancel"
+    - "Create Invoice"
+
+----------------------
+5.2  TDS REGISTER (/finance/tds)
+----------------------
+
+PURPOSE: Track Tax Deducted at Source under Section 194C of the Income
+Tax Act. Applicable on all contractor/sub-contractor payments.
+
+TDS RATES:
+  - Companies (Pvt Ltd / Ltd):  2% of taxable amount
+  - Individuals / HUF / Firms:  1% of taxable amount
+  - Threshold: TDS applicable if single payment > ₹30,000
+    or aggregate payments > ₹1,00,000 in a financial year
+
+WHAT YOU SEE:
+  - Register table with all TDS entries
+  - Monthly summary of deductions
+  - Challan payment tracking
+
+----------------------
+5.3  VENDOR PAYABLES (/finance/invoices)
+----------------------
+
+PURPOSE: Bill booking and payment tracking for vendor invoices.
+Implements the 3-Way Match (PO vs GRN vs Invoice).
+
+WHAT YOU SEE:
+  - List of vendor bills with status tracking
+  - Verification workflow
+
+BILL BOOKING PROCESS:
+  1. Vendor submits a physical/digital invoice
+  2. Accounts team enters the bill into the system
+  3. System performs 3-WAY MATCH:
+     - Invoice Price vs PO Price (must match)
+     - Invoice Quantity vs GRN Quantity (must match)
+     - If mismatch detected, system flags for review
+  4. TDS is automatically calculated and deducted
+  5. GST Input Credit is recorded
+  6. Bill status: Pending -> Verified -> Paid
+
+----------------------
+5.4  BUDGET vs ACTUAL (/finance/budget)
+----------------------
+
+PURPOSE: Live tracking of cost dispersion. Compares the original BOQ
+budget against actual spending across all cost heads.
+
+WHAT YOU SEE:
+  - Project selector
+  - Budget comparison table:
+      * Cost Head (Material, Labor, Machinery, Overhead)
+      * Budget Amount (from BOQ)
+      * Actual Spend (from PO/Bills)
+      * Variance (Budget - Actual)
+      * Utilization % (Actual / Budget × 100)
+  - Visual bars showing utilization levels
+  - Items exceeding 100% utilization flagged in red
+
+----------------------
+5.5  PAYMENTS (/finance/payments)
+----------------------
+
+PURPOSE: Track payment outflows to vendors and subcontractors.
+
+WHAT YOU SEE:
+  - Payment register with all transactions
+  - Filters by vendor, project, date range
+  - Payment mode tracking (NEFT/RTGS/Cheque)
+
+
+================================================================================
+6.  PROCUREMENT MODULE
+================================================================================
+
+----------------------
+6.1  VENDOR MANAGEMENT (/procurement/vendors)
+----------------------
+
+PURPOSE: Central registry of all approved vendors/suppliers.
+
+WHAT YOU SEE:
+  - Vendor list table with columns:
+      * Vendor Name
+      * Contact Person
+      * Phone / Email
+      * GSTIN
+      * PAN Number
+      * Category (Material / Service / Sub-contractor)
+      * Status (Active / Blacklisted)
+  - "Add Vendor" button
+  - Search and filter capabilities
+
+ADD VENDOR FORM:
+  Fields:
+    - Vendor Name *        (text)
+    - Contact Person       (text)
+    - Phone                (text)
+    - Email                (text)
+    - Address              (textarea)
+    - GSTIN                (text, 15-char)
+    - PAN                  (text, 10-char)
+    - Bank Name            (text)
+    - Account Number       (text)
+    - IFSC Code            (text)
+    - Category             (dropdown: Material / Service / Sub-contractor)
+  
+  Buttons: "Save Vendor" / "Cancel"
+
+----------------------
+6.2  QUOTATIONS & CS (/procurement/quotations)
+----------------------
+
+PURPOSE: Collect vendor quotations and generate Comparative Statements
+for transparent vendor selection.
+
+QUOTATION LIST VIEW:
+  - Table of all quotation requests
+  - Status tracking (Open / Closed / Awarded)
+
+QUOTATION ENTRY (/procurement/quotations/entry):
+  Fields:
+    - Material/Service Description
+    - Vendor selection (multi-vendor)
+    - Rate per unit from each vendor
+    - GST rate from each vendor
+    - Freight charges
+    - Payment terms
+    - Delivery timeline
+
+COMPARATIVE STATEMENT (CS):
+  - Auto-generated side-by-side comparison
+  - Columns per vendor: Rate, GST, Freight, Total
+  - L1/L2/L3 ranking (Lowest to Highest)
+  - Technical evaluation notes
+  - Recommendation with justification
+  - Approval: CS must be signed before PO can be raised
+
+----------------------
+6.3  PURCHASE ORDERS (/procurement/po)
+----------------------
+
+PURPOSE: Issue legally binding digital purchase orders to vendors.
+Features a 4-stage industrial authorization workflow.
+
+WHAT YOU SEE ON MAIN PAGE:
+  Status Dashboard (5 cards):
+    - Pending count
+    - Audit Verified count
+    - Finance Passed count
+    - Mgmt Released count
+    - PO Authorized count
+
+  Search bar: Filter by PO number or Vendor name
+
+  PO Register Table:
+    - PO Reference (serial number, e.g., "PO/BCIM/2026/0001")
+    - Date
+    - Vendor & Project
+    - Approval Flow (status badge + 5-stage progress dots)
+    - Grand Total (₹, including GST)
+
+  Buttons:
+    - "Export Register" -> downloads CSV file with columns:
+        PO Number, Vendor, Project, Status, Grand Total, Date
+    - "Raise Purchase Order" -> opens creation form
+
+RAISE NEW PO FORM (Modal):
+  Header Fields:
+    - Target Vendor *      (dropdown from Vendor Registry)
+    - Target Project *     (dropdown from Projects)
+    - PO Effective Date *  (date, defaults to today)
+    - Exp. Delivery Date   (date)
+
+  Line Items Section:
+    Each line item has:
+    - Description *        (text, material name)
+    - Quantity *           (number)
+    - Unit *               (dropdown: MT, Bags, CUM, SQM, Nos, RMT,
+                            KG, Litre, Month, LS)
+    - Rate (₹) *          (number, per unit)
+    - GST %               (number, defaults to 18)
+    - HSN Code            (text)
+    - Purpose             (text)
+    
+    - "+ Add Line Item" button to add more rows
+    - "X" button on each row to remove it
+
+  Financial Summary (auto-calculated):
+    - Sub Total = sum of (Qty × Rate) for all items
+    - Est. GST Liability = sum of (Qty × Rate × GST%)
+    - Grand Total = Sub Total + GST
+
+  Notes Section:
+    - Special Notes / T&C Adjustment (textarea)
+
+  Buttons:
+    - "Discard Requisition"
+    - "Authorize & Route for Audit" (submits for approval)
+
+PO DETAIL VIEW (Modal, click on any PO):
+  Financial Quickview (4 cards):
+    - Sub Total
+    - Tax Component
+    - Grand Total
+    - Vendor Name
+
+  Line Items Table:
+    - Item Description + HSN Code
+    - Qty & Unit
+    - Rate (₹) per unit
+    - Net Sum (including GST %)
+
+  Digital Authorization Proof:
+    4-stage approval trail showing:
+    - Stage 1: Verify (Audit)         -> "CRYPTOGRAPHICALLY SIGNED" / "AWAITING"
+    - Stage 2: Pass (Finance)         -> signed/awaiting
+    - Stage 3: Release (Director)     -> signed/awaiting
+    - Stage 4: Authorize (MD)         -> signed/awaiting
+
+  Action Panel (if current user's action is pending):
+    - "Confirm [Stage Name]" button (e.g., "Confirm Verify (Audit)")
+    - "Reject PO" button
+
+  Print: "A4 Portrait Print" button -> generates professional PO document
+
+4-STAGE PO APPROVAL WORKFLOW:
+  Stage 1: PENDING        -> Audit team verifies specifications & rates
+  Stage 2: AUDIT VERIFIED -> Finance team checks budget availability
+  Stage 3: FINANCE PASSED -> Director/Management releases the commitment
+  Stage 4: MGMT RELEASED  -> Managing Director gives final authorization
+  Stage 5: PO AUTHORIZED  -> PO is active, vendor can be notified
+  Stage 6: PART RECEIVED   -> Some materials have arrived (GRN linked)
+  Stage 7: FULLY RECEIVED  -> All materials received, PO can be closed
+
+  At any stage, the PO can be REJECTED with remarks.
+
+----------------------
+6.4  INVENTORY (/procurement/inventory)
+----------------------
+
+PURPOSE: Real-time visibility into stock levels across all projects.
+
+WHAT YOU SEE:
+  - Material inventory table
+  - Stock levels per material per project
+  - Reorder alerts for low-stock items
+
+
+================================================================================
+7.  QUALITY & SAFETY MODULE
+================================================================================
+
+----------------------
+7.1  QA/QC DASHBOARD (/quality)
+----------------------
+
+PURPOSE: Central quality control hub showing inspection metrics.
+
+WHAT YOU SEE:
+  - Total RFIs raised vs closed
+  - NCR (Non-Conformance) statistics
+  - Lab test results summary
+  - Checklist completion rates
+  - Quality score per project
+
+----------------------
+7.2  RFI LEDGER (/quality/rfi)
+----------------------
+
+PURPOSE: Formal Request for Inspection workflow. Used when site work
+needs client or consultant approval before proceeding.
+
+TYPICAL RFI WORKFLOW:
+  1. Site engineer completes a work activity (e.g., rebar placement)
+  2. Engineer raises an RFI in the system
+  3. Client representative is notified
+  4. Client inspects the work on-site
+  5. Client approves (with signature) or rejects with comments
+  6. If rejected, work is corrected and RFI re-submitted
+
+RFI FORM FIELDS:
+  - Project *              (dropdown)
+  - RFI Number             (auto-generated)
+  - Date                   (date)
+  - Description of Work *  (textarea)
+  - Location / Zone        (text)
+  - Drawing Reference      (text)
+  - Inspection Type        (dropdown: Hold Point / Witness Point)
+  - Inspector Name         (text)
+  - Status                 (Open / Approved / Rejected / Re-submitted)
+  - Attachments            (file upload for photos/drawings)
+  - Comments               (textarea)
+
+RFI TABLE COLUMNS:
+  - RFI No.
+  - Date
+  - Description
+  - Location
+  - Status badge
+  - Inspector
+  - Action buttons (View / Print)
+
+----------------------
+7.3  DOCUMENT CONTROL (/quality/documents)
+----------------------
+
+PURPOSE: Central repository for all quality-related documents including
+drawings, specifications, method statements, and test certificates.
+
+FEATURES:
+  - Document upload with metadata tagging
+  - Version control (Rev A, Rev B, etc.)
+  - Category filtering (Drawings / Specs / Methods / Certificates)
+  - Search by document name or number
+  - Download and print capabilities
+
+----------------------
+7.4  CHECKLIST MASTERS (/quality/templates)
+----------------------
+
+PURPOSE: Create and manage Inspection Test Plans (ITP) templates.
+These checklists are used during RFI inspections.
+
+FEATURES:
+  - Template creation for each trade (Concrete, Steel, Plumbing, etc.)
+  - Checklist items with pass/fail/NA options
+  - Reusable across multiple projects
+  - Print-ready format
+
+----------------------
+7.5  HSE DASHBOARD (/hse)
+----------------------
+
+PURPOSE: Health, Safety & Environment overview for the entire project
+portfolio.
+
+WHAT YOU SEE:
+  - Safety Index score
+  - Total incidents this month/year
+  - Active permits count
+  - PPE compliance rate
+  - Near-miss vs accident ratio
+  - Safety trend charts
+
+----------------------
+7.6  INCIDENT HUB (/hse/incidents)
+----------------------
+
+PURPOSE: Forensic documentation of all safety incidents, near-misses,
+and accidents on site.
+
+INCIDENT FORM FIELDS:
+  - Project *              (dropdown)
+  - Incident Date/Time *   (datetime)
+  - Location on Site       (text)
+  - Incident Type          (dropdown: Near Miss / First Aid / Medical
+                            Treatment / Lost Time / Fatality)
+  - Severity               (dropdown: Low / Medium / High / Critical)
+  - Description *          (textarea, detailed narrative)
+  - Persons Involved       (text)
+  - Immediate Cause        (textarea)
+  - Root Cause Analysis    (textarea)
+  - Corrective Action      (textarea)
+  - Preventive Action      (textarea)
+  - Photos                 (file upload, multiple)
+  - Witness Name           (text)
+  - Status                 (Open / Under Investigation / Closed)
+
+INCIDENT TABLE COLUMNS:
+  - Incident No. (auto-generated)
+  - Date
+  - Type (badge: Near Miss/First Aid/etc.)
+  - Severity (color-coded badge)
+  - Description (truncated)
+  - Status
+  - Action buttons
+
+----------------------
+7.7  SITE PERMITS — PTW (/hse/permits)
+----------------------
+
+PURPOSE: Permit-to-Work system for high-risk activities. No high-risk
+work can begin without a valid digital permit.
+
+PERMIT TYPES:
+  - Hot Work Permit (welding, cutting, grinding)
+  - Height Work Permit (scaffolding, edge work)
+  - Confined Space Entry
+  - Excavation Permit
+  - Electrical Work Permit
+  - Lifting Operations
+
+PERMIT FORM FIELDS:
+  - Project *              (dropdown)
+  - Permit Type *          (dropdown from types above)
+  - Work Description *     (textarea)
+  - Work Location *        (text)
+  - Start Date/Time *      (datetime)
+  - End Date/Time *        (datetime)
+  - Contractor/Team        (text)
+  - Safety Precautions     (checklist items)
+  - PPE Required           (multi-select)
+  - Emergency Contact      (text)
+  - Issuing Officer        (auto-filled from logged-in user)
+  - Status                 (Active / Expired / Cancelled)
+
+WORKFLOW:
+  1. Supervisor requests a permit for high-risk work
+  2. HSE officer reviews the request
+  3. HSE officer verifies safety precautions are in place
+  4. Permit is issued with specific start/end times
+  5. Work must stop when the permit expires
+  6. Permit is closed after work completion
+
+----------------------
+7.8  PPE TRACKING (/hse/ppe)
+----------------------
+
+PURPOSE: Track Personal Protective Equipment inventory, issuance,
+and compliance across all sites.
+
+FEATURES:
+  - PPE inventory register (helmets, vests, boots, goggles, etc.)
+  - Issue tracking per worker
+  - Expiry date monitoring
+  - Compliance reports
+
+
+================================================================================
+8.  SITE & HR MODULE
+================================================================================
+
+----------------------
+8.1  DAILY PROGRESS REPORT (/site/dpr)
+----------------------
+
+PURPOSE: The operational diary of the construction site. Records daily
+activities, weather, manpower deployment, and critical events.
+
+DPR LIST VIEW:
+  - Table of all DPRs with date, project, status
+  - "Create DPR" button
+
+DPR CREATE FORM (/site/dpr/create):
+  Fields:
+    - Project *             (dropdown)
+    - Report Date *         (date)
+    - Weather Conditions    (dropdown: Clear/Cloudy/Rain/Storm)
+    - Temperature           (number, °C)
+    - Work Activities       (textarea, detailed narrative)
+    - Manpower Deployed:
+        * Skilled workers count
+        * Unskilled workers count
+        * Supervisors count
+    - Equipment Used        (textarea)
+    - Material Received     (textarea)
+    - Delays/Impediments    (textarea)
+    - Safety Observations   (textarea)
+    - Photos                (file upload, multiple)
+    - Prepared By           (auto-filled)
+  
+  Buttons: "Submit DPR" / "Save Draft" / "Cancel"
+
+----------------------
+8.2  WORKERS REGISTRY (/hr/workers)
+----------------------
+
+PURPOSE: Central database of all workers (skilled and unskilled)
+deployed across projects.
+
+WORKER FORM FIELDS:
+  - Full Name *            (text)
+  - Father's Name          (text)
+  - Date of Birth          (date)
+  - Aadhaar Number         (text, 12 digits)
+  - Mobile Number          (text)
+  - Address                (textarea)
+  - Emergency Contact      (text)
+  - Trade/Skill            (dropdown: Mason/Carpenter/Fitter/Helper/etc.)
+  - Project Assignment     (dropdown)
+  - Daily Wage Rate (₹)    (number)
+  - PF Number              (text, if applicable)
+  - ESI Number             (text, if applicable)
+  - Bank Account           (text)
+  - IFSC Code              (text)
+  - Photo                  (file upload)
+  - Status                 (Active / Inactive / Terminated)
+
+WORKER LIST TABLE:
+  - Name
+  - Trade
+  - Project
+  - Aadhaar (masked)
+  - Status badge
+  - Daily Rate
+
+----------------------
+8.3  ATTENDANCE (/hr/attendance)
+----------------------
+
+PURPOSE: Daily digital attendance logging for all workers.
+
+WHAT YOU SEE:
+  - Calendar view with attendance markers
+  - Project filter
+  - Date filter
+  - Worker-wise attendance grid:
+      * Worker Name
+      * Trade
+      * Present (P) / Absent (A) / Half-Day (H) toggle
+      * OT Hours (overtime)
+  - Bulk marking capability (mark all present)
+
+WORKFLOW:
+  1. Supervisor selects the project and date
+  2. System shows all assigned workers
+  3. Supervisor marks each worker as P/A/H
+  4. Overtime hours entered if applicable
+  5. Data saved automatically
+  6. This feeds into the Payroll engine
+
+----------------------
+8.4  PAYROLL PROCESSING (/hr/payroll)
+----------------------
+
+PURPOSE: Automated salary calculation based on attendance data,
+including statutory deductions (PF, ESI, Professional Tax).
+
+PAYROLL CALCULATION LOGIC:
+  - Basic Wage = Days Present × Daily Rate
+  - Overtime = OT Hours × (Daily Rate / 8 × 1.5)
+  - Gross Salary = Basic + Overtime + Allowances
+
+  STATUTORY DEDUCTIONS:
+  - PF (Provident Fund):
+      * Employee contribution: 12% of Basic
+      * Employer contribution: 12% of Basic (13% including admin)
+      * Applicable if Basic ≤ ₹15,000/month
+  - ESI (Employee State Insurance):
+      * Employee contribution: 0.75% of Gross
+      * Employer contribution: 3.25% of Gross
+      * Applicable if Gross ≤ ₹21,000/month
+  - Professional Tax: As per state slab (varies)
+
+  Net Salary = Gross - PF - ESI - PT
+
+WHAT YOU SEE:
+  - Payroll register with all workers
+  - Month/Year selector
+  - Columns: Name, Days Worked, Basic, OT, Gross, PF, ESI, PT, Net
+  - Total payroll summary
+  - Export to CSV for bank upload
+
+
+================================================================================
+9.  STORES MODULE
+================================================================================
+
+----------------------
+9.1  MATERIAL RECEIPTS — GRN (/stores/grn)
+----------------------
+
+PURPOSE: Recording material arrivals at the site gate. Verifies physical
+receipt against the Purchase Order.
+
+GRN FORM FIELDS:
+  - Project *               (dropdown)
+  - PO Reference *          (dropdown, filtered by project)
+  - GRN Date *              (date)
+  - Vendor Name             (auto-filled from PO)
+  - Challan/DC Number       (text, delivery challan reference)
+  - Vehicle Number          (text)
+  - Received By             (auto-filled, logged-in user)
+  
+  Line Items (auto-populated from PO):
+    - Material Description
+    - PO Quantity
+    - Previously Received
+    - This Receipt Quantity * (number, must be ≤ PO Qty - Previous)
+    - Unit
+    - Remarks
+  
+  Quality Inspection:
+    - QC Status              (Approved / Rejected / On Hold)
+    - Test Certificate       (file upload)
+    - Inspector Name         (text)
+    - Inspection Notes       (textarea)
+
+GRN VERIFICATION (/stores/grn/verify):
+  - Separate page for store manager to verify GRN entries
+  - Cross-checks physical count against GRN data
+
+GRN PRINT:
+  - Professional A4 format with:
+    * Company header
+    * GRN Number and Date
+    * Vendor and PO details
+    * Item-wise receipt table
+    * Signature blocks (Received By / Inspected By / Approved By)
+
+WORKFLOW:
+  1. Material arrives at site gate
+  2. Store keeper creates GRN against the relevant PO
+  3. Enters received quantities for each line item
+  4. QC Inspector checks material quality
+  5. If quality fails, material is marked "Rejected" and returned
+  6. If quality passes, stock is added to the Store Ledger
+  7. GRN is verified by the store manager
+  8. GRN data flows to Finance for 3-Way Match
+
+----------------------
+9.2  MATERIAL REQUISITION SLIPS — MRS (/stores/mrs)
+----------------------
+
+PURPOSE: Formal indent system for site material needs. Features a
+6-STAGE LEGACY APPROVAL WORKFLOW with digital signatures.
+
+WHAT YOU SEE ON MAIN PAGE:
+  Status Dashboard (6 cards):
+    - Pending count
+    - Tower Verified count
+    - PM Approved count
+    - Sr. PM Approved count
+    - Mgmt Released count
+    - MD Authorized count
+
+  Search bar: Filter by MRS serial number or Project name
+
+  MRS List Table:
+    - Serial No (auto-generated, e.g., "MRS/BCIM/2026/0001")
+    - Date
+    - Project Name
+    - Status & Stage (badge + 6-stage progress dots)
+    - Raised By (originator name)
+
+  Buttons:
+    - "Export CSV" -> downloads filtered MRS data
+    - "New Requisition" -> opens creation form
+
+NEW REQUISITION FORM (Modal):
+  Header Fields:
+    - Project *             (dropdown from project list)
+    - Department *          (dropdown: Projects / Civil-Structural /
+                             Mechanical-MEP / Safety-HSE / Stores-Logistics)
+    - Site Incharge *       (text, name of site person)
+    - Execution Need By *   (date, when materials are needed)
+
+  Materials List:
+    Each item row:
+    - Material Description * (text)
+    - Qty *                  (number)
+    - Unit *                 (dropdown: MT, Bags, CUM, Brass, Nos, RMT,
+                              Drum, Ltr, Kg, Sqft)
+    - Purpose               (text, optional)
+    
+    - "+ ADD ITEM" link to add more material rows
+    - "X" button to remove a row
+
+  Additional:
+    - Additional Remarks     (textarea)
+
+  Buttons:
+    - "Discard"
+    - "Raise Requisition" (disabled until required fields are filled)
+
+MRS DETAIL VIEW (Modal, click any MRS):
+  Info Cards (top row):
+    - Department
+    - Project Code
+    - Needed By (date)
+    - Incharge name
+
+  Items Table:
+    - Description
+    - Unit
+    - Qty (large, prominent)
+    - Purpose
+
+  Approval Audit Trail:
+    Visual grid showing 5 approval stages:
+    - Stage 2: Verify (Tower Mgr)     -> SIGNED or WAITING
+    - Stage 3: Approve (Project Mgr)  -> SIGNED or WAITING
+    - Stage 4: Approve (Sr. PM)       -> SIGNED or WAITING
+    - Stage 5: Release (Director)     -> SIGNED or WAITING
+    - Stage 6: Authorize (MD)         -> SIGNED or WAITING
+
+  Action Panel (if user can act):
+    - "Confirm [Stage Name]" button
+    - "Reject" button
+
+    Special fields at MD Authorization stage:
+      - Received Date     (date)
+      - PO No & Date      (text)
+      - Exp. Delivery      (date)
+
+  Print: "Professional Print" button -> generates A4 landscape MRS document
+
+6-STAGE MRS APPROVAL WORKFLOW:
+  Stage 1: PENDING              -> MRS raised by site engineer, waiting
+  Stage 2: TOWER VERIFIED       -> Tower/Section manager verifies need
+  Stage 3: PM APPROVED          -> Project Manager approves quantity
+  Stage 4: SR. PM APPROVED      -> Senior PM validates budget alignment
+  Stage 5: MGMT RELEASED        -> Director releases for procurement
+  Stage 6: MD AUTHORIZED        -> Managing Director final authorization
+  Stage 7: ITEMS ISSUED         -> Store issues materials (see MIN)
+
+  At any stage, MRS can be REJECTED with remarks.
+
+BUDGET CONTROL:
+  The system checks: If MRS quantity for a material exceeds the BOQ
+  theoretical requirement, the system can flag or block the indent.
+
+----------------------
+9.3  ISSUE NOTES — MIN (/stores/issue)
+----------------------
+
+PURPOSE: Releasing material from stores to a work-group, subcontractor,
+or department. Every issue is linked to a BOQ item for cost allocation.
+
+MIN FORM FIELDS:
+  - Project *               (dropdown)
+  - Issue Date *            (date)
+  - Issued To *             (text, contractor/department name)
+  - BOQ Item Reference      (dropdown, for cost allocation)
+  
+  Line Items:
+    - Material Description * (text or dropdown from inventory)
+    - Quantity *             (number, must be ≤ available stock)
+    - Unit *                 (auto-filled from inventory)
+    - Purpose               (text)
+  
+  - Remarks                 (textarea)
+
+MIN VERIFICATION (/stores/issue/verify):
+  - Store manager verifies the issue entry
+
+MIN PRINT:
+  - Professional A4 format with item-wise issue details
+  - Signature blocks
+
+WORKFLOW:
+  1. Supervisor requests material from stores
+  2. Store keeper creates MIN against the project
+  3. Links issue to specific BOQ item (for recon later)
+  4. Enters quantity being issued
+  5. System checks stock availability
+  6. MIN is verified by store manager
+  7. Stock is deducted from Store Ledger
+  8. MIN data feeds into Material Reconciliation
+
+----------------------
+9.4  STORE LEDGER (/stores/ledger)
+----------------------
+
+PURPOSE: Real-time stock register showing opening balance, receipts,
+issues, and closing balance for every material item.
+
+WHAT YOU SEE:
+  - Project selector
+  - Material filter
+  - Date range filter
+  - Ledger table:
+      * Material Name
+      * Unit
+      * Opening Balance
+      * Received (from GRN)
+      * Issued (from MIN)
+      * Closing Balance (= Opening + Received - Issued)
+      * Average Rate
+      * Stock Value (Closing × Avg Rate)
+
+AUDIT LOGIC:
+  - If Closing Balance is negative, something is wrong (over-issue)
+  - If Stock Value is unusually high, check for slow-moving materials
+  - Regular physical stock audits should match the digital ledger
+
+
+================================================================================
+10.  SUBCONTRACTORS MODULE
+================================================================================
+
+----------------------
+10.1  LABOR WORK ORDERS (/procurement/work-orders)
+----------------------
+
+PURPOSE: Issue work orders to subcontractors for labor-based activities
+(e.g., shuttering, bar bending, plumbing).
+
+WORK ORDER FORM FIELDS:
+  - Project *               (dropdown)
+  - Subcontractor *         (dropdown from vendor registry)
+  - Work Description *      (textarea)
+  - BOQ Items Covered       (multi-select)
+  - Rate Structure:
+      * Item-wise rates     (per CUM, per SQM, etc.)
+      * Or lump sum amount
+  - Work Period              (start and end dates)
+  - Terms & Conditions       (textarea)
+  - Mobilization Advance     (amount, if any)
+  - Retention %              (number)
+  - LD Clause                (textarea, liquidated damages)
+
+APPROVAL:
+  - Work orders follow a multi-tier approval similar to PO
+
+----------------------
+10.2  SUBCONTRACTOR MB (/subcontractor/measurements)
+----------------------
+
+PURPOSE: Track work progress by subcontractors. Similar to the main
+Measurement Book but for subcontracted activities.
+
+FIELDS: Same as main MB (Section 4.2) but linked to the Work Order
+instead of directly to the client BOQ.
+
+----------------------
+10.3  SUB-CON RA BILLS (/subcontractor/bills)
+----------------------
+
+PURPOSE: Generate bills payable to subcontractors based on their MB
+progress. Similar to the client RA Bill but in reverse.
+
+FEATURES:
+  - Bill generation from subcontractor MB entries
+  - Deductions: Mobilization advance recovery, retention, penalties
+  - TDS @ 1% or 2% auto-calculated
+  - Professional print format with all deductions shown
+
+
+================================================================================
+11.  ASSETS MODULE
+================================================================================
+
+----------------------
+11.1  ASSET REGISTER (/assets)
+----------------------
+
+PURPOSE: Lifecycle tracking of all heavy Plant & Machinery (P&M),
+vehicles, and office equipment.
+
+ASSET FORM FIELDS:
+  - Asset Name *            (text)
+  - Asset Code              (text, unique ID)
+  - Category                (dropdown: P&M / Vehicle / Office / IT)
+  - Make / Brand            (text)
+  - Model / Specification   (text)
+  - Serial Number           (text)
+  - Purchase Date           (date)
+  - Purchase Value (₹)     (number)
+  - Current Location        (dropdown: project list)
+  - Condition               (dropdown: Good / Fair / Needs Repair / Scrap)
+  - Insurance Expiry        (date)
+  - AMC Expiry              (date)
+  - Depreciation Method     (dropdown: SLM / WDV)
+  - Depreciation Rate (%)   (number)
+  - Assigned To             (text)
+  - Photos                  (file upload)
+
+FEATURES:
+  - Maintenance schedule tracking
+  - Service alerts based on hours/dates
+  - Transfer history between projects
+  - Depreciation calculation
+
+----------------------
+11.2  ASSET STOCK & GRN (/assets/inventory)
+----------------------
+
+PURPOSE: Track consumable inventory tied to assets (fuel, lubricants,
+spare parts).
+
+
+================================================================================
+12.  IT DEPARTMENT MODULE
+================================================================================
+
+----------------------
+12.1  IT ASSETS (/it/assets)
+----------------------
+
+PURPOSE: Track IT hardware and software across the organization.
+
+IT ASSET FIELDS:
+  - Device Name             (text)
+  - Type                    (dropdown: Laptop / Desktop / Printer / Router / etc.)
+  - Serial Number           (text)
+  - Assigned To             (text, employee name)
+  - Department              (text)
+  - Purchase Date           (date)
+  - Warranty Expiry         (date)
+  - OS / Configuration      (textarea)
+  - Status                  (Active / In Repair / Retired)
+
+----------------------
+12.2  HELP DESK (/it/tickets)
+----------------------
+
+PURPOSE: Internal IT support ticketing system with SLA tracking.
+
+TICKET FORM FIELDS:
+  - Subject *               (text)
+  - Category                (dropdown: Hardware / Software / Network / Access)
+  - Priority                (dropdown: Low / Medium / High / Critical)
+  - Description *           (textarea)
+  - Requested By            (auto-filled)
+  - Assigned To             (dropdown, IT team member)
+  - Status                  (Open / In Progress / Resolved / Closed)
+  - Resolution Notes        (textarea)
+
+SLA TRACKING:
+  - Critical:  Resolution within 2 hours
+  - High:      Resolution within 4 hours
+  - Medium:    Resolution within 8 hours
+  - Low:       Resolution within 24 hours
+  - SLA breach highlighted in red
+
+----------------------
+12.3  LICENSES & AMC (/it/licenses)
+----------------------
+
+PURPOSE: Track software licenses, annual maintenance contracts, and
+renewal dates.
+
+FIELDS:
+  - Software/Service Name   (text)
+  - License Type            (dropdown: Perpetual / Subscription / OEM)
+  - Vendor                  (text)
+  - Start Date              (date)
+  - Expiry Date             (date)
+  - Number of Seats         (number)
+  - Annual Cost (₹)        (number)
+  - Auto-Renewal            (yes/no)
+  - Status                  (Active / Expired / Renewed)
+
+ALERTS:
+  - System sends notifications 30 days before license/AMC expiry
+
+
+================================================================================
+13.  CRM & REPORTS MODULE
+================================================================================
+
+----------------------
+13.1  CLIENT BOOKINGS (/crm/bookings)
+----------------------
+
+PURPOSE: Track client inquiries, bookings, and unit reservations
+(for real estate projects).
+
+BOOKING FIELDS:
+  - Client Name *           (text)
+  - Client Phone            (text)
+  - Client Email            (text)
+  - Project *               (dropdown)
+  - Unit / Plot             (text)
+  - Booking Date            (date)
+  - Booking Amount (₹)     (number)
+  - Payment Plan            (dropdown)
+  - Status                  (Inquiry / Booked / Agreement / Registered / Cancelled)
+
+----------------------
+13.2  REPORTS & P&L (/reports)
+----------------------
+
+PURPOSE: Business intelligence and financial reporting.
+
+AVAILABLE REPORTS:
+  - Project-wise P&L Statement
+  - Departmental Report Cards
+  - Vendor Spend Analysis
+  - Material Consumption Report
+  - Labor Productivity Report
+  - Monthly Executive Summary
+
+FEATURES:
+  - Date range filtering
+  - Project filtering
+  - Export to CSV
+  - Print-ready formats
+
+AI INSIGHT PANEL:
+  - Claude AI integration for automated observations
+  - Anomaly detection in financial data
+  - Trend analysis and predictions
+
+
+================================================================================
+14.  ADMINISTRATION MODULE
+================================================================================
+
+----------------------
+14.1  TEAM MEMBERS (/users)
+----------------------
+
+PURPOSE: Manage user accounts, roles, and permissions.
+
+USER FIELDS:
+  - Full Name *             (text)
+  - Email *                 (text, used for login)
+  - Role                    (dropdown: Admin / Project Manager / Engineer /
+                             Accounts / Store Manager / HSE Officer / Viewer)
+  - Department              (text)
+  - Phone                   (text)
+  - Status                  (Active / Inactive)
+  - Digital Signature       (file upload, PNG/JPG)
+
+ROLE-BASED ACCESS:
+  - Admin:           Full access to all modules
+  - Project Manager: Access to QS, Site, Procurement, Stores
+  - Engineer:        Access to MB, DPR, RFI
+  - Accounts:        Access to Finance, Bill Booking, TDS
+  - Store Manager:   Access to Stores (GRN, MRS, MIN, Ledger)
+  - HSE Officer:     Access to HSE, Permits, Incidents
+  - Viewer:          Read-only access to all modules
+
+
+================================================================================
+15.  PRINTING & PDF EXPORT
+================================================================================
+
+The following documents support professional printing (Ctrl + P):
+
+  DOCUMENT                    FORMAT          KEY FEATURES
+  -------------------------   -----------     ----------------------------
+  MRS (Material Requisition)  A4 Landscape    6 signature blocks, item table
+  Purchase Order (PO)         A4 Portrait     GST breakdown, terms section
+  GRN (Goods Receipt)         A4 Portrait     QC status, signature blocks
+  MIN (Material Issue)        A4 Portrait     BOQ allocation, signatures
+  RA Bill (Client)            A4 Portrait     Abstract, deductions
+  Sub-Con RA Bill             A4 Portrait     TDS/deductions included
+  Quality Reports             A4 Portrait     Checklist results
+  DPR                         A4 Portrait     Activity log, photos
+
+HOW TO PRINT:
+  1. Open the document detail view (click on any record)
+  2. Click the "Print" or "Professional Print" button
+  3. Browser print dialog opens (Ctrl + P)
+  4. Select "Save as PDF" as the destination for digital copies
+  5. The print template uses CSS @media print rules to:
+     - Hide all screen UI elements
+     - Show only the professional document template
+     - Set correct page size and margins
+
+HOW TO EXPORT CSV:
+  - Most list views have an "Export CSV" or "Download" button
+  - Click to download the filtered data as a .csv file
+  - Open in Excel for further analysis
+
+
+================================================================================
+16.  SECURITY FEATURES
+================================================================================
+
+IMPLEMENTED SECURITY MEASURES:
+
+  1. PASSWORD COMPLEXITY:
+     Minimum 8 characters with uppercase, lowercase, number, and symbol.
+
+  2. JWT TOKEN LIFECYCLE:
+     Access tokens expire after 1 hour. Users must re-authenticate.
+
+  3. GLOBAL IDLE TIMEOUT:
+     60 minutes of inactivity (no mouse/keyboard) triggers automatic
+     logout. Prevents unauthorized access on unattended workstations.
+
+  4. INPUT VALIDATION:
+     All API endpoints use express-validator to sanitize inputs and
+     prevent SQL injection and XSS attacks.
+
+  5. PASSWORD HASHING:
+     bcrypt with 12 salt rounds. Passwords are never stored in plain text.
+
+  6. DIGITAL SIGNATURES:
+     Every approval action records the user's uploaded signature,
+     timestamp, and IP address for forensic accountability.
+
+  7. AUTOMATED BACKUPS:
+     Database is backed up daily at 2:00 AM using pg_dump.
+     Backups are retained for 7 days with automatic rotation.
+
+
+================================================================================
+17.  AUDIT TRAIL & LEAKAGE DETECTION GUIDE
+================================================================================
+
+HOW TO DETECT MATERIAL LEAKAGE:
+  1. Go to QS > Material Reconciliation
+  2. Select the project
+  3. Review the Variance column:
+     - Variance > +10%: Possible theft, wastage, or unauthorized use
+     - Variance > +20%: Immediate investigation required
+  4. Cross-reference with Store Ledger for physical stock count
+  5. Check MIN records for unauthorized issues
+
+HOW TO DETECT BILLING FRAUD:
+  1. Go to Finance > Vendor Payables
+  2. Run the 3-Way Match:
+     - Compare Invoice Price vs PO Price
+     - Compare Invoice Quantity vs GRN Quantity
+  3. Any mismatch indicates potential fraud or error
+  4. Check if the vendor GSTIN is valid
+  5. Verify TDS has been correctly deducted
+
+HOW TO DETECT MEASUREMENT INFLATION:
+  1. Go to QS > Measurement Book
+  2. Check photo attachments for geo-tagging
+  3. Verify GPS coordinates match the project location
+  4. Compare MB quantities against physical site progress
+  5. Run RA Bill history to check for sudden quantity jumps
+
+HOW TO DETECT PROCUREMENT ANOMALIES:
+  1. Go to Procurement > Quotations & CS
+  2. Verify that CS has at least 3 vendor quotes
+  3. Check if the selected vendor is truly L1 (lowest)
+  4. Review PO approval trail for any skipped stages
+  5. Match PO quantities against MRS requirements
+
+
+================================================================================
+     END OF MANUAL — BCIM ENGINEERING CONFIDENTIAL
+     For questions, contact: technology@bcimengineering.com
+================================================================================

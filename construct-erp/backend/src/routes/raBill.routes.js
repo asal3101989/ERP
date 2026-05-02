@@ -1,0 +1,301 @@
+// src/routes/raBill.routes.js — Client Billing (RA Bills)
+const express = require('express');
+const router = express.Router();
+const { authenticate, authorize } = require('../middleware/auth');
+const { query, withTransaction } = require('../config/database');
+router.use(authenticate);
+
+// GET /ra-bills
+router.get('/', async (req, res) => {
+  try {
+    const { project_id, status } = req.query;
+    let sql = `
+      SELECT rb.*, p.name as project_name,
+             u.name as created_by_name,
+             v.name as verified_by_name,
+             cert.name as certified_by_name
+      FROM ra_bills rb
+      JOIN projects p ON rb.project_id = p.id
+      LEFT JOIN users u ON rb.created_by = u.id
+      LEFT JOIN users v ON rb.verified_by = v.id
+      LEFT JOIN users cert ON rb.certified_by = cert.id
+      WHERE p.company_id = $1`;
+    const params = [req.user.company_id]; let i = 2;
+    if (project_id) { sql += ` AND rb.project_id = $${i++}`; params.push(project_id); }
+    if (status)     { sql += ` AND rb.status = $${i++}`;     params.push(status); }
+    sql += ' ORDER BY rb.bill_date DESC, rb.created_at DESC';
+    const result = await query(sql, params);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /ra-bills/previous-stats
+router.get('/previous-stats', async (req, res) => {
+  try {
+    const { project_id, boq_item_id } = req.query;
+    const projectCheck = await query(
+      `SELECT 1 FROM projects WHERE id = $1 AND company_id = $2 LIMIT 1`,
+      [project_id, req.user.company_id]
+    );
+    if (!projectCheck.rowCount) {
+      return res.status(400).json({ error: 'Invalid project for this company' });
+    }
+    const result = await query(
+      `SELECT SUM(rbi.current_qty) as total_prev_qty, SUM(rbi.amount) as total_prev_amount
+       FROM ra_bill_items rbi
+       JOIN ra_bills rb ON rbi.ra_bill_id = rb.id
+       JOIN projects p ON rb.project_id = p.id
+       WHERE rb.project_id = $1 AND p.company_id = $3
+         AND rbi.boq_item_id = $2 AND rb.status IN ('certified','paid')`,
+      [project_id, boq_item_id, req.user.company_id]
+    );
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /ra-bills
+router.post('/', authorize('super_admin','admin','qs_engineer','project_manager'), async (req, res) => {
+  try {
+    const {
+      project_id, bill_number, bill_date, work_description,
+      bill_period_from, bill_period_to,
+      gross_amount, gst_rate, gst_amount,
+      retention_percent, mobilization_advance_recovery,
+      material_recovery_steel, material_recovery_cement,
+      price_escalation, other_deductions,
+      tds_rate, items, remarks,
+      contractor_name, contractor_gstin, contractor_pan,
+    } = req.body;
+
+    const projectCheck = await query(
+      `SELECT 1 FROM projects WHERE id = $1 AND company_id = $2 LIMIT 1`,
+      [project_id, req.user.company_id]
+    );
+    if (!projectCheck.rowCount) {
+      return res.status(400).json({ error: 'Invalid project for this company' });
+    }
+
+    const billStatus = req.body.status === 'draft' ? 'draft' : 'submitted';
+
+    const result = await withTransaction(async (client) => {
+      const retention_amount = parseFloat(gross_amount) * (parseFloat(retention_percent || 0) / 100);
+      const tds_amount       = parseFloat(gross_amount) * (parseFloat(tds_rate || 0) / 100);
+      const total_deductions =
+        retention_amount +
+        parseFloat(mobilization_advance_recovery || 0) +
+        parseFloat(material_recovery_steel || 0) +
+        parseFloat(material_recovery_cement || 0) +
+        parseFloat(other_deductions || 0) +
+        tds_amount;
+      const gross_with_gst = parseFloat(gross_amount) + parseFloat(gst_amount || 0);
+      const net_payable    = gross_with_gst - total_deductions + parseFloat(price_escalation || 0);
+
+      const header = await client.query(
+        `INSERT INTO ra_bills
+           (project_id, bill_number, bill_date, work_description,
+            bill_period_from, bill_period_to,
+            gross_amount, gst_rate, gst_amount, gross_with_gst,
+            retention_percent, retention_amount,
+            mobilization_advance_recovery,
+            material_recovery_steel, material_recovery_cement,
+            price_escalation, other_deductions,
+            tds_rate, tds_amount,
+            total_deductions, net_payable, status, created_by, remarks,
+            contractor_name, contractor_gstin, contractor_pan)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+         RETURNING *`,
+        [
+          project_id, bill_number, bill_date, work_description || null,
+          bill_period_from || null, bill_period_to || null,
+          gross_amount, parseFloat(gst_rate || 18), gst_amount, gross_with_gst,
+          retention_percent, retention_amount,
+          mobilization_advance_recovery || 0,
+          material_recovery_steel || 0, material_recovery_cement || 0,
+          price_escalation || 0, other_deductions || 0,
+          tds_rate || 2, tds_amount,
+          total_deductions, net_payable, billStatus, req.user.id, remarks,
+          contractor_name || 'Client', contractor_gstin || null, contractor_pan || null,
+        ]
+      );
+      const billId = header.rows[0].id;
+
+      for (const it of (items || [])) {
+        const itemCheck = await client.query(
+          `SELECT 1
+             FROM boq_items b
+             JOIN projects p ON b.project_id = p.id
+            WHERE b.id = $1 AND b.project_id = $2 AND p.company_id = $3
+            LIMIT 1`,
+          [it.boq_item_id, project_id, req.user.company_id]
+        );
+        if (!itemCheck.rowCount) {
+          throw new Error('Invalid BOQ item for this project');
+        }
+        const prevRes = await client.query(
+          `SELECT COALESCE(SUM(current_qty),0) as prev_qty FROM ra_bill_items rbi
+           JOIN ra_bills rb ON rbi.ra_bill_id = rb.id
+           WHERE rb.project_id = $1 AND rbi.boq_item_id = $2 AND rb.status IN ('certified','paid')`,
+          [project_id, it.boq_item_id]
+        );
+        const prevQty = parseFloat(prevRes.rows[0].prev_qty);
+        await client.query(
+          `INSERT INTO ra_bill_items
+             (ra_bill_id, boq_item_id, prev_certified_qty, current_qty, cumulative_qty, rate)
+           VALUES ($1,$2,$3,$4,$5,$6)`,
+          [billId, it.boq_item_id, prevQty, it.current_qty, prevQty + parseFloat(it.current_qty), it.rate]
+        );
+      }
+      return header.rows[0];
+    });
+
+    res.status(201).json({ data: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /ra-bills/:id
+router.get('/:id', async (req, res) => {
+  try {
+    const headerRes = await query(
+      `SELECT rb.*,
+              p.name as project_name, p.contract_value as total_contract_value,
+              u.name  as submitted_by_name,
+              v.name  as verified_by_name,
+              cert.name as certified_by_name
+       FROM ra_bills rb
+       JOIN projects p ON rb.project_id = p.id
+       LEFT JOIN users u    ON rb.created_by  = u.id
+       LEFT JOIN users v    ON rb.verified_by  = v.id
+       LEFT JOIN users cert ON rb.certified_by = cert.id
+       WHERE rb.id = $1 AND p.company_id = $2`,
+      [req.params.id, req.user.company_id]
+    );
+    if (!headerRes.rows.length) return res.status(404).json({ error: 'Bill not found' });
+
+    const itemRes = await query(
+      `SELECT rbi.*, b.chapter_no, b.chapter_name, b.item_no, b.sr_no,
+              b.description, b.unit, b.quantity as boq_qty
+       FROM ra_bill_items rbi
+       JOIN boq_items b ON rbi.boq_item_id = b.id
+       WHERE rbi.ra_bill_id = $1
+       ORDER BY b.chapter_no, b.item_no`,
+      [req.params.id]
+    );
+
+    res.json({ data: { ...headerRes.rows[0], items: itemRes.rows } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /ra-bills/:id/verify
+router.patch('/:id/verify', authorize('super_admin','admin','qs_engineer','project_manager'), async (req, res) => {
+  try {
+    const check = await query(
+      `SELECT rb.id FROM ra_bills rb JOIN projects p ON rb.project_id=p.id
+       WHERE rb.id=$1 AND p.company_id=$2 AND rb.status='submitted'`,
+      [req.params.id, req.user.company_id]
+    );
+    if (!check.rows.length) return res.status(400).json({ error: 'Bill not found or not in submitted status' });
+    const result = await query(
+      `UPDATE ra_bills SET status='verified', verified_by=$1, updated_at=NOW() WHERE id=$2 RETURNING *`,
+      [req.user.id, req.params.id]
+    );
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /ra-bills/:id/approve (certify)
+router.patch('/:id/approve', authorize('super_admin','admin','project_manager'), async (req, res) => {
+  try {
+    const check = await query(
+      `SELECT rb.id FROM ra_bills rb JOIN projects p ON rb.project_id=p.id
+       WHERE rb.id=$1 AND p.company_id=$2 AND rb.status='verified'`,
+      [req.params.id, req.user.company_id]
+    );
+    if (!check.rows.length) return res.status(400).json({ error: 'Bill not found or not in verified status' });
+    const result = await query(
+      `UPDATE ra_bills SET status='certified', certified_by=$1, certified_date=NOW(), updated_at=NOW() WHERE id=$2 RETURNING *`,
+      [req.user.id, req.params.id]
+    );
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /ra-bills/:id/reject
+router.patch('/:id/reject', authorize('super_admin','admin','qs_engineer','project_manager'), async (req, res) => {
+  try {
+    const { remarks } = req.body;
+    const check = await query(
+      `SELECT rb.id FROM ra_bills rb JOIN projects p ON rb.project_id=p.id
+       WHERE rb.id=$1 AND p.company_id=$2 AND rb.status IN ('submitted','verified')`,
+      [req.params.id, req.user.company_id]
+    );
+    if (!check.rows.length) return res.status(400).json({ error: 'Bill not found or not rejectable' });
+    const result = await query(
+      `UPDATE ra_bills SET status='rejected', remarks=COALESCE($1,remarks), updated_at=NOW() WHERE id=$2 RETURNING *`,
+      [remarks || null, req.params.id]
+    );
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /ra-bills/:id/pay — Finance marks certified bill as paid
+router.patch('/:id/pay', authorize('super_admin','admin','accountant'), async (req, res) => {
+  try {
+    const { payment_date, payment_mode, payment_ref, client_tds_amount, amount_received } = req.body;
+    if (!payment_date || !payment_mode || !payment_ref)
+      return res.status(400).json({ error: 'payment_date, payment_mode and payment_ref are required.' });
+
+    const check = await query(
+      `SELECT rb.id FROM ra_bills rb JOIN projects p ON rb.project_id=p.id
+       WHERE rb.id=$1 AND p.company_id=$2 AND rb.status='certified'`,
+      [req.params.id, req.user.company_id]
+    );
+    if (!check.rows.length) return res.status(400).json({ error: 'Bill not found or not in certified status.' });
+
+    const result = await query(
+      `UPDATE ra_bills
+         SET status='paid',
+             payment_date=$1, payment_mode=$2, payment_ref=$3,
+             client_tds_amount=$4, amount_received=$5,
+             updated_at=NOW()
+       WHERE id=$6 RETURNING *`,
+      [payment_date, payment_mode, payment_ref,
+       parseFloat(client_tds_amount || 0), parseFloat(amount_received || 0),
+       req.params.id]
+    );
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /ra-bills/:id (draft/rejected only)
+router.delete('/:id', authorize('super_admin','admin','qs_engineer'), async (req, res) => {
+  try {
+    const result = await query(
+      `DELETE FROM ra_bills rb USING projects p
+       WHERE rb.project_id=p.id AND rb.id=$1 AND p.company_id=$2 AND rb.status IN ('draft','rejected')
+       RETURNING rb.id`,
+      [req.params.id, req.user.company_id]
+    );
+    if (!result.rows.length) return res.status(400).json({ error: 'Bill not found or cannot be deleted' });
+    res.json({ message: 'Bill deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

@@ -1,0 +1,167 @@
+content: # TQS QS Certification — RA Bill Summary + Payment Certificate
+
+## Context
+
+The user's company handles **vendor bills AND contractor bills** through the TQS Invoice Tracker. In construction industry practice, most of these bills are **Running Account (RA) bills** — a contractor/vendor submits bills cumulatively (RA-1, RA-2, RA-3...) against a single PO or WO. Each RA bill must show:
+
+- Previous work done + previously certified amount
+- Current bill amount (this RA minus previous RAs)
+- Cumulative certified amount to date
+- Running deductions (retention, advance recovery, TDS, credit notes)
+
+After QS certification, a formal **Payment Certificate** is generated — a signed A4 document authorising the accounts team to release payment.
+
+**Currently missing in TQS:**
+- No RA sequence number or cumulative tracking (each bill treated as one-off)
+- No Payment Certificate generation (QS tab ends without a certificate)
+- No way to view history of previous RAs from the same vendor+PO
+
+**Note:** The existing `raBill.routes.js` module is for *client billing* (company → client, BOQ-based outbound invoices). It CANNOT be reused — it's the opposite direction and tied to BOQ items. This plan adds RA tracking to the existing TQS inbound bill workflow.
+
+---
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `backend/src/routes/tqs-bills.routes.js` | Add RA + PC columns, RA lookup endpoint, extend `/qs` PATCH, new `/payment-certificate` POST & GET |
+| `frontend/src/pages/tqs/TQSBillDetailPage.jsx` | Add RA summary table in QSTab + new Payment Certificate section + new PC print template |
+| `frontend/src/pages/tqs/TQSPaymentCertPrint.jsx` | **New file** — printable A4 Payment Certificate template |
+| `frontend/src/api/client.js` | Add `getRASummary`, `generatePaymentCert`, `signPaymentCert` methods to `tqsBillsAPI` |
+
+---
+
+## Backend Changes — `tqs-bills.routes.js`
+
+### 1. New columns via auto-migration (in `alterBills` array)
+```sql
+-- On tqs_bill_updates
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS ra_sequence INT;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS ra_bill_number TEXT;       -- "RA-2026-0001"
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS previous_certified_amount NUMERIC(14,2) DEFAULT 0;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS cumulative_certified_amount NUMERIC(14,2) DEFAULT 0;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS is_final_bill BOOLEAN DEFAULT FALSE;
+-- Payment Certificate
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_number TEXT UNIQUE;     -- "PC-2026-0001"
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_generated_at TIMESTAMPTZ;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_qs_sig_img TEXT;        -- base64 PNG
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_qs_signed_by UUID;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_qs_signed_at TIMESTAMPTZ;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_pm_sig_img TEXT;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_pm_signed_by UUID;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_pm_signed_at TIMESTAMPTZ;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_accts_sig_img TEXT;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_accts_signed_by UUID;
+ALTER TABLE tqs_bill_updates ADD COLUMN IF NOT EXISTS pc_accts_signed_at TIMESTAMPTZ;
+```
+
+### 2. New endpoint: `GET /tqs/bills/:id/ra-summary`
+Returns all previous TQS bills matched by `vendor_id + po_number` (or `po_id` if linked), ordered by `inv_date`. Response includes:
+- Array of previous RAs with: `sl_number`, `ra_bill_number`, `inv_date`, `qs_total`, `certified_net`, `paid_amount`, `payment_status`
+- `previous_certified_amount` = sum of all previous `certified_net`
+- `next_ra_sequence` = max(ra_sequence) + 1 (or 1 if none)
+- `suggested_ra_number` = `RA-${year}-${padded count for this vendor+PO}`
+
+### 3. Extend existing `PATCH /tqs/bills/:id/qs`
+When QS saves certification:
+- Auto-calculate `ra_sequence` and `ra_bill_number` if not set (from ra-summary logic)
+- Auto-calculate `previous_certified_amount` (sum of prior certified bills for vendor+PO)
+- Auto-calculate `cumulative_certified_amount = previous_certified_amount + certified_net`
+- Accept `is_final_bill` flag — if true, log history note "Marked as final bill"
+
+### 4. New endpoint: `POST /tqs/bills/:id/payment-certificate`
+- Validates bill has `certified_net > 0` and `workflow_status IN ('qs','accounts')`
+- Generates unique `pc_number` = `PC-${year}-${4-digit company sequence}`
+- Sets `pc_generated_at = NOW()`
+- Logs history: "Payment Certificate generated"
+- Returns full PC data (used by print template)
+
+### 5. New endpoint: `PATCH /tqs/bills/:id/payment-certificate/sign`
+- Body: `{ stage: 'qs'|'pm'|'accts', signature_img: 'data:image/png;base64,...' }`
+- Validates `pc_number` exists
+- Updates corresponding `pc_<stage>_sig_img`, `pc_<stage>_signed_by`, `pc_<stage>_signed_at` columns
+- Logs history
+
+### 6. Enrich `GET /tqs/bills/:id`
+Response already includes `bill_updates` — will now also include all PC + RA fields (no code change, they're in the same row).
+
+---
+
+## Frontend Changes
+
+### 1. `TQSBillDetailPage.jsx` — QSTab enhancements
+
+**Add above existing QS form inputs:**
+- **RA Bill Summary Panel** (auto-fetched via new query `['tqs-ra-summary', billId]` using `tqsBillsAPI.getRASummary(id)`):
+  - Header row: "Running Account Summary · Vendor X · PO Y"
+  - Compact table showing all previous RAs: RA#, SL#, Inv Date, Gross, Certified Net, Paid, Status
+  - Footer row: "Previous Certified: ₹X.XX · This RA will be: RA-${next_seq}"
+- **Auto-fill fields** when QSTab mounts and bill has no RA yet:
+  - `ra_bill_number` (editable, pre-filled with `suggested_ra_number`)
+  - `ra_sequence` (hidden, sent on save)
+  - `is_final_bill` checkbox: "Mark as final bill (triggers retention release flag)"
+
+**Send along with existing QS save:** `ra_bill_number`, `ra_sequence`, `is_final_bill`
+
+### 2. `TQSBillDetailPage.jsx` — New Payment Certificate Section
+
+**Location:** Below QSTab, visible when `workflow_status IN ('qs','accounts','paid')`.
+
+**When no PC exists yet:**
+- Amber card: "Payment Certificate not generated"
+- Button: "Generate Payment Certificate" → calls `generatePaymentCert(id)` → refreshes data
+
+**When PC exists:**
+- Green card showing PC number + generation date
+- 3 signature boxes side-by-side (QS / Project Manager / Accounts):
+  - Reuses existing `SignaturePadModal` from `frontend/src/components/common/SignaturePadModal.jsx`
+  - Clicking "Sign Here" → opens modal → saves base64 → shows image
+  - Already-signed stages show the PNG with name + date below
+- **"Print Payment Certificate" button** → opens new window with `TQSPaymentCertPrint` rendered
+
+### 3. New file: `TQSPaymentCertPrint.jsx`
+
+A4 portrait print template (similar pattern to existing `RABillPrintTemplate.jsx` for reference):
+- Header: Company logo + name + address + "PAYMENT CERTIFICATE" title
+- PC number + date (top right)
+- Project + Vendor details block
+- PO/WO reference + invoice reference block
+- **RA Summary table** showing all previous RAs + current (highlighted)
+- **This Bill Breakdown:**
+  - Gross amount, Tax, Total
+  - Deductions table (TDS, retention, advance recovery, credit note, other)
+  - Net certified for payment
+- **Cumulative box:** Previous paid / This certificate / Total cumulative
+- **3 signature boxes** at bottom — QS / PM / Accounts with signature image + name + date
+- `@page { size: A4 portrait; margin: 15mm; }` CSS rules for clean print
+
+### 4. `client.js` — new API methods
+```js
+// Add to tqsBillsAPI object
+getRASummary:       (id)         => api.get(`/tqs/bills/${id}/ra-summary`),
+generatePaymentCert:(id)         => api.post(`/tqs/bills/${id}/payment-certificate`),
+signPaymentCert:    (id, data)   => api.patch(`/tqs/bills/${id}/payment-certificate/sign`, data),
+```
+
+---
+
+## Reuse Existing Code
+
+- **`SignaturePadModal`** (`frontend/src/components/common/SignaturePadModal.jsx`) — already used in MR approvals & Rate Approval. Same props (`title`, `subtitle`, `onSave`, `onClose`). No changes needed.
+- **React Query invalidation pattern** — after mutations, invalidate `['tqs-bill', id]` and `['tqs-ra-summary', id]`.
+- **Audit history** — `logHistory()` helper in `tqs-bills.routes.js` already handles audit trail; just call it from new endpoints.
+- **PC number generation** — mirror existing `nextSlNumber()` helper pattern in `tqs-bills.routes.js`.
+
+---
+
+## Verification
+
+1. **Start backend** (`npm run dev` in `/backend`) — check console logs for "[TQS] Schema migration OK" confirming new columns added.
+2. **Create first RA bill** — TQS → New Bill → link to PO → save. Open detail → QS tab. Should see empty RA summary + suggested `RA-2026-0001`.
+3. **Certify it** — fill QS amounts, save. Verify `ra_sequence=1`, `ra_bill_number=RA-2026-0001`, `cumulative_certified_amount=certified_net`.
+4. **Create 2nd bill** for same vendor + same PO — open QS tab. RA summary should show RA-0001 row; `previous_certified_amount` should be correct; `suggested_ra_number=RA-2026-0002`.
+5. **Generate Payment Certificate** — click "Generate" button → toast success → 3 unsigned signature boxes appear.
+6. **Sign each box** — QS, PM, Accounts sign via canvas modal. Verify images persist on refresh.
+7. **Print certificate** — click Print → new window with A4 PC template showing all signatures, RA table, cumulative breakdown.
+8. **Mark as final bill** — on the 2nd bill, tick "Final bill" checkbox, save. Verify history log entry.
+9. **DB spot-check** — `SELECT pc_number, ra_sequence, cumulative_certified_amount FROM tqs_bill_updates WHERE bill_id = ?` returns expected values.

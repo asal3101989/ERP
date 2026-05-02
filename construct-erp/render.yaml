@@ -1,0 +1,50 @@
+services:
+  # ─── Backend API ────────────────────────────────────────
+  - type: web
+    name: constructerp-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && node src/config/migrate.js
+    startCommand: node src/server.js
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        sync: false          # paste your Neon connection string in Render dashboard
+      - key: JWT_SECRET
+        generateValue: true  # Render auto-generates a secure random value
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: FRONTEND_URL
+        sync: false          # paste your Render static site URL after deploying frontend
+      - key: UPLOAD_PROVIDER
+        value: local
+      - key: DEFAULT_GST_RATE
+        value: 18
+      - key: TDS_194C_COMPANY
+        value: 2
+      - key: TDS_194C_INDIVIDUAL
+        value: 1
+      - key: LOG_DIR
+        value: /tmp/logs     # Render has no persistent disk on free plan; use /tmp
+    healthCheckPath: /health
+
+  # ─── Frontend Static Site ───────────────────────────────
+  - type: web
+    name: constructerp-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: VITE_API_URL
+        sync: false          # paste the backend service URL, e.g. https://constructerp-api.onrender.com/api/v1
+    routes:
+      # Send all non-asset requests to index.html for React Router SPA routing
+      - type: rewrite
+        source: /*
+        destination: /index.html

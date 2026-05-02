@@ -1,0 +1,27 @@
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+
+# Dev tools
+.git
+.gitignore
+coverage
+.nyc_output
+
+# Docs
+*.md
+README*
+
+# OS files
+.DS_Store
+Thumbs.db

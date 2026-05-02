@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delivery & GRN - BuildPro</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root {
+  --bg: #f4f7f9;
+  --surface: #ffffff;
+  --surface2: #f8fafc;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-2: #475569;
+  --text-3: #64748b;
+  --accent: #C17B3A;
+  --accent-bg: rgba(193, 123, 58, 0.08);
+  --accent-border: rgba(193, 123, 58, 0.15);
+  --teal: #0d7c6e; --teal-bg: rgba(13, 124, 110, 0.1); --teal-border: rgba(13, 124, 110, 0.2);
+  --green: #10b981; --green-bg: rgba(16, 185, 129, 0.08); --green-border: rgba(16, 185, 129, 0.15);
+  --amber: #f59e0b; --amber-bg: rgba(245, 158, 11, 0.08); --amber-border: rgba(245, 158, 11, 0.15);
+  --red: #ef4444; --red-bg: rgba(239, 68, 68, 0.08); --red-border: rgba(239, 68, 68, 0.15);
+  --radius: 12px; --shadow: 0 2px 8px rgba(0,0,0,0.06)
+}
+html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+.layout { display: flex; height: 100%; }
+.sidebar {
+  width: 240px; min-width: 240px; background: #0B193A; border-right: 1px solid rgba(255,255,255,0.1);
+  display: flex; flex-direction: column; color: #fff;
+}
+.sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.logo-tag { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.4); letter-spacing: .15em; text-transform: uppercase; }
+.logo-name { font-size: 20px; font-weight: 700; margin-top: 4px; color: #fff; }
+.logo-dot { color: var(--accent); }
+.sidebar-nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+.nav-group-label { font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,0.3); padding: 12px 10px 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; color: rgba(255,255,255,0.7); margin-bottom: 3px; cursor: pointer; text-decoration: none; transition: 0.2s; }
+.nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.nav-item.active { background: rgba(255,255,255,0.1); color: #fff; font-weight: 600; }
+.nav-badge { margin-left:auto; font-size:10px; font-weight:600; border-radius:8px; padding:1px 7px; font-family:'IBM Plex Mono',monospace; background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.1); }
+.sidebar-footer { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+.user-row { display: flex; align-items: center; gap: 12px; }
+.uav { width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
+.uname { font-size: 13px; font-weight: 600; color: #fff; }
+.urole { font-size: 10px; color: rgba(255,255,255,0.5); }
+.proj-pill { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 6px 12px; font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 12px; }
+.pdot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.main { flex: 1; overflow-y: auto; }.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:5}.bc,.bc-cur{font-size:12px}.bc,.bc-sep{color:var(--text3)}.bc-cur{font-weight:600;color:var(--text)}.btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer}.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff}.content{padding:28px}.page-title{font-size:21px;font-weight:800}.page-sub{font-size:12px;color:var(--text3);margin-top:3px}.stats-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:24px 0}.card,.panel,.history,.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}.card{padding:14px 16px}.stat-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}.stat-value{font-size:24px;font-weight:800;margin-top:4px;font-family:'IBM Plex Mono',monospace}.stat-sub{font-size:10px;color:var(--text3);margin-top:2px}.two-col{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start}.section-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:12px}.po-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden}.po-card.selected{border-color:var(--teal);box-shadow:0 0 0 3px var(--tealBg)}.pc-main{padding:14px 16px;display:flex;justify-content:space-between;gap:12px}.pc-po{font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace}.pc-mat{font-size:13px;font-weight:700}.pc-vendor{font-size:11px;color:var(--text2);margin-top:2px}.pc-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--text3)}.pc-qty{text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700}.pc-actions{padding:10px 16px;border-top:1px solid var(--border);background:var(--surface2);display:flex;gap:8px}.action-btn{padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-size:11px}.action-btn.primary{background:var(--tealBg);border-color:var(--tealBorder);color:var(--teal)}.action-btn.reject{background:var(--redBg);border-color:var(--redBorder);color:var(--red)}.panel-header{padding:16px 18px;border-bottom:1px solid var(--border);background:var(--teal);color:#fff;border-radius:12px 12px 0 0}.panel-title{font-size:13px;font-weight:700}.panel-sub{font-size:11px;opacity:.78;margin-top:2px}.panel-body{padding:18px}.empty{padding:38px 16px;text-align:center;color:var(--text3)}.form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}.form-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em}.form-input,.form-select,.form-textarea{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:'Outfit',sans-serif;background:var(--surface)}.form-textarea{min-height:84px;resize:vertical}.qty-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px}.qty-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0}.qty-big{font-size:22px;font-weight:800;font-family:'IBM Plex Mono',monospace;width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;margin-top:8px}.qty-diff{margin-top:8px;font-size:11px;font-weight:700;padding:5px 10px;border-radius:6px;display:none}.qty-diff.show{display:block}.full{background:var(--greenBg);border:1px solid var(--greenBorder);color:var(--green)}.partial{background:var(--amberBg);border:1px solid var(--amberBorder);color:var(--amber)}.rejected{background:var(--redBg);border:1px solid var(--redBorder);color:var(--red)}.history-item{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px}.history-item:last-child{border-bottom:none}.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700}.badge-full{background:var(--greenBg);border:1px solid var(--greenBorder);color:var(--green)}.badge-partial{background:var(--amberBg);border:1px solid var(--amberBorder);color:var(--amber)}.overlay{position:fixed;inset:0;background:rgba(30,28,24,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:100}.overlay.open{display:flex}.modal{width:100%;max-width:420px}.modal-header,.modal-footer{padding:18px 20px}.modal-header{border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:12px}.modal-title{font-size:15px;font-weight:700}.modal-sub{font-size:11px;color:var(--text3);margin-top:2px}.modal-body{padding:20px}.modal-close{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer}.toast{position:fixed;right:24px;bottom:24px;transform:translateY(80px);opacity:0;transition:all .25s ease;pointer-events:none;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;color:#fff;background:#1e1c18;z-index:120}.toast.show{transform:translateY(0);opacity:1}.toast-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;background:rgba(255,255,255,.16)}@media(max-width:900px){.sidebar{display:none}.main{margin-left:0}.content{padding:20px}.topbar{padding:13px 20px}.stats-row,.two-col{grid-template-columns:1fr 1fr}}@media(max-width:640px){.stats-row,.two-col{grid-template-columns:1fr}}
+/* LOGIN-THEME-SYNC */
+
+  .sidebar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .sidebar-logo, .sidebar-nav, .sidebar-footer { position: relative; z-index: 1; }
+
+  .topbar {
+    background: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+  }
+
+  .card, .chart-card, .list-card, .form-card, .section-card, .detail-card,
+  .vendor-card, .stat-card, .rpt-stat, .rpt-wrap, .modal-box, .modal-content,
+  .settings-panel, .sn-panel, .workflow-card, .timeline-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+  }
+
+  .form-input, .form-select, .filter-input, input[type="text"],
+  input[type="number"], input[type="date"], input[type="email"],
+  input[type="password"], select, textarea {
+    background: #f8fafc !important;
+    border: 1.5px solid #e2e8f0 !important;
+    color: #0f172a !important;
+    border-radius: 8px !important;
+    font-family: 'Outfit', sans-serif !important;
+  }
+  .form-input:focus, .form-select:focus, .filter-input:focus,
+  input:focus, select:focus, textarea:focus {
+    border-color: #C17B3A !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(193, 123, 58, 0.1) !important;
+    outline: none !important;
+  }
+
+  .btn-primary, button.btn-primary {
+    background: #C17B3A !important;
+    border-color: #C17B3A !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(193, 123, 58, 0.25) !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+  }
+  .btn-primary:hover, button.btn-primary:hover {
+    background: #a86629 !important;
+    border-color: #a86629 !important;
+  }
+  .btn { border-radius: 8px !important; }
+
+  .nav-item.active {
+    background: rgba(193, 123, 58, 0.15) !important;
+    color: #C17B3A !important;
+    border-left: 3px solid #C17B3A !important;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.06) !important; }
+
+  .rpt-table th, table th {
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+  }
+  .rpt-table td, table td { border-bottom: 1px solid #f1f5f9 !important; color: #0f172a !important; }
+  .rpt-table tr:hover td { background: #f8fafc !important; }
+
+  .badge { border-radius: 20px !important; font-weight: 600 !important; }
+
+  .kpi-label, .rpt-stat-label { color: #64748b !important; font-weight: 700 !important; }
+  .kpi-value, .rpt-stat-value { color: #0f172a !important; }
+  .kpi-sub { color: #94a3b8 !important; }
+
+  .page-title { color: #0f172a !important; font-weight: 800 !important; }
+  .page-sub, .bc, .bc-sep { color: #64748b !important; }
+  .bc-cur { color: #0f172a !important; font-weight: 600 !important; }
+
+/* END LOGIN-THEME-SYNC */
+/* LOGIN-THEME-EXTRA */
+
+  /* Sidebar logo dot and brand */
+  .logo-dot, .logo-dot { color: #C17B3A !important; }
+  .sidebar-logo { border-bottom: 1px solid rgba(255,255,255,0.08) !important; }
+
+  /* Active tab underline */
+  .tab-btn.active { color: #C17B3A !important; border-bottom-color: #C17B3A !important; }
+  .tab-btn:hover { color: #0f172a !important; }
+
+  /* Sidebar badge */
+  .nav-badge { background: rgba(193,123,58,0.15) !important; color: #C17B3A !important; }
+
+  /* Status tab bar (indents) */
+  .status-tab.active { color: #C17B3A !important; border-bottom-color: #C17B3A !important; }
+
+  /* Modal overlay */
+  .modal-overlay, .overlay { background: rgba(15,23,42,0.45) !important; }
+  .modal-box, .modal-content { border-radius: 16px !important; box-shadow: 0 16px 48px rgba(0,0,0,0.12) !important; }
+
+  /* Priority / status badges match login feel */
+  .priority-high, .b-high { background: #fff3e8 !important; color: #b45309 !important; border: 1px solid #fde68a !important; }
+  .priority-medium, .b-medium { background: #fefce8 !important; color: #a16207 !important; }
+  .priority-low, .b-low { background: #f0fdf4 !important; color: #15803d !important; }
+
+  /* Gen bar (reports) — match card style */
+  .gen-bar { background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important; }
+
+  /* Report doc header */
+  .rpt-doc-header { background: #ffffff !important; border: 1px solid #e2e8f0 !important; }
+  .rpt-doc-logo { color: #0f172a !important; }
+  .rpt-doc-logo span { color: #C17B3A !important; }
+
+  /* Sidebar footer user area */
+  .sidebar-footer { border-top: 1px solid rgba(255,255,255,0.08) !important; }
+  .uname { color: #ffffff !important; }
+  .urole { color: #94a3b8 !important; }
+  .proj-pill { background: rgba(0,0,0,0.2) !important; border-color: rgba(255,255,255,0.1) !important; }
+  .pdot { background: #22c55e !important; }
+
+  /* Page content area */
+  .content { background: transparent !important; }
+  .main { background: #f4f7f9 !important; }
+
+  /* Settings nav */
+  .sn-item.active { background: rgba(193,123,58,0.08) !important; color: #C17B3A !important; border-color: rgba(193,123,58,0.2) !important; }
+  .sn-item:hover { background: #f8fafc !important; }
+
+  /* Toggle active */
+  .toggle-thumb { background: #ffffff !important; }
+  .toggle.on { background: #C17B3A !important; }
+
+/* END */
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><div class="logo-tag">Procurement</div><div class="logo-name">Build<span class="logo-dot">Pro</span></div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-group-label">Main</div>
+      <a class="nav-item" href="index.html">Dashboard</a>
+      <a class="nav-item" href="material-indent.html">Material Indent</a>
+      <a class="nav-item" href="approval-workflow.html">Approval Workflow</a>
+      <a class="nav-item" href="quotations.html">Quotations</a>
+      <a class="nav-item" href="purchase-orders.html">Purchase Orders</a>
+      <a class="nav-item active" href="delivery-grn.html">Delivery &amp; GRN <span class="nav-badge" id="nav-count">0</span></a>
+      <a class="nav-item" href="invoice-payment.html">Invoice &amp; Payment</a>
+      <div class="nav-group-label">Manage</div>
+      <a class="nav-item" href="reports-analytics.html">Reports</a>
+      <a class="nav-item" href="settings.html">Settings</a>
+      <div class="nav-group-label" style="margin-top:12px;opacity:0.5">Suite</div>
+      <a class="nav-item" href="tqs.html" target="_blank" style="color:var(--accent);font-weight:600">⭐ TQS Bill Tracker</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-row"><div class="uav" id="user-avatar">--</div><div><div class="uname" id="user-name">Loading...</div><div class="urole" id="user-role">---</div></div></div>
+      <div class="proj-pill"><div class="pdot"></div><span id="project-name">Active Project</span></div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div><span class="bc">BuildPro</span><span class="bc-sep">›</span><span class="bc-cur">Delivery &amp; GRN</span></div>
+      <button class="btn btn-teal" type="button" onclick="submitGrn()">Create GRN</button>
+    </div>
+    <div class="content">
+      <div>
+        <div class="page-title">Delivery &amp; goods receipt</div>
+        <div class="page-sub">Track vendor deliveries against live purchase orders and create GRNs for partial or full receipt.</div>
+      </div>
+      <div class="stats-row">
+        <div class="card"><div class="stat-label">Open deliveries</div><div class="stat-value" id="s-open">0</div><div class="stat-sub">Sent or partially received POs</div></div>
+        <div class="card"><div class="stat-label">GRNs created</div><div class="stat-value" id="s-grn">0</div><div class="stat-sub">Recorded receipts</div></div>
+        <div class="card"><div class="stat-label">Full receipts</div><div class="stat-value" id="s-full">0</div><div class="stat-sub">Completed deliveries</div></div>
+        <div class="card"><div class="stat-label">Partial receipts</div><div class="stat-value" id="s-partial">0</div><div class="stat-sub">Awaiting balance quantity</div></div>
+        <div class="card"><div class="stat-label">Received qty</div><div class="stat-value" id="s-qty">0</div><div class="stat-sub">Across all GRNs</div></div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="section-label">POs waiting for receipt</div>
+          <div id="delivery-list"></div>
+          <div class="history" style="margin-top:20px">
+            <div class="section-label">Recent GRNs</div>
+            <div id="grn-history"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">GRN entry</div>
+            <div class="panel-sub">Capture received quantity and notes for the selected PO.</div>
+          </div>
+          <div class="panel-body" id="grn-panel-body">
+            <div class="empty">Select a PO from the left to record a GRN.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="overlay" id="grn-modal-overlay" onclick="if(event.target===this)closeGrnModal()"><div class="modal"><div class="modal-header" style="background:var(--teal);color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:15px;font-weight:700">Record GRN</div><div id="grn-modal-sub" style="font-size:11px;opacity:.8;margin-top:2px">Enter received quantity</div></div><button onclick="closeGrnModal()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:14px">&#x2715;</button></div><div style="padding:18px"><div style="background:var(--tealBg);border:1px solid var(--tealBorder);border-radius:8px;padding:10px 14px;margin-bottom:14px"><div id="gm-po-id" style="font-family:monospace;font-size:11px;color:var(--teal);font-weight:600"></div><div id="gm-material" style="font-weight:700;margin-top:2px"></div><div id="gm-meta" style="font-size:11px;color:var(--text2);margin-top:2px"></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:14px"><div><div style="color:var(--text3)">Ordered</div><div id="gm-ordered" style="font-weight:700;font-family:monospace"></div></div><div><div style="color:var(--text3)">Received</div><div id="gm-received" style="font-weight:700;font-family:monospace"></div></div><div><div style="color:var(--text3)">Balance</div><div id="gm-balance" style="font-weight:700;font-family:monospace;color:var(--teal)"></div></div></div><div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);display:block;margin-bottom:6px">Received Qty <span style="color:var(--red)">*</span></label><input id="gm-qty" type="number" min="0" step="0.01" oninput="gmUpdateDiff()" style="width:100%;padding:12px;border:2px solid var(--tealBorder);border-radius:8px;font-size:20px;font-weight:700;font-family:monospace;text-align:center;color:var(--teal);background:var(--tealBg)"></div><div id="gm-diff" style="font-size:12px;padding:8px 12px;border-radius:6px;margin-bottom:12px;display:none"></div><div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);display:block;margin-bottom:6px">Quality Status</label><select id="gm-quality" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px"><option>Accepted</option><option>Accepted with remarks</option><option>Rejected</option></select></div><div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);display:block;margin-bottom:6px">Notes / Challan No.</label><textarea id="gm-notes" placeholder="Challan no., damage notes, unloading remarks..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;min-height:64px;resize:vertical"></textarea></div></div><div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px"><button onclick="closeGrnModal()" style="padding:9px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer">Cancel</button><button onclick="submitGrnModal()" style="padding:9px 18px;border-radius:8px;border:none;background:var(--teal);color:#fff;font-weight:600;cursor:pointer">&#10003; Create GRN</button></div></div></div>
+<div class="overlay" id="detail-overlay" onclick="handleOverlay(event)"><div class="modal"><div class="modal-header"><div><div class="modal-title">GRN details</div><div class="modal-sub" id="detail-sub">Receipt information</div></div><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="detail-body"></div><div class="modal-footer"><button class="btn" id="print-grn-btn" style="display:none;margin-right:auto" type="button" onclick="printGrn()">&#9113; Print / PDF</button><button class="btn" id="delete-grn-btn" style="display:none;color:var(--red);border-color:var(--redBorder)" type="button" onclick="deleteGrn()">Delete GRN</button><button class="btn" type="button" onclick="closeDetail()">Close</button></div></div></div><div class="toast" id="toast"><div class="toast-icon" id="toast-icon">OK</div><span id="toast-text">Saved</span></div>
+<script src="auth.js"></script>
+<script>
+const session=requireAuth('login.html');const API=`${window.location.origin}/api`;let pos=[];let grns=[];let selectedPoId='';const esc=(v)=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');const byId=(id)=>document.getElementById(id);const fmtDate=(v)=>{const d=new Date(v);return Number.isNaN(d.getTime())?esc(v):d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});};
+async function fetchJson(url,options={}){const response=await fetch(url,{headers:authHeaders(),...options});const payload=await response.json().catch(()=>({}));if(response.status===401){handleUnauthorized();return null;}if(!response.ok||!payload.success)throw new Error(payload.error||'Request failed');return payload.data;}
+function syncUserInfo() {
+  const session = requireAuth('login.html');
+  if (!session) return;
+  const av = document.getElementById('user-avatar');
+  const nm = document.getElementById('user-name');
+  const rl = document.getElementById('user-role');
+  const pr = document.getElementById('project-name');
+  if (av) av.textContent = session.initials || 'BP';
+  if (nm) nm.textContent = session.name || 'BuildPro User';
+  if (rl) rl.textContent = (session.role || 'Procurement').replace(/_/g, ' ');
+  if (pr) pr.textContent = session.project || 'No project selected';
+}
+syncUserInfo();
+function openDeliveries(){return pos.filter((row)=>['Sent','Partially Received'].includes(row.status));}
+function currentPo(){return openDeliveries().find((row)=>row.id===selectedPoId)||openDeliveries()[0]||null;}
+function grnsForPo(poId){return grns.filter((row)=>row.poId===poId);}
+function receivedSoFar(poId){return grnsForPo(poId).reduce((sum,row)=>sum+Number(row.receivedQty||0),0);}
+function renderStats(){const open=openDeliveries();byId('nav-count').textContent=String(open.length);byId('s-open').textContent=String(open.length);byId('s-grn').textContent=String(grns.length);byId('s-full').textContent=String(grns.filter((row)=>row.status==='Received').length);byId('s-partial').textContent=String(grns.filter((row)=>row.status==='Partially Received').length);byId('s-qty').textContent=String(grns.reduce((sum,row)=>sum+Number(row.receivedQty||0),0));}
+function renderDeliveryList(){const rows=openDeliveries();const shell=byId('delivery-list');if(!rows.length){shell.innerHTML='<div class="empty">No POs are waiting for receipt. Mark a purchase order as sent first.</div>';return;}if(!rows.some((row)=>row.id===selectedPoId))selectedPoId=rows[0].id;shell.innerHTML=rows.map((row)=>{const received=receivedSoFar(row.id);const balance=Math.max(Number(row.qty||0)-received,0);return `<div class="po-card ${row.id===selectedPoId?'selected':''}"><div class="pc-main" onclick="selectPo('${esc(row.id)}')"><div><div class="pc-po">${esc(row.id)}</div><div class="pc-mat">${esc(row.material)}</div><div class="pc-vendor">${esc(row.vendorName)}</div><div class="pc-meta"><div>Status: ${esc(row.status)}</div><div>Ordered: ${esc(row.qty)} ${esc(row.unit)}</div><div>Received: ${received} ${esc(row.unit)}</div></div></div><div class="pc-qty">${balance}<div style="font-size:10px;color:var(--text3)">balance</div></div></div><div class="pc-actions"><button class="action-btn primary" type="button" onclick="event.stopPropagation();openGrnModal('${esc(row.id)}')">Record GRN</button><button class="action-btn" type="button" onclick="event.stopPropagation();openPoDetail('${esc(row.id)}')">View</button></div></div>`;}).join('');renderPanel();}
+function renderPanel(){const row=currentPo();const shell=byId('grn-panel-body');if(!row){shell.innerHTML='<div class="empty">Select a PO from the left to record a GRN.</div>';return;}const received=receivedSoFar(row.id);const balance=Math.max(Number(row.qty||0)-received,0);shell.innerHTML=`<div style="background:var(--tealBg);border:1px solid var(--tealBorder);border-radius:8px;padding:10px 12px;margin-bottom:16px"><div style="font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--teal)">${esc(row.id)}</div><div style="font-weight:700;margin-top:2px">${esc(row.material)}</div><div style="color:var(--text2);font-size:11px;margin-top:1px">${esc(row.vendorName)}</div></div><div class="qty-box"><div class="qty-row"><span>Ordered</span><strong>${row.qty} ${esc(row.unit)}</strong></div><div class="qty-row"><span>Already received</span><strong>${received} ${esc(row.unit)}</strong></div><div class="qty-row"><span>Balance</span><strong>${balance} ${esc(row.unit)}</strong></div><input class="qty-big" id="received-qty" type="number" min="0" max="${balance}" step="0.01" value="${balance}"><div class="qty-diff" id="qty-diff"></div></div><div class="form-group"><label class="form-label" for="quality-status">Quality status</label><select class="form-select" id="quality-status"><option>Accepted</option><option>Accepted with remarks</option><option>Rejected</option></select></div><div class="form-group"><label class="form-label" for="grn-notes">Notes</label><textarea class="form-textarea" id="grn-notes" placeholder="Challan no, damage notes, unloading remarks..."></textarea></div>`;updateQtyDiff();}
+function updateQtyDiff(){const row=currentPo();if(!row)return;const received=receivedSoFar(row.id);const ordered=Number(row.qty||0);const next=Number(byId('received-qty')?.value||0);const total=received+next;const diff=ordered-total;const el=byId('qty-diff');if(!el)return;if(diff===0){el.className='qty-diff show full';el.textContent='This GRN will complete the PO quantity.';}else if(diff>0){el.className='qty-diff show partial';el.textContent=`${diff} ${row.unit} will remain pending after this receipt.`;}else{el.className='qty-diff show rejected';el.textContent='Received quantity exceeds the ordered quantity.';}}
+function renderHistory(){const shell=byId('grn-history');if(!grns.length){shell.innerHTML='<div class="empty">No GRNs created yet.</div>';return;}const rows=[...grns].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);shell.innerHTML=rows.map((row)=>`<div class="history-item" onclick="openGrnDetail('${esc(row.id)}')"><div><div><strong>${esc(row.id)}</strong> &mdash; ${esc(row.material)}</div><div style="color:var(--text2)">${esc(row.vendorName)} &mdash; ${row.receivedQty} ${esc(row.unit)}</div></div><div style="display:flex;gap:12px;align-items:center"><div style="text-align:right">${row.status==='Received'?'<span class="badge badge-full">Full</span>':'<span class="badge badge-partial">Partial</span>'}<div style="font-size:10px;color:var(--text3);margin-top:4px">${fmtDate(row.created_at)}</div></div><button class="action-btn" type="button" onclick="event.stopPropagation();currentGrnId='${esc(row.id)}';printGrn()">Print</button></div></div>`).join('');}
+function selectPo(id){selectedPoId=id;renderDeliveryList();}
+async function submitGrn(){const row=currentPo();if(!row){showToast('Select a PO first.','red');return;}const qty=Number(byId('received-qty').value||0);const received=receivedSoFar(row.id);const ordered=Number(row.qty||0);if(qty<=0){showToast('Enter received quantity.','red');return;}if(received+qty>ordered){showToast('Received quantity exceeds ordered quantity.','red');return;}const payload={poId:row.id,vendorName:row.vendorName,material:row.material,receivedQty:qty,unit:row.unit,qualityStatus:byId('quality-status').value,notes:byId('grn-notes').value.trim()};try{await fetchJson(`${API}/grn`,{method:'POST',body:JSON.stringify(payload)});await loadData();showToast('GRN created successfully.','green');}catch(error){showToast(error.message,'red');}}
+function openPoDetail(id){const row=pos.find((item)=>item.id===id);if(!row)return;currentGrnId='';const pb=byId('print-grn-btn');if(pb)pb.style.display='none';const dgb=byId('delete-grn-btn');if(dgb)dgb.style.display='none';byId('detail-sub').textContent=`${row.id} ${row.vendorName}`;byId('detail-body').innerHTML=`<div class="history-item"><div>Material</div><div>${esc(row.material)}</div></div><div class="history-item"><div>Quantity</div><div>${row.qty} ${esc(row.unit)}</div></div><div class="history-item"><div>Status</div><div>${esc(row.status)}</div></div><div class="history-item"><div>Created</div><div>${fmtDate(row.created_at)}</div></div>`;byId('detail-overlay').classList.add('open');}
+let currentGrnId='';function openGrnDetail(id){const row=grns.find((item)=>item.id===id);if(!row)return;currentGrnId=id;const pb=byId('print-grn-btn');if(pb)pb.style.display='';const dgb=byId('delete-grn-btn');if(dgb)dgb.style.display=session&&session.role==='ADMIN'?'':'none';byId('detail-sub').textContent=`${row.id} ${row.vendorName}`;byId('detail-body').innerHTML=`<div class="history-item"><div>PO</div><div>${esc(row.poId)}</div></div><div class="history-item"><div>Material</div><div>${esc(row.material)}</div></div><div class="history-item"><div>Received</div><div>${row.receivedQty} ${esc(row.unit)}</div></div><div class="history-item"><div>Quality</div><div>${esc(row.qualityStatus)}</div></div><div class="history-item"><div>Status</div><div>${esc(row.status)}</div></div><div class="history-item"><div>Notes</div><div>${esc(row.notes||'-')}</div></div>`;const cert=qsCerts.find(q=>q.grnId===row.id);if(cert){byId('detail-body').innerHTML+=`<div class="history-item"><div><div><strong>QS Certification</strong></div><div style="color:var(--text2)">${esc(cert.id)} \u00b7 ${esc(cert.status)}</div></div><div><span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:${cert.status==='Certified'?'var(--greenBg)':'var(--amberBg)'};border:1px solid ${cert.status==='Certified'?'var(--greenBorder)':'var(--amberBorder)'};color:${cert.status==='Certified'?'var(--green)':'var(--amber)'}">${esc(cert.status)}</span><div style="font-size:10px;color:var(--text3);margin-top:4px">${fmtDate(cert.created_at)}</div></div></div>`;}byId('detail-overlay').classList.add('open');}
+function closeDetail(){byId('detail-overlay').classList.remove('open');}
+async function deleteGrn(){if(!currentGrnId)return;if(!confirm(`Delete GRN ${currentGrnId}?\n\nThis cannot be undone.`))return;try{await fetchJson(`${API}/grn/${encodeURIComponent(currentGrnId)}`,{method:'DELETE'});closeDetail();await loadData();showToast(`GRN ${currentGrnId} deleted.`,'red');}catch(err){showToast(err.message||'Failed to delete GRN','red');}}
+function handleOverlay(event){if(event.target===byId('detail-overlay'))closeDetail();}
+function showToast(message,type='green'){const toast=byId('toast');const icon=byId('toast-icon');const config={green:{bg:'var(--green)',icon:'OK'},red:{bg:'var(--red)',icon:'X'}}[type]||{bg:'var(--green)',icon:'OK'};toast.style.background=config.bg;icon.textContent=config.icon;byId('toast-text').textContent=message;toast.classList.add('show');clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>toast.classList.remove('show'),3000);}
+function openGrnModal(poId){const row=pos.find(r=>r.id===poId);if(!row)return;selectedPoId=poId;const received=receivedSoFar(poId);const balance=Math.max(Number(row.qty||0)-received,0);byId('grn-modal-sub').textContent=`${row.id} — ${row.vendorName}`;byId('gm-po-id').textContent=row.id;byId('gm-material').textContent=row.material;byId('gm-meta').textContent=row.vendorName;byId('gm-ordered').textContent=`${row.qty} ${row.unit}`;byId('gm-received').textContent=`${received} ${row.unit}`;byId('gm-balance').textContent=`${balance} ${row.unit}`;byId('gm-qty').value=balance;byId('gm-qty').max=balance;byId('gm-quality').value='Accepted';byId('gm-notes').value='';byId('gm-diff').style.display='none';byId('grn-modal-overlay').classList.add('open');gmUpdateDiff();}
+function closeGrnModal(){byId('grn-modal-overlay').classList.remove('open');}
+function gmUpdateDiff(){const row=pos.find(r=>r.id===selectedPoId);if(!row)return;const received=receivedSoFar(row.id);const ordered=Number(row.qty||0);const next=Number(byId('gm-qty').value||0);const total=received+next;const diff=ordered-total;const el=byId('gm-diff');el.style.display='';if(diff===0){el.style.background='var(--greenBg)';el.style.color='var(--green)';el.textContent='✓ This GRN will complete the full PO quantity.';}else if(diff>0){el.style.background='var(--amberBg)';el.style.color='var(--amber)';el.textContent=`${diff} ${row.unit} will remain pending after this receipt.`;}else{el.style.background='var(--redBg)';el.style.color='var(--red)';el.textContent='⚠ Quantity exceeds the ordered amount!';}}
+async function submitGrnModal(){const row=pos.find(r=>r.id===selectedPoId);if(!row){showToast('PO not found.','red');return;}const qty=Number(byId('gm-qty').value||0);const received=receivedSoFar(row.id);const ordered=Number(row.qty||0);if(qty<=0){showToast('Enter a received quantity.','red');return;}if(received+qty>ordered){showToast('Received quantity exceeds the ordered quantity.','red');return;}const payload={poId:row.id,vendorName:row.vendorName,material:row.material,receivedQty:qty,unit:row.unit,qualityStatus:byId('gm-quality').value,notes:byId('gm-notes').value.trim()};try{await fetchJson(`${API}/grn`,{method:'POST',body:JSON.stringify(payload)});closeGrnModal();await loadData();showToast('GRN created successfully.','green');}catch(err){showToast(err.message,'red');}}
+let qsCerts=[];async function loadData(){[pos,grns,qsCerts]=await Promise.all([fetchJson(`${API}/pos`),fetchJson(`${API}/grn`),fetchJson(`${API}/qs-certifications`)]);qsCerts=qsCerts||[];renderStats();renderDeliveryList();renderHistory();}
+function printGrn(){const row=grns.find(r=>r.id===currentGrnId);if(!row)return;const poRow=pos.find(r=>r.id===row.poId);const fmt=(v)=>v!=null&&v!==''?String(v):'—';const dtFmt=(v)=>{const d=new Date(v);return isNaN(d.getTime())?'—':d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});};const proj=(session&&session.project)||'Active Project';const ordered=poRow?fmt(poRow.qty)+' '+fmt(row.unit):'—';let pf=document.getElementById('print-iframe');if(!pf){pf=document.createElement('iframe');pf.id='print-iframe';pf.style.position='fixed';pf.style.width='0';pf.style.height='0';pf.style.border='0';document.body.appendChild(pf);}const p=pf.contentWindow;p.document.open();p.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>GRN ${row.id}</title><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:#111;background:#fff;padding:40px 48px}.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid #111;padding-bottom:16px;margin-bottom:24px}.co-name{font-size:24px;font-weight:700}.co-dot{color:#0d7c6e}.co-sub{font-size:10px;color:#777;margin-top:3px;text-transform:uppercase;letter-spacing:.1em}.doc-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#777;text-align:right}.doc-id{font-size:22px;font-weight:700;font-family:'Courier New',monospace;text-align:right}.meta{display:flex;border:1px solid #ddd;border-radius:6px;overflow:hidden;margin-bottom:24px}.meta-cell{flex:1;padding:10px 14px;border-right:1px solid #ddd}.meta-cell:last-child{border-right:none}.meta-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#999;margin-bottom:3px}.meta-val{font-size:13px;font-weight:600}.sec{margin-bottom:20px}.sec-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#999;border-bottom:1px solid #ddd;padding-bottom:5px;margin-bottom:8px}.row{display:flex;align-items:baseline;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:12.5px}.row:last-child{border-bottom:none}.row lbl{width:190px;flex-shrink:0;color:#666}.row val{font-weight:500;flex:1}.hl{background:#e6f4f1;border-radius:6px;padding:10px 14px;margin-top:6px;font-size:14px;font-weight:700;display:flex}.hl lbl{width:190px;flex-shrink:0}.quality-box{padding:10px 14px;border-radius:6px;border:1px solid #ddd;margin-top:8px;font-size:12.5px}.notes-box{background:#f9f9f6;border:1px solid #eee;border-radius:6px;padding:12px 14px;font-size:12.5px;color:#444;line-height:1.7;margin-top:6px}.sigs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:28px;margin-top:52px;padding-top:16px;border-top:2px solid #111}.sig-line{height:40px;border-bottom:1px solid #777;margin-bottom:6px}.sig-name{font-size:12px;font-weight:600}.sig-role{font-size:10px;color:#777}.sig-date{font-size:10px;color:#777;margin-top:8px}.footer{margin-top:28px;font-size:10px;color:#bbb;text-align:center;border-top:1px solid #eee;padding-top:10px}@media print{body{padding:20px 28px}@page{margin:12mm 14mm}}</style></head><body><div class="hdr"><div><div class="co-name">Build<span class="co-dot">Pro</span></div><div class="co-sub">Procurement &middot; ${proj}</div></div><div><div class="doc-lbl">Goods Receipt Note</div><div class="doc-id">${row.id}</div></div></div><div class="meta"><div class="meta-cell"><div class="meta-lbl">Date received</div><div class="meta-val">${dtFmt(row.created_at)}</div></div><div class="meta-cell"><div class="meta-lbl">PO reference</div><div class="meta-val">${fmt(row.poId)}</div></div><div class="meta-cell"><div class="meta-lbl">Status</div><div class="meta-val">${fmt(row.status)}</div></div></div><div class="sec"><div class="sec-title">Vendor &amp; Material</div><div class="row"><lbl>Vendor name</lbl><val>${fmt(row.vendorName)}</val></div><div class="row"><lbl>Material / description</lbl><val>${fmt(row.material)}</val></div><div class="row"><lbl>Quantity ordered</lbl><val>${ordered}</val></div><div class="hl"><lbl>Quantity received</lbl><val>${fmt(row.receivedQty)} ${fmt(row.unit)}</val></div></div><div class="sec"><div class="sec-title">Quality &amp; inspection</div><div class="quality-box"><strong>Quality status:</strong> ${fmt(row.qualityStatus)}</div>${row.notes?`<div class="notes-box"><strong>Notes / remarks:</strong><br>${fmt(row.notes)}</div>`:''}</div><div class="sigs"><div><div class="sig-line"></div><div class="sig-name">Received By</div><div class="sig-role">Store / Site Engineer</div><div class="sig-date">Date: _______________</div></div><div><div class="sig-line"></div><div class="sig-name">Inspected By</div><div class="sig-role">Quality / Supervisor</div><div class="sig-date">Date: _______________</div></div><div><div class="sig-line"></div><div class="sig-name">Verified By</div><div class="sig-role">Purchase Manager</div><div class="sig-date">Date: _______________</div></div></div><div class="footer">BuildPro Procurement System &nbsp;&bull;&nbsp; Goods Receipt Note &nbsp;&bull;&nbsp; Printed on ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div></body></html>`);p.document.close();p.focus();setTimeout(()=>{p.print();},400);}
+document.addEventListener('input',(event)=>{if(event.target.id==='received-qty')updateQtyDiff();});document.addEventListener('keydown',(event)=>{if(event.key==='Escape')closeDetail();});syncUserInfo();loadData().catch((error)=>showToast(error.message||'Unable to load delivery data.','red'));
+</script>
+</body>
+</html>

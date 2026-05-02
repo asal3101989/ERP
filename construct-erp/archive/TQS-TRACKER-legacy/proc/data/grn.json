@@ -1,0 +1,15 @@
+[
+  {
+    "id": "GRN-001",
+    "poId": "PO-001",
+    "indentId": "IND-002",
+    "vendorName": "Electro Optics Private Limited",
+    "material": "SAFETY HELMET NAPE BLUE",
+    "receivedQty": 150,
+    "unit": "Bags",
+    "qualityStatus": "Accepted",
+    "notes": "",
+    "status": "Received",
+    "created_at": "2026-04-07T04:19:37.196Z"
+  }
+]

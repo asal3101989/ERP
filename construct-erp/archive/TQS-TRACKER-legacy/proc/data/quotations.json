@@ -1,0 +1,54 @@
+[
+  {
+    "id": "QT-001",
+    "indentId": "IND-002",
+    "vendorId": "VND-022",
+    "vendorName": "Maharani Constructions",
+    "unitRate": 2560,
+    "gstPercent": 18,
+    "deliveryDays": 7,
+    "paymentTerms": "advance",
+    "notes": "",
+    "submittedAt": "2026-04-06T05:35:36.580Z",
+    "selected": false
+  },
+  {
+    "id": "QT-002",
+    "indentId": "IND-001",
+    "vendorId": "VND-001",
+    "vendorName": "A.M. Steel Furniture",
+    "unitRate": 2659,
+    "gstPercent": 18,
+    "deliveryDays": 7,
+    "paymentTerms": "advance",
+    "notes": "",
+    "submittedAt": "2026-04-06T05:35:43.189Z",
+    "selected": false
+  },
+  {
+    "id": "QT-003",
+    "indentId": "IND-001",
+    "vendorId": "VND-009",
+    "vendorName": "Chiranth Agencies",
+    "unitRate": 256,
+    "gstPercent": 18,
+    "deliveryDays": 7,
+    "paymentTerms": "advance",
+    "notes": "",
+    "submittedAt": "2026-04-06T08:35:21.877Z",
+    "selected": true
+  },
+  {
+    "id": "QT-004",
+    "indentId": "IND-002",
+    "vendorId": "VND-011",
+    "vendorName": "Electro Optics Private Limited",
+    "unitRate": 156,
+    "gstPercent": 18,
+    "deliveryDays": 7,
+    "paymentTerms": "adVANCE",
+    "notes": "",
+    "submittedAt": "2026-04-07T04:17:54.870Z",
+    "selected": true
+  }
+]

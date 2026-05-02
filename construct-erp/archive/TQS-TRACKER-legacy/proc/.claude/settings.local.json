@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(done)",
+      "Bash(head -20 grep -n \"vendor\\\\|Vendor\" H:/TQS-SERVER/TEST/proc/public/quotations.html)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(echo -n \"$f: auth.js=\")",
+      "Read(//h/TQS-SERVER/TEST/proc/**)",
+      "Bash(grep -l \"aside class=\"\"sidebar\"\"\" \"H:/TQS-SERVER/TEST/proc/public\"/*.html)",
+      "Bash(grep -E \"bg:#0f1117|dark\" \"H:/TQS-SERVER/TEST/proc/public\"/*.html)",
+      "Bash(for file:*)",
+      "Bash(do echo:*)",
+      "Bash(grep -o \"@media[^}]*}\" \"H:/TQS-SERVER/TEST/proc/public\"/*.html)",
+      "Bash(powershell -Command \"Get-Content ''H:\\\\TQS-SERVER\\\\TEST\\\\proc\\\\data\\\\indents.json'' | Select-Object -First 60\")",
+      "Read(//d H:/TQS-SERVER/TEST/**)",
+      "Bash(taskkill /f /im node.exe)",
+      "Bash(timeout /t 1 /nobreak)",
+      "Bash(start /b node server.js)",
+      "Bash(timeout /t 2 /nobreak)",
+      "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue; Start-Sleep 1; Start-Process -WorkingDirectory ''H:\\\\TQS-SERVER\\\\TEST\\\\proc'' -FilePath ''node'' -ArgumentList ''server.js'' -WindowStyle Hidden; Write-Host ''SERVER RESTARTED''\")",
+      "Bash(powershell -Command \"Get-Content ''H:\\\\TQS-SERVER\\\\TEST\\\\proc\\\\data\\\\indents.json''\")",
+      "Bash(powershell -Command \"Test-NetConnection -ComputerName localhost -Port 3001 -InformationLevel Quiet 2>$null; Write-Host ''Port 3001 check done''\")",
+      "Bash(powershell -Command \"netstat -ano | findstr '':3001''\")",
+      "Bash(cd /d H:TQS-SERVERTESTproc)",
+      "Bash(taskkill /F /IM node.exe /FI 'WINDOWTITLE eq proc*')",
+      "Bash(Start-Sleep -Milliseconds 500)",
+      "Bash(Get-NetTCPConnection -LocalPort 3001 -State Listen)",
+      "Bash(ForEach-Object { Stop-Process -Id $_ningProcess -Force 2)",
+      "Bash(nul })",
+      "Bash(netstat -ano)",
+      "Bash(curl -s http://localhost:3001/api/indents -H \"Authorization: Bearer test\")",
+      "Bash(taskkill /F /PID 27780)",
+      "Bash(cmd /c \"taskkill /F /PID 27780\")",
+      "Bash(powershell -Command \"Stop-Process -Id 27780 -Force\")",
+      "Bash(powershell -Command \"Start-Process node -ArgumentList ''H:\\\\TQS-SERVER\\\\TEST\\\\proc\\\\server.js'' -WorkingDirectory ''H:\\\\TQS-SERVER\\\\TEST\\\\proc'' -WindowStyle Hidden\")",
+      "Bash(curl -s http://localhost:3001/api/indents -H \"Authorization: Bearer fake\")",
+      "Bash(curl -s -X POST http://localhost:3001/api/login -H \"Content-Type: application/json\" -d \"{\"\"username\"\":\"\"admin\"\",\"\"password\"\":\"\"admin123\"\"}\")",
+      "Bash(curl -s -X POST http://localhost:3001/api/auth/login -H \"Content-Type: application/json\" -d \"{\"\"username\"\":\"\"admin\"\",\"\"password\"\":\"\"admin123\"\"}\")",
+      "Bash(curl -s -X POST http://localhost:3001/api/auth/login -H \"Content-Type: application/json\" -d \"{\"\"email\"\":\"\"admin@buildpro.local\"\",\"\"password\"\":\"\"admin123\"\"}\")"
+    ]
+  }
+}
