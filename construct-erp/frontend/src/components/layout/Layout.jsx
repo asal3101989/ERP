@@ -49,17 +49,6 @@ const navGroups = [
     ]
   },
 
-  // ── 3. HR & ADMIN (site labour) ─────────────────────────────────────────────
-  {
-    label: 'HR & Admin',
-    items: [
-      { to: '/site/dpr',      icon: FileText,  label: 'Daily Progress (DPR)' },
-      { to: '/hr/workers',    icon: HardHat,   label: 'Site Workers' },
-      { to: '/hr/attendance', icon: Clock,     label: 'Worker Attendance' },
-      { to: '/hr/payroll',    icon: Banknote,  label: 'Worker Payroll' },
-    ]
-  },
-
   // ── 4. PROCUREMENT (buy materials) ──────────────────────────────────────────
   {
     label: 'Procurement',
