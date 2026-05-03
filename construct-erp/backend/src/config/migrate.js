@@ -257,7 +257,37 @@ CREATE TABLE IF NOT EXISTS consumption_norms (
 );
 
 -- ============================================
--- 4. FINANCE MODULE
+-- 4. VENDORS (must exist before Finance tables)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS vendors (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  company_id UUID REFERENCES companies(id),
+  vendor_code VARCHAR(20) UNIQUE,
+  name VARCHAR(200) NOT NULL,
+  gstin VARCHAR(15),
+  pan VARCHAR(10),
+  vendor_type VARCHAR(30) CHECK (vendor_type IN (
+    'material_supplier','subcontractor','labour_contractor',
+    'equipment_supplier','service_provider'
+  )),
+  contact_person VARCHAR(100),
+  phone VARCHAR(15),
+  email VARCHAR(100),
+  address TEXT,
+  city VARCHAR(100),
+  state VARCHAR(100),
+  bank_name VARCHAR(100),
+  account_number VARCHAR(20),
+  ifsc_code VARCHAR(11),
+  credit_days INT DEFAULT 30,
+  rating NUMERIC(3,1),
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- 5. FINANCE MODULE
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS invoices (
@@ -328,34 +358,8 @@ CREATE TABLE IF NOT EXISTS budget_items (
 );
 
 -- ============================================
--- 5. PROCUREMENT & INVENTORY
+-- 6. PROCUREMENT & INVENTORY
 -- ============================================
-
-CREATE TABLE IF NOT EXISTS vendors (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  company_id UUID REFERENCES companies(id),
-  vendor_code VARCHAR(20) UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  gstin VARCHAR(15),
-  pan VARCHAR(10),
-  vendor_type VARCHAR(30) CHECK (vendor_type IN (
-    'material_supplier','subcontractor','labour_contractor',
-    'equipment_supplier','service_provider'
-  )),
-  contact_person VARCHAR(100),
-  phone VARCHAR(15),
-  email VARCHAR(100),
-  address TEXT,
-  city VARCHAR(100),
-  state VARCHAR(100),
-  bank_name VARCHAR(100),
-  account_number VARCHAR(20),
-  ifsc_code VARCHAR(11),
-  credit_days INT DEFAULT 30,
-  rating NUMERIC(3,1),
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 CREATE TABLE IF NOT EXISTS purchase_orders (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
