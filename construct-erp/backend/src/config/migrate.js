@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS users (
   department VARCHAR(100),
   is_active BOOLEAN DEFAULT true,
   last_login TIMESTAMPTZ,
+  accessible_modules TEXT[],
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
