@@ -49,29 +49,14 @@ const navGroups = [
     ]
   },
 
-  // ── 3. HR & ADMIN (people before work begins) ───────────────────────────────
+  // ── 3. HR & ADMIN (site labour) ─────────────────────────────────────────────
   {
     label: 'HR & Admin',
     items: [
-      // Salaried staff
-      { to: '/hr-admin/employees',         icon: UserCheck,    label: 'Employees' },
-      { to: '/hr-admin/attendance',        icon: Clock,        label: 'Attendance' },
-      { to: '/hr-admin/leaves',            icon: CalendarOff,  label: 'Leave Management' },
-      { to: '/hr-admin/payroll',           icon: CreditCard,   label: 'Payroll' },
-      { to: '/hr-admin/salary-structures', icon: BarChart3,    label: 'Salary Structures' },
-      { to: '/hr-admin/departments',       icon: Building,     label: 'Departments' },
-      { to: '/hr-admin/holidays',          icon: Star,         label: 'Holiday Calendar' },
-      { to: '/hr-admin/loans',             icon: Banknote,     label: 'Loans & Advances' },
-      { to: '/hr-admin/expenses',          icon: Receipt,      label: 'Expense Claims' },
-      { to: '/hr-admin/appraisals',        icon: TrendingUp,   label: 'Appraisals' },
-      { to: '/hr-admin/reports',           icon: FileBarChart, label: 'HR Reports' },
-      { to: '/hr-admin/import',            icon: Upload,       label: 'Import from Greythr' },
-      { to: '/hr-admin/essl-sync',         icon: Fingerprint,  label: 'ESSL Biometric Sync' },
-      // Site labour
-      { to: '/site/dpr',    icon: FileText,  label: 'Daily Progress (DPR)' },
-      { to: '/hr/workers',  icon: HardHat,   label: 'Site Workers' },
-      { to: '/hr/attendance', icon: Clock,   label: 'Worker Attendance' },
-      { to: '/hr/payroll',  icon: Banknote,  label: 'Worker Payroll' },
+      { to: '/site/dpr',      icon: FileText,  label: 'Daily Progress (DPR)' },
+      { to: '/hr/workers',    icon: HardHat,   label: 'Site Workers' },
+      { to: '/hr/attendance', icon: Clock,     label: 'Worker Attendance' },
+      { to: '/hr/payroll',    icon: Banknote,  label: 'Worker Payroll' },
     ]
   },
 

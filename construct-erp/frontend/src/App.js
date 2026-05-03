@@ -125,23 +125,6 @@ const DocumentsPage             = lazy(() => import('./pages/documents/Documents
 const FinanceIntelligencePage   = lazy(() => import('./pages/finance/FinanceIntelligencePage'));
 const TQSDashboardPage      = lazy(() => import('./pages/tqs/TQSDashboardPage'));
 
-// HR & Admin Module
-const HREmployeeListPage    = lazy(() => import('./pages/hr-admin/EmployeeListPage'));
-const HREmployeeDetailPage  = lazy(() => import('./pages/hr-admin/EmployeeDetailPage'));
-const HREmployeeFormPage    = lazy(() => import('./pages/hr-admin/EmployeeFormPage'));
-const HRDepartmentPage      = lazy(() => import('./pages/hr-admin/DepartmentPage'));
-const HRLeaveManagementPage = lazy(() => import('./pages/hr-admin/LeaveManagementPage'));
-const HRHolidayCalendarPage = lazy(() => import('./pages/hr-admin/HolidayCalendarPage'));
-const HRAttendancePage      = lazy(() => import('./pages/hr-admin/AttendancePage'));
-const HRSalaryStructurePage = lazy(() => import('./pages/hr-admin/SalaryStructurePage'));
-const HRPayrollPage         = lazy(() => import('./pages/hr-admin/PayrollPage'));
-const HRPayslipPrintPage    = lazy(() => import('./pages/hr-admin/PayslipPrintPage'));
-const HRLoanPage            = lazy(() => import('./pages/hr-admin/LoanPage'));
-const HRExpenseClaimPage    = lazy(() => import('./pages/hr-admin/ExpenseClaimPage'));
-const HRAppraisalPage       = lazy(() => import('./pages/hr-admin/AppraisalPage'));
-const HRReportsPage         = lazy(() => import('./pages/hr-admin/HRReportsPage'));
-const HRImportPage          = lazy(() => import('./pages/hr-admin/HRImportPage'));
-const ESSLSyncPage          = lazy(() => import('./pages/hr-admin/ESSLSyncPage'));
 const TQSBillsPage          = lazy(() => import('./pages/tqs/TQSBillsPage'));
 const TQSBillDetailPage     = lazy(() => import('./pages/tqs/TQSBillDetailPage'));
 const TQSPaymentCertPrint   = lazy(() => import('./pages/tqs/TQSPaymentCertPrint'));
@@ -224,7 +207,6 @@ export default function App() {
               {/* Print pages — ProtectedRoute but NO Layout sidebar */}
               <Route path="/tqs/bills/:id/payment-cert"    element={<ProtectedRoute><TQSPaymentCertPrint /></ProtectedRoute>} />
               <Route path="/tqs/bills/:id/ra-abstract"      element={<ProtectedRoute><QSRABillPrint /></ProtectedRoute>} />
-              <Route path="/hr-admin/payroll/:id/payslip"  element={<ProtectedRoute><HRPayslipPrintPage /></ProtectedRoute>} />
 
               {/* Private — All ERP module routes now under ProtectedRoute */}
               <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -362,23 +344,6 @@ export default function App() {
                 {/* Team Management */}
                 <Route path="users" element={<UsersPage />} />
 
-                {/* HR & Admin */}
-                <Route path="hr-admin/employees"          element={<HREmployeeListPage />} />
-                <Route path="hr-admin/employees/new"      element={<HREmployeeFormPage />} />
-                <Route path="hr-admin/employees/:id"      element={<HREmployeeDetailPage />} />
-                <Route path="hr-admin/employees/:id/edit" element={<HREmployeeFormPage />} />
-                <Route path="hr-admin/departments"        element={<HRDepartmentPage />} />
-                <Route path="hr-admin/leaves"             element={<HRLeaveManagementPage />} />
-                <Route path="hr-admin/holidays"           element={<HRHolidayCalendarPage />} />
-                <Route path="hr-admin/attendance"         element={<HRAttendancePage />} />
-                <Route path="hr-admin/salary-structures"  element={<HRSalaryStructurePage />} />
-                <Route path="hr-admin/payroll"            element={<HRPayrollPage />} />
-                <Route path="hr-admin/loans"              element={<HRLoanPage />} />
-                <Route path="hr-admin/expenses"           element={<HRExpenseClaimPage />} />
-                <Route path="hr-admin/appraisals"         element={<HRAppraisalPage />} />
-                <Route path="hr-admin/reports"            element={<HRReportsPage />} />
-                <Route path="hr-admin/import"             element={<HRImportPage />} />
-                <Route path="hr-admin/essl-sync"          element={<ESSLSyncPage />} />
 
                 {/* Profile */}
                 <Route path="profile" element={<ProfilePage />} />
