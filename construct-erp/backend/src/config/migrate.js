@@ -503,7 +503,7 @@ CREATE TABLE IF NOT EXISTS work_orders (
   end_date DATE,
   contract_amount NUMERIC(15,2),
   status VARCHAR(20) DEFAULT 'active' CHECK (status IN (
-    'draft','active','completed','terminated'
+    'draft','active','approved','completed','terminated','closed','disputed'
   )),
   created_by UUID REFERENCES users(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
