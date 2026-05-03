@@ -8,7 +8,7 @@ import {
   RotateCcw, Trash2, Filter, Search,
   CheckCircle2, AlertCircle, Info, Tag
 } from 'lucide-react';
-import { ppeAPI, workerAPI, default as api } from '../../api/client';
+import { ppeAPI, workerAPI, projectAPI, default as api } from '../../api/client';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -24,6 +24,11 @@ export default function PPEPage() {
   const { data: ppeLogs, isLoading } = useQuery({
     queryKey: ['ppe-logs', filterType],
     queryFn: () => ppeAPI.list(filterType !== 'all' ? { type: filterType } : {}).then(r => r.data.data),
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => projectAPI.list().then(r => { const d = r?.data; return Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []); }).catch(() => []),
   });
 
   const { data: workers } = useQuery({
@@ -180,7 +185,12 @@ export default function PPEPage() {
             <form onSubmit={handleSubmit(issueMut.mutate)} className="p-10 space-y-8">
                <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-2">
-                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 leading-none italic">Recipient Worker</label>
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 leading-none italic">Project *</label>
+                     <select {...register('project_id', { required: true })} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-900 uppercase italic outline-none focus:border-amber-500 transition-all">
+                       <option value="">— Select Project —</option>
+                       {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                     </select>
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 leading-none italic mt-4">Recipient Worker</label>
                      <select {...register('worker_id', { required: true })} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-900 uppercase italic outline-none focus:border-amber-500 transition-all">
                         <option value="">Select Target Worker...</option>
                         {workers?.map(w => <option key={w.id} value={w.id}>{w.name} ({w.worker_type})</option>)}

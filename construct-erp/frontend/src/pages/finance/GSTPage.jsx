@@ -102,6 +102,11 @@ export default function GSTPage() {
     queryFn: () => invoiceAPI.list().then(r => r.data.data).catch(() => []),
   });
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => projectAPI.list().then(r => { const d = r?.data; return Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []); }).catch(() => []),
+  });
+
   const { data: gstSummary } = useQuery({
     queryKey: ['gst-summary'],
     queryFn: () => invoiceAPI.gstSummary({ year: new Date().getFullYear() }).then(r => r.data).catch(() => null),
@@ -314,6 +319,11 @@ export default function GSTPage() {
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-2">
                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Invoice Number *</label>
+                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Project *</label>
+                   <select {...register('project_id', {required:true})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black text-slate-900 outline-none focus:border-indigo-400 shadow-sm transition-all">
+                     <option value="">— Select Project —</option>
+                     {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                   </select>
                    <input {...register('invoice_number', {required:true})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-mono font-black text-indigo-600 outline-none focus:border-indigo-400 shadow-sm transition-all uppercase" placeholder="INV/2425/090" />
                 </div>
                 <div className="space-y-2">
