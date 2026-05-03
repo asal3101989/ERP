@@ -446,17 +446,6 @@ CREATE TABLE IF NOT EXISTS grn_items (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS inventory_batches (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  inventory_id UUID REFERENCES inventory(id) ON DELETE CASCADE,
-  batch_number VARCHAR(100) NOT NULL,
-  expiry_date DATE,
-  opening_quantity NUMERIC(12,3) NOT NULL,
-  current_quantity NUMERIC(12,3) NOT NULL,
-  grn_id UUID REFERENCES grn(id),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS inventory (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   project_id UUID REFERENCES projects(id),
@@ -471,6 +460,17 @@ CREATE TABLE IF NOT EXISTS inventory (
   reorder_level NUMERIC(12,3) DEFAULT 0,
   last_updated TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(project_id, material_name, site_location)
+);
+
+CREATE TABLE IF NOT EXISTS inventory_batches (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  inventory_id UUID REFERENCES inventory(id) ON DELETE CASCADE,
+  batch_number VARCHAR(100) NOT NULL,
+  expiry_date DATE,
+  opening_quantity NUMERIC(12,3) NOT NULL,
+  current_quantity NUMERIC(12,3) NOT NULL,
+  grn_id UUID REFERENCES grn(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS stock_transactions (
