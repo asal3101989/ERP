@@ -134,7 +134,16 @@
       "Bash(taskkill //F //PID 14884)",
       "Bash(node src/server.js)",
       "Bash(curl -s http://localhost:5000/health)",
-      "Bash(curl -s http://localhost:5000/api/v1/health)"
+      "Bash(curl -s http://localhost:5000/api/v1/health)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'add create-admin.js script for first-time setup *)",
+      "Bash(git push *)",
+      "Bash(git commit -m 'fix: add accessible_modules column to users table *)",
+      "Bash(git commit -m 'remove HR Admin module from frontend *)",
+      "Bash(npm list *)",
+      "Bash(npx cap *)",
+      "PowerShell(cmd /c \"dir H:\\\\ /B 2>nul\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@91.203.133.41 \"cd /opt/constructerp/construct-erp && git pull && cp -r frontend/build/* /opt/constructerp/construct-erp/frontend/build/ 2>/dev/null; cd frontend && npm run build && echo 'DONE'\")"
     ]
   }
 }

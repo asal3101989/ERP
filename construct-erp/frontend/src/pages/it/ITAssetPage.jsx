@@ -501,6 +501,12 @@ function ITAssetBarcodeModal({ asset, onClose }) {
             metaLabel="Asset Tag"
             metaValue={asset.asset_tag}
             size={160}
+            extraFields={[
+              { label: 'Serial No.', value: asset.serial_number },
+              { label: 'Status',     value: LABEL[asset.status] || asset.status },
+              { label: 'Location',   value: asset.location_description },
+              { label: 'Assigned',   value: asset.assigned_to_name },
+            ]}
           />
           <div className="space-y-3 text-sm">
             {[
