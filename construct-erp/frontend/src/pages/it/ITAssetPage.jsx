@@ -8,7 +8,7 @@ import {
   Edit2, Trash2, QrCode, ChevronRight, BarChart2, CheckCircle,
   Clock, Package, Settings, Eye,
 } from 'lucide-react';
-import { itAssetAPI } from '../../api/client';
+import { itAssetAPI, projectAPI } from '../../api/client';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -66,6 +66,11 @@ export default function ITAssetPage() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['it-assets'],
     queryFn: () => itAssetAPI.list().then(r => r.data.data).catch(() => []),
+  });
+
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects-list'],
+    queryFn: () => projectAPI.list().then(r => r.data.data || r.data).catch(() => []),
   });
 
   const createMutation = useMutation({
@@ -291,7 +296,8 @@ export default function ITAssetPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">
-                          {asset.assigned_to_name || <span className="text-gray-300">—</span>}
+                          <div>{asset.assigned_to_name || <span className="text-gray-300">—</span>}</div>
+                          {asset.project_name && <div className="text-xs text-blue-500">{asset.project_name}</div>}
                         </td>
                         <td className="max-w-[160px] px-4 py-3 text-xs text-gray-500">
                           <div className="truncate">{asset.location_description || <span className="text-gray-300">—</span>}</div>
@@ -426,6 +432,15 @@ export default function ITAssetPage() {
 
                 <FormField label="Assigned To">
                   <input {...register('assigned_to_name')} className={inputCls} placeholder="Employee name" />
+                </FormField>
+
+                <FormField label="Assigned Project">
+                  <select {...register('location_project_id')} className={inputCls}>
+                    <option value="">— No Project / HO —</option>
+                    {(projectsData || []).map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
                 </FormField>
 
                 <FormField label="Location / Department">
