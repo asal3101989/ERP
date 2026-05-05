@@ -409,6 +409,13 @@ function parseTqsTrackerSheet(workbook, sheetName, billType) {
       const paidAmount = excelNumber(get(row, 'paidAmount'));
       const paymentStatusText = String(get(row, 'paymentStatus') || '').toLowerCase();
       const isPaid = paymentStatusText.includes('paid') || (paidAmount > 0 && Math.abs(paidAmount - total) < 1);
+      const certifiedNet = excelNumber(get(row, 'certifiedNet'));
+      const qsTotal = excelNumber(get(row, 'qsTotal'));
+      const effectivePaidAmount = isPaid
+        ? (paidAmount || certifiedNet || qsTotal || total)
+        : paidAmount;
+      const effectivePaymentDate = excelDate(get(row, 'paymentDate'))
+        || (isPaid ? (excelDate(get(row, 'accountsDate')) || excelDate(get(row, 'receivedDate')) || excelDate(get(row, 'invoiceDate'))) : null);
 
       return {
         source_sl_number: excelText(get(row, 'serial')),
@@ -431,20 +438,20 @@ function parseTqsTrackerSheet(workbook, sheetName, billType) {
         updates: {
           qs_gross: excelNumber(get(row, 'qsGross')),
           qs_tax: excelNumber(get(row, 'qsTax')),
-          qs_total: excelNumber(get(row, 'qsTotal')),
+          qs_total: qsTotal,
           advance_recovered: excelNumber(get(row, 'advanceRecovered')),
           credit_note_amt: excelNumber(get(row, 'creditNoteValue')),
           retention_money: excelNumber(get(row, 'retentionMoney')),
           tds_deduction: excelNumber(get(row, 'tds')),
           other_deductions: excelNumber(get(row, 'otherDeductions')),
           total_deductions: excelNumber(get(row, 'totalDeductions')),
-          certified_net: excelNumber(get(row, 'certifiedNet')),
+          certified_net: certifiedNet,
           pc_number: excelText(get(row, 'pcNumber')),
           handed_over_accounts_date: excelDate(get(row, 'accountsDate')),
-          paid_amount: paidAmount,
+          paid_amount: effectivePaidAmount,
           balance_to_pay: excelNumber(get(row, 'balance')),
           payment_status: isPaid ? 'paid' : 'pending',
-          payment_date: excelDate(get(row, 'paymentDate')),
+          payment_date: effectivePaymentDate,
           reference_number: excelText(get(row, 'bankReference')),
         },
       };
