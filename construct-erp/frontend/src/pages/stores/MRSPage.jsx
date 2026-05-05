@@ -616,8 +616,25 @@ export default function MRSPage() {
                       onChange={e => setFormData(p => ({ ...p, department: e.target.value }))}
                     >
                       <option value="Projects">Projects</option>
+                      <option value="Civil">Civil</option>
+                      <option value="Structural">Structural</option>
+                      <option value="MEP">MEP (Mechanical/Electrical/Plumbing)</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Plumbing">Plumbing</option>
+                      <option value="HVAC">HVAC</option>
+                      <option value="Finishing">Finishing</option>
+                      <option value="Safety">Safety / HSE</option>
+                      <option value="QA/QC">QA / QC</option>
+                      <option value="Procurement">Procurement</option>
+                      <option value="Stores">Stores</option>
+                      <option value="Site Office">Site Office</option>
                       <option value="Admin">Admin</option>
+                      <option value="HR">HR</option>
+                      <option value="Finance">Finance</option>
+                      <option value="IT">IT</option>
                       <option value="Maintenance">Maintenance</option>
+                      <option value="Security">Security</option>
+                      <option value="Other">Other</option>
                     </select>
                   </Field>
                   <Field label="HO Project Name">
