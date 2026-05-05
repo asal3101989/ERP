@@ -630,10 +630,12 @@ export default function POPage() {
       fmt(p.po_date), p.grand_total, p.status,
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    link.href = url;
     link.download = `PO_Log_${dayjs().format('YYYY-MM-DD')}.csv`;
     link.click();
+    URL.revokeObjectURL(url);
     toast.success('Exporting PO log…');
   };
 

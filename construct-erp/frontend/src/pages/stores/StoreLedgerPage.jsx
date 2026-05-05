@@ -465,10 +465,12 @@ export default function StoreLedgerPage() {
       fmt2(r.issued_qty), fmt2(r.closing_stock), fmt2(r.rate), fmt2(r.stock_value),
     ]);
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.href = url;
     a.download = `Movement_${month}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
     toast.success('Movement report exported');
   };
 

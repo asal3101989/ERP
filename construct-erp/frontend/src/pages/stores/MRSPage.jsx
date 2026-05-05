@@ -171,10 +171,12 @@ export default function MRSPage() {
       dayjs(m.created_at).format('DD/MM/YYYY'), m.raised_by_name,
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    link.href = url;
     link.download = `MRS_Log_${dayjs().format('YYYY-MM-DD')}.csv`;
     link.click();
+    URL.revokeObjectURL(url);
     toast.success('Exporting MRS log…');
   };
 

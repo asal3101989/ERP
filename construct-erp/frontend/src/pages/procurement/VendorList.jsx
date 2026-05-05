@@ -109,9 +109,16 @@ export default function VendorList() {
     onError: e => toast.error(e?.response?.data?.error || 'Import failed'),
   });
 
+  // Normalise legacy mixed-case vendor_type values to canonical snake_case keys
+  const normalizeType = t => ({
+    'Sub-contractor':   'subcontractor',
+    'Labour Contractor':'labour_contractor',
+    'Service Provider': 'service_provider',
+  })[t] || t;
+
   const allVendors = data || [];
   const vendors = allVendors.filter(v => {
-    if (filterType !== 'all' && v.vendor_type !== filterType) return false;
+    if (filterType !== 'all' && normalizeType(v.vendor_type) !== filterType) return false;
     if (search && !`${v.name} ${v.vendor_code} ${v.city} ${v.contact_person}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -149,10 +156,10 @@ export default function VendorList() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         {[
           { label: 'Total',     val: allVendors.length,                                                  color: 'text-slate-900',   bg: 'bg-slate-100' },
-          { label: 'Material',  val: allVendors.filter(v => v.vendor_type==='material_supplier').length,  color: 'text-blue-700',    bg: 'bg-blue-50' },
-          { label: 'Sub-Con',   val: allVendors.filter(v => v.vendor_type==='subcontractor').length,       color: 'text-purple-700',  bg: 'bg-purple-50' },
-          { label: 'Labour',    val: allVendors.filter(v => v.vendor_type==='labour_contractor').length,   color: 'text-amber-700',   bg: 'bg-amber-50' },
-          { label: 'Equipment', val: allVendors.filter(v => v.vendor_type==='equipment_supplier').length,  color: 'text-emerald-700', bg: 'bg-emerald-50' },
+          { label: 'Material',  val: allVendors.filter(v => normalizeType(v.vendor_type)==='material_supplier').length,  color: 'text-blue-700',    bg: 'bg-blue-50' },
+          { label: 'Sub-Con',   val: allVendors.filter(v => normalizeType(v.vendor_type)==='subcontractor').length,       color: 'text-purple-700',  bg: 'bg-purple-50' },
+          { label: 'Labour',    val: allVendors.filter(v => normalizeType(v.vendor_type)==='labour_contractor').length,   color: 'text-amber-700',   bg: 'bg-amber-50' },
+          { label: 'Equipment', val: allVendors.filter(v => normalizeType(v.vendor_type)==='equipment_supplier').length,  color: 'text-emerald-700', bg: 'bg-emerald-50' },
         ].map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-4 text-center shadow-sm">
             <div className={clsx('text-2xl font-bold font-mono', s.color)}>{s.val}</div>
@@ -174,18 +181,18 @@ export default function VendorList() {
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Filter className="w-3.5 h-3.5 text-slate-400" />
-          {['all', ...Object.keys(TYPES)].map(t => (
+          {[{ value: 'all', label: 'All Types' }, ...VENDOR_TYPE_OPTIONS].map(t => (
             <button
-              key={t}
-              onClick={() => setFilterType(t)}
+              key={t.value}
+              onClick={() => setFilterType(t.value)}
               className={clsx(
                 'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-                filterType === t
+                filterType === t.value
                   ? 'bg-indigo-600 text-white border-indigo-600'
                   : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
               )}
             >
-              {t === 'all' ? 'All Types' : TYPES[t].label}
+              {t.label}
             </button>
           ))}
         </div>

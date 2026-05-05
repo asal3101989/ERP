@@ -54,10 +54,22 @@ export default function IssuePage() {
     onError: (e) => toast.error(e?.response?.data?.error || 'Authorization failed'),
   });
 
-  const minList = mins || [];
-  const draftCount = minList.filter(m => m.status === 'draft').length;
-  const issuedCount = minList.filter(m => m.status === 'issued').length;
-  const totalValue = minList.reduce((s, m) => s + parseFloat(m.total_value || 0), 0);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const allMINs = mins || [];
+  const draftCount = allMINs.filter(m => m.status === 'draft').length;
+  const issuedCount = allMINs.filter(m => m.status === 'issued').length;
+  const totalValue = allMINs.reduce((s, m) => s + parseFloat(m.total_value || 0), 0);
+
+  const minList = allMINs.filter(m => {
+    if (statusFilter !== 'all' && m.status !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return `${m.min_number} ${m.project_name} ${m.activity_name || ''} ${m.issued_to || ''} ${m.contractor_name || ''}`.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto min-h-screen bg-[#f4f6f9]">
@@ -106,6 +118,40 @@ export default function IssuePage() {
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Search & filter */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3 mb-5 flex flex-wrap items-center gap-3 shadow-sm">
+        <div className="relative flex-1 min-w-52">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search MIN number, project, activity…"
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all"
+          />
+        </div>
+        <div className="flex items-center gap-1.5">
+          {[['all', 'All'], ['draft', 'Pending'], ['issued', 'Issued']].map(([val, lbl]) => (
+            <button
+              key={val}
+              onClick={() => setStatusFilter(val)}
+              className={clsx('px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
+                statusFilter === val
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'
+              )}
+            >
+              {lbl}
+              {val !== 'all' && (
+                <span className="ml-1 opacity-70">
+                  {val === 'draft' ? draftCount : issuedCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-slate-400 ml-auto hidden sm:block">{minList.length} of {allMINs.length}</span>
       </div>
 
       {/* Table */}
@@ -186,7 +232,17 @@ export default function IssuePage() {
                   <tr>
                     <td colSpan={5} className="py-16 text-center">
                       <Box className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-                      <p className="text-sm font-medium text-slate-400">No material issue notes yet</p>
+                      <p className="text-sm font-medium text-slate-400">
+                        {search || statusFilter !== 'all' ? 'No results match your filters' : 'No material issue notes yet'}
+                      </p>
+                      {(search || statusFilter !== 'all') && (
+                        <button
+                          onClick={() => { setSearch(''); setStatusFilter('all'); }}
+                          className="mt-2 text-xs text-indigo-500 underline"
+                        >
+                          Clear filters
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -360,7 +416,7 @@ function MINForm({ onClose, projects, contractors, qc }) {
                       >
                         <div>
                           <p className="text-sm font-semibold text-slate-800">{i.material_name}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">Available: <span className="text-indigo-600 font-medium">{i.closing_stock} {i.unit}</span></p>
+                          <p className="text-xs text-slate-400 mt-0.5">Available: <span className="text-indigo-600 font-medium">{i.closing_stock ?? '—'} {i.unit || ''}</span></p>
                         </div>
                         <Plus className="w-4 h-4 text-indigo-500" />
                       </button>

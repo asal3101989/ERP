@@ -2,12 +2,10 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import useAuthStore from '../../store/authStore';
-import { 
-  Briefcase, Plus, X, Search, FileText, 
-  Printer, Download, ShieldCheck, 
-  UserPlus, Building2, Calculator, 
-  TrendingUp, Clock, CheckCircle2,
-  Hammer
+import {
+  Hammer, Plus, X, Search, FileText,
+  Printer, Building2, Clock, CheckCircle2,
+  ChevronRight, UserPlus, Calculator,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -18,28 +16,52 @@ import TableActions from '../../components/common/TableActions';
 
 const UNITS = ['SQFT', 'SQM', 'RMT', 'Nos', 'MT', 'Point', 'Month', 'LS', 'Day'];
 
-const inr = v => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(v);
+const inr = v => Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const STATUS_CONFIG = {
+  draft:    { label: 'Draft',    color: 'bg-slate-100 text-slate-600 border-slate-200' },
+  pending:  { label: 'Pending',  color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  approved: { label: 'Approved', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  rejected: { label: 'Rejected', color: 'bg-red-50 text-red-600 border-red-200' },
+};
+
+function StatusBadge({ status }) {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  return (
+    <span className={clsx('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border', cfg.color)}>
+      {cfg.label}
+    </span>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-slate-500">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all placeholder:text-slate-400';
 
 export default function WorkOrderPage() {
   const { user } = useAuthStore();
   const [showForm, setShowForm] = useState(false);
   const [selectedWO, setSelectedWO] = useState(null);
   const [search, setSearch] = useState('');
-  
-  // WO Items State
   const [items, setItems] = useState([{ description: '', quantity: '', unit: 'SQFT', rate: '', remarks: '' }]);
-  const [formData, setFormData] = useState({ 
-    project_id: '', 
+  const [formData, setFormData] = useState({
+    project_id: '',
     vendor_id: '',
-    wo_number: `WO-${dayjs().format('YYYYMMDD')}-${Math.floor(Math.random()*1000)}`,
-    wo_date: dayjs().format('YYYY-MM-DD'), 
+    wo_number: `WO-${dayjs().format('YYYYMMDD')}-${Math.floor(Math.random() * 1000)}`,
+    wo_date: dayjs().format('YYYY-MM-DD'),
     subject: '',
-    terms_conditions: '1. Retention of 5% will be deducted from each bill.\n2. Security Deposit of 5% applicable.\n3. Safety protocols must be strictly followed.\n4. Work must be completed as per technical specifications.'
+    terms_conditions: '1. Retention of 5% will be deducted from each bill.\n2. Security Deposit of 5% applicable.\n3. Safety protocols must be strictly followed.\n4. Work must be completed as per technical specifications.',
   });
 
   const qc = useQueryClient();
 
-  // Queries
   const { data: woData, isLoading } = useQuery({
     queryKey: ['work-orders'],
     queryFn: () => subcontractorAPI.listWorkOrders().then(r => r.data.data),
@@ -55,21 +77,19 @@ export default function WorkOrderPage() {
     queryFn: () => projectAPI.list().then(r => r.data.data),
   });
 
-  // Create Mutation
   const createMutation = useMutation({
-    mutationFn: (d) => subcontractorAPI.createWorkOrder(d),
+    mutationFn: d => subcontractorAPI.createWorkOrder(d),
     onSuccess: () => {
-      toast.success('Work Order finalized and issued!');
+      toast.success('Work Order issued successfully');
       setShowForm(false);
       setItems([{ description: '', quantity: '', unit: 'SQFT', rate: '', remarks: '' }]);
       qc.invalidateQueries({ queryKey: ['work-orders'] });
     },
-    onError: (e) => toast.error(e?.response?.data?.error || 'Failed to issue Work Order'),
+    onError: e => toast.error(e?.response?.data?.error || 'Failed to issue Work Order'),
   });
 
-  // Delete Mutation
   const deleteMut = useMutation({
-    mutationFn: (id) => api.delete(`/work-orders/${id}`),
+    mutationFn: id => api.delete(`/work-orders/${id}`),
     onSuccess: () => {
       toast.success('Work Order deleted');
       qc.invalidateQueries({ queryKey: ['work-orders'] });
@@ -77,405 +97,364 @@ export default function WorkOrderPage() {
     onError: () => toast.error('Failed to delete Work Order'),
   });
 
-  const filtered = (woData ?? []).filter(wo => 
-    wo.wo_number.toLowerCase().includes(search.toLowerCase()) ||
-    wo.vendor_name?.toLowerCase().includes(search.toLowerCase()) ||
-    wo.project_name?.toLowerCase().includes(search.toLowerCase())
+  const allWOs = woData ?? [];
+  const filtered = allWOs.filter(wo =>
+    `${wo.wo_number} ${wo.vendor_name || ''} ${wo.project_name || ''} ${wo.subject || ''}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  const formTotal = items.reduce((s, it) => s + (parseFloat(it.quantity || 0) * parseFloat(it.rate || 0)), 0);
+  const totalValue = allWOs.reduce((s, w) => s + parseFloat(w.total_value || 0), 0);
+  const pendingCount = allWOs.filter(w => w.status === 'pending').length;
+  const formTotal = items.reduce((s, it) => s + parseFloat(it.quantity || 0) * parseFloat(it.rate || 0), 0);
+
+  const resetForm = () => {
+    setShowForm(false);
+    setItems([{ description: '', quantity: '', unit: 'SQFT', rate: '', remarks: '' }]);
+    setFormData(p => ({ ...p, project_id: '', vendor_id: '', subject: '' }));
+  };
 
   return (
-    <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto bg-slate-50 min-h-screen">
-      {/* Header section with strategic aesthetics */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shadow-sm">
-            <Briefcase className="w-6 h-6 text-indigo-600" />
+    <div className="p-6 md:p-8 max-w-7xl mx-auto min-h-screen bg-[#f4f6f9]">
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <Hammer className="w-3.5 h-3.5" /> Procurement
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight italic">Work Order Registry</h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-1.5 flex-wrap">
-               <ShieldCheck size={14} className="text-indigo-500" /> Subcontractor Labor Contracting Portal
-            </p>
-          </div>
+          <h1 className="text-2xl font-bold text-slate-900">Work Orders</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Subcontractor & labour work order management</p>
         </div>
-        <DataToolbar 
-          data={filtered} 
-          fileName="Work_Order_Register_Export" 
-          onAdd={() => setShowForm(true)} 
-          addLabel="Draft New Work Order"
-        />
+        <div className="flex items-center gap-3">
+          <DataToolbar data={filtered} fileName="Work_Order_Register" onAdd={() => setShowForm(true)} addLabel="New Work Order" />
+        </div>
       </div>
 
-      {/* KPI Ribbons */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-         <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm flex items-center justify-between relative overflow-hidden group">
-            <div className="relative z-10">
-               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-2 italic">Total Contract Value</p>
-               <p className="text-2xl font-black text-slate-900 font-mono italic">₹{(woData?.reduce((s,w) => s + parseFloat(w.total_value), 0) / 10000000).toFixed(2)} Cr</p>
-            </div>
-            <TrendingUp size={32} className="text-slate-100 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-         </div>
-         <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm flex items-center justify-between relative overflow-hidden group">
-            <div className="relative z-10">
-               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-2 italic">Active Labor Contracts</p>
-               <p className="text-2xl font-black text-slate-900 font-mono italic">{woData?.length || 0}</p>
-            </div>
-            <Clock size={32} className="text-slate-100 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-         </div>
-         <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm flex items-center justify-between relative overflow-hidden group">
-            <div className="relative z-10">
-               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-2 italic">Pending Measurements</p>
-               <p className="text-2xl font-black text-slate-900 font-mono italic">₹1.24 Cr</p>
-            </div>
-            <Calculator size={32} className="text-slate-100 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-         </div>
-         <div className="bg-emerald-50 border border-emerald-100 rounded-[2rem] p-6 shadow-sm flex items-center justify-between relative overflow-hidden group">
-            <div className="relative z-10">
-               <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-2 italic">Portfolio Health</p>
-               <p className="text-2xl font-black text-emerald-600 font-mono italic">96.4%</p>
-            </div>
-            <ShieldCheck size={32} className="text-emerald-100 absolute -right-2 -bottom-2 group-hover:scale-110 transition-transform" />
-         </div>
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Total WOs',      value: allWOs.length,                                     color: 'text-slate-900',   icon: FileText,      bg: 'bg-white border-slate-200' },
+          { label: 'Total Value',    value: `₹${inr(totalValue)}`,                             color: 'text-indigo-700',  icon: Calculator,    bg: 'bg-indigo-50 border-indigo-100' },
+          { label: 'Pending Appvl', value: pendingCount,                                       color: 'text-amber-700',   icon: Clock,         bg: 'bg-amber-50 border-amber-100' },
+          { label: 'Approved',       value: allWOs.filter(w => w.status === 'approved').length, color: 'text-emerald-700', icon: CheckCircle2,  bg: 'bg-emerald-50 border-emerald-100' },
+        ].map(({ label, value, color, icon: Icon, bg }) => (
+          <div key={label} className={clsx('border rounded-xl p-4 shadow-sm', bg)}>
+            <Icon className={clsx('w-4 h-4 mb-2', color)} />
+            <div className={clsx('text-xl font-bold font-mono', color)}>{value}</div>
+            <div className="text-xs text-slate-400 mt-0.5">{label}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-[2.5rem] p-4 flex items-center shadow-sm relative">
-        <Search className="absolute left-9 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input 
-          type="text" 
-          placeholder="Search contracts by sub-con, WO#, or project target..." 
-          className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-5 text-xs font-black text-slate-900 uppercase tracking-widest outline-none focus:border-indigo-400 transition-all placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-normal italic"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      {/* Search */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3 mb-5 flex items-center gap-3 shadow-sm">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by WO number, vendor, project…"
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all"
+          />
+        </div>
+        <span className="text-xs text-slate-400 shrink-0">{filtered.length} of {allWOs.length}</span>
       </div>
 
-      {/* WO Table */}
-      <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm">
+      {/* Table */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Contract Ident</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Sub-Contractor</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Target Project</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Status</th>
-                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right italic">Contract Value</th>
-                <th className="px-6 py-5 w-16"></th>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                {['WO Number', 'Subject', 'Vendor / Sub-Con', 'Project', 'Date', 'Status', 'Value', ''].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.map(wo => (
-                <tr key={wo.id} className="hover:bg-slate-50/50 transition-all cursor-pointer group" onClick={() => setSelectedWO(wo)}>
-                  <td className="px-6 py-5">
-                    <p className="text-sm font-black text-indigo-600 font-mono tracking-tighter uppercase italic">{wo.wo_number}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{dayjs(wo.wo_date).format('DD MMM YYYY')}</p>
+            <tbody className="divide-y divide-slate-50">
+              {isLoading ? (
+                [...Array(4)].map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={8} className="px-4 py-3">
+                      <div className="h-5 bg-slate-100 animate-pulse rounded w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : filtered.map(wo => (
+                <tr key={wo.id} onClick={() => setSelectedWO(wo)}
+                  className="cursor-pointer hover:bg-slate-50 transition-colors group">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                        <Hammer className="w-3.5 h-3.5 text-indigo-600" />
+                      </div>
+                      <span className="text-xs font-bold font-mono text-indigo-700 group-hover:underline">{wo.wo_number}</span>
+                    </div>
                   </td>
-                  <td className="px-6 py-5">
-                     <p className="text-xs font-black text-slate-900 uppercase tracking-tight italic leading-none mb-1.5">{wo.vendor_name}</p>
-                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Specialist Vendor</p>
+                  <td className="px-4 py-3 max-w-[180px]">
+                    <p className="text-xs text-slate-700 truncate">{wo.subject || '—'}</p>
                   </td>
-                  <td className="px-6 py-5 text-slate-500 font-black uppercase text-[10px] tracking-widest italic">
-                    {wo.project_name}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <UserPlus className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="text-xs font-semibold text-slate-800 max-w-[130px] truncate">{wo.vendor_name || '—'}</span>
+                    </div>
                   </td>
-                  <td className="px-6 py-5">
-                    <span className={clsx(
-                      'px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-sm italic',
-                      wo.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
-                    )}>
-                      {wo.status}
-                    </span>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="text-xs text-slate-600 max-w-[130px] truncate">{wo.project_name || '—'}</span>
+                    </div>
                   </td>
-                  <td className="px-6 py-5 text-right">
-                    <p className="text-base font-black text-slate-900 font-mono tracking-tighter italic">{inr(wo.total_value)}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sum Itemized</p>
+                  <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">
+                    {wo.wo_date ? dayjs(wo.wo_date).format('DD MMM YYYY') : '—'}
                   </td>
-                  <td className="px-6 py-5 text-right w-16" onClick={e => e.stopPropagation()}>
-                    <TableActions disableEdit onDelete={() => deleteMut.mutate(wo.id)} />
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <StatusBadge status={wo.status} />
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-xs font-bold font-mono text-slate-800">
+                    ₹{inr(wo.total_value)}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-right" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                      <TableActions disableEdit onDelete={() => deleteMut.mutate(wo.id)} recordName={wo.wo_number} />
+                    </div>
                   </td>
                 </tr>
               ))}
+              {!isLoading && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="py-16 text-center">
+                    <Hammer className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-slate-400">
+                      {search ? 'No work orders match your search' : 'No work orders yet'}
+                    </p>
+                    {search && (
+                      <button onClick={() => setSearch('')} className="mt-2 text-xs text-indigo-500 underline">
+                        Clear search
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-          {filtered.length === 0 && (
-            <div className="py-24 text-center">
-              <Briefcase size={48} className="text-indigo-100 mx-auto mb-4" />
-              <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] italic">No Work Orders currently archived</p>
-            </div>
-          )}
+        </div>
+        <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 text-xs text-slate-400">
+          {allWOs.length} work order{allWOs.length !== 1 ? 's' : ''} total
         </div>
       </div>
 
-      {/* Add WO Modal */}
+      {/* Create WO Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white border border-slate-200 rounded-[3.5rem] w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
-             <div className="p-8 border-b border-slate-100 shrink-0 flex items-center justify-between bg-slate-50">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
-                    <Plus size={24} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight italic">Draft Specialist Work Order</h2>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Phase 7: Labor & Contracting Protocol</p>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white border border-slate-200 w-full max-w-4xl rounded-2xl flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
+
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                  <Plus className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">New Work Order</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Issue a work order to a subcontractor or vendor</p>
+                </div>
+              </div>
+              <button onClick={resetForm}
+                className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:border-slate-300 transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+              {/* Header fields */}
+              <div className="border border-slate-200 rounded-xl p-5">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Work Order Details</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <Field label="Project *">
+                    <select className={inputCls} value={formData.project_id}
+                      onChange={e => setFormData(p => ({ ...p, project_id: e.target.value }))}>
+                      <option value="">Select project…</option>
+                      {projectsData?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Vendor / Subcontractor *">
+                    <select className={inputCls} value={formData.vendor_id}
+                      onChange={e => setFormData(p => ({ ...p, vendor_id: e.target.value }))}>
+                      <option value="">Select vendor…</option>
+                      {vendorsData?.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="WO Date">
+                    <input type="date" className={inputCls} value={formData.wo_date}
+                      onChange={e => setFormData(p => ({ ...p, wo_date: e.target.value }))} />
+                  </Field>
+                  <Field label="WO Number">
+                    <input className={`${inputCls} bg-slate-100 text-indigo-700 font-mono`} value={formData.wo_number} readOnly />
+                  </Field>
+                  <div className="col-span-2">
+                    <Field label="Subject / Scope">
+                      <input className={inputCls} placeholder="e.g. External plaster work – Block B" value={formData.subject}
+                        onChange={e => setFormData(p => ({ ...p, subject: e.target.value }))} />
+                    </Field>
                   </div>
                 </div>
-                <button onClick={() => setShowForm(false)} className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all shadow-sm">
-                  <X size={20} />
-                </button>
-             </div>
+              </div>
 
-             <div className="flex-1 overflow-y-auto p-10 space-y-8 scrollbar-thin scrollbar-thumb-slate-200">
-                {/* Header Inputs */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm">
-                   <div className="space-y-3">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 italic">
-                         <Building2 size={14} className="text-indigo-500" /> Target Construction Project
-                      </label>
-                      <select 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-black text-slate-900 uppercase outline-none focus:border-indigo-400 transition-all shadow-sm appearance-none italic"
-                        value={formData.project_id}
-                        onChange={e => setFormData(p => ({ ...p, project_id: e.target.value }))}
-                      >
-                         <option value="">Select Project Target</option>
-                         {projectsData?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                   </div>
-                   <div className="space-y-3">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 italic">
-                         <UserPlus size={14} className="text-indigo-500" /> Specialist Sub-Contractor
-                      </label>
-                      <select 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-black text-slate-900 uppercase outline-none focus:border-indigo-400 transition-all shadow-sm appearance-none italic"
-                        value={formData.vendor_id}
-                        onChange={e => setFormData(p => ({ ...p, vendor_id: e.target.value }))}
-                      >
-                         <option value="">Select Specialist Vendor</option>
-                         {vendorsData?.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                      </select>
-                   </div>
-                   <div className="space-y-3">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">WO Subject / Scope Summary</label>
-                      <input 
-                        type="text" 
-                        placeholder="E.G., EXTERNAL GLASS FACADE INSTALLATION - BLOCK B"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-black text-slate-900 uppercase outline-none focus:border-indigo-400 transition-all shadow-sm italic"
-                        value={formData.subject}
-                        onChange={e => setFormData(p => ({ ...p, subject: e.target.value }))}
+              {/* Line items */}
+              <div className="border border-slate-200 rounded-xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Scope Items</h3>
+                  <button
+                    onClick={() => setItems(p => [...p, { description: '', quantity: '', unit: 'SQFT', rate: '', remarks: '' }])}
+                    className="flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" /> Add Row
+                  </button>
+                </div>
+                <div className="grid gap-1.5 mb-2" style={{ gridTemplateColumns: '3fr 90px 80px 120px 36px' }}>
+                  {['Description', 'Qty', 'Unit', 'Rate (₹)', ''].map(h => (
+                    <div key={h} className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">{h}</div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  {items.map((it, i) => (
+                    <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: '3fr 90px 80px 120px 36px' }}>
+                      <input
+                        className={inputCls}
+                        placeholder="Description of work"
+                        value={it.description}
+                        onChange={e => setItems(p => p.map((x, idx) => idx === i ? { ...x, description: e.target.value } : x))}
                       />
-                   </div>
-                   <div className="grid grid-cols-2 gap-5">
-                      <div className="space-y-3">
-                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">WO Number</label>
-                         <input 
-                           type="text" 
-                           className="w-full bg-slate-100 border border-slate-200 rounded-2xl p-4 text-xs font-black text-indigo-600 font-mono italic outline-none shadow-inner"
-                           value={formData.wo_number}
-                           readOnly
-                         />
-                      </div>
-                      <div className="space-y-3">
-                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Contract Date</label>
-                         <input 
-                           type="date" 
-                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-black text-slate-900 outline-none focus:border-indigo-400 transition-all shadow-sm italic"
-                           value={formData.wo_date}
-                           onChange={e => setFormData(p => ({ ...p, wo_date: e.target.value }))}
-                         />
-                      </div>
-                   </div>
-                </div>
-
-                {/* Line Items Builder */}
-                <div className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm space-y-6">
-                   <div className="flex items-center justify-between border-b border-slate-100 pb-5">
-                      <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2 italic">
-                         <Hammer size={16} className="text-indigo-500" /> Precise Technical Scope Items
-                      </h3>
-                      <button 
-                        onClick={() => setItems(p => [...p, { description: '', quantity: '', unit: 'SQFT', rate: '', remarks: '' }])}
-                        className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm italic"
+                      <input
+                        type="number" min="0"
+                        className={inputCls}
+                        placeholder="0"
+                        value={it.quantity}
+                        onChange={e => setItems(p => p.map((x, idx) => idx === i ? { ...x, quantity: e.target.value } : x))}
+                      />
+                      <select
+                        className={inputCls}
+                        value={it.unit}
+                        onChange={e => setItems(p => p.map((x, idx) => idx === i ? { ...x, unit: e.target.value } : x))}
                       >
-                         + Insert Specification
+                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                      <input
+                        type="number" min="0"
+                        className={inputCls}
+                        placeholder="0.00"
+                        value={it.rate}
+                        onChange={e => setItems(p => p.map((x, idx) => idx === i ? { ...x, rate: e.target.value } : x))}
+                      />
+                      <button
+                        onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}
+                        disabled={items.length === 1}
+                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-200 transition-all disabled:opacity-30"
+                      >
+                        <X className="w-3.5 h-3.5" />
                       </button>
-                   </div>
-                   
-                   <div className="space-y-4">
-                      {items.map((it, i) => (
-                        <div key={i} className="grid grid-cols-12 gap-4 p-6 bg-slate-50 border border-slate-200 rounded-[2rem] hover:border-indigo-300 transition-all group relative">
-                           <div className="col-span-4 space-y-2">
-                              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Trade Description</label>
-                              <input 
-                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-black text-slate-900 uppercase outline-none focus:border-indigo-400 shadow-sm italic"
-                                placeholder="Details..." 
-                                value={it.description}
-                                onChange={e => setItems(p => p.map((x, idx) => idx === i ? { ...x, description: e.target.value } : x))}
-                              />
-                           </div>
-                           <div className="col-span-2 space-y-2">
-                              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Contract Qty</label>
-                              <input 
-                                type="number"
-                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-center text-xs font-black text-slate-900 font-mono outline-none focus:border-indigo-400 shadow-sm"
-                                value={it.quantity}
-                                onChange={e => setItems(p => p.map((x, idx) => idx === i ? { ...x, quantity: e.target.value } : x))}
-                              />
-                           </div>
-                           <div className="col-span-2 space-y-2">
-                              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Unit</label>
-                              <select 
-                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-black text-slate-900 uppercase tracking-widest outline-none focus:border-indigo-400 shadow-sm appearance-none italic"
-                                value={it.unit}
-                                onChange={e => setItems(p => p.map((x, idx) => idx === i ? { ...x, unit: e.target.value } : x))}
-                              >
-                                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                              </select>
-                           </div>
-                           <div className="col-span-3 space-y-2">
-                              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Unit Rate (₹)</label>
-                              <input 
-                                type="number"
-                                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-right text-xs font-black text-indigo-600 font-mono outline-none focus:border-indigo-400 shadow-sm"
-                                value={it.rate}
-                                onChange={e => setItems(p => p.map((x, idx) => idx === i ? { ...x, rate: e.target.value } : x))}
-                              />
-                           </div>
-                           <div className="col-span-1 flex items-end justify-center pb-1.5">
-                              <button 
-                                onClick={() => setItems(p => p.filter((_, idx) => idx !== i))}
-                                className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-red-500 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-all shadow-sm"
-                              >
-                                <X size={16} />
-                              </button>
-                           </div>
-                        </div>
-                      ))}
-                   </div>
+                    </div>
+                  ))}
                 </div>
 
-                {/* Terms and Financial Overlay */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-4">
-                   <div className="lg:col-span-8 bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm space-y-4">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 italic">
-                         <FileText size={14} className="text-slate-400" /> Master Terms & Conditions
-                      </label>
-                      <textarea 
-                        className="w-full h-44 bg-slate-50 border border-slate-100 rounded-[2rem] p-6 text-[10px] font-bold text-slate-700 leading-relaxed outline-none focus:border-indigo-300 shadow-inner resize-none tracking-widest"
-                        value={formData.terms_conditions}
-                        onChange={e => setFormData(p => ({ ...p, terms_conditions: e.target.value }))}
-                      />
-                   </div>
-                   <div className="lg:col-span-4 self-start">
-                      <div className="bg-indigo-600 rounded-[2.5rem] p-8 space-y-6 shadow-2xl shadow-indigo-600/30 relative overflow-hidden">
-                         <Briefcase className="absolute -right-4 -bottom-4 w-32 h-32 text-indigo-500/30 rotate-12" />
-                         <div className="relative z-10 space-y-5">
-                            <div className="flex justify-between items-center text-white/80">
-                               <span className="text-[9px] font-black uppercase tracking-widest italic">Document Value</span>
-                            </div>
-                            <div className="space-y-1">
-                               <p className="text-3xl font-black text-white font-mono tracking-tighter leading-none italic uppercase">{inr(formTotal)}</p>
-                               <p className="text-[9px] font-bold text-indigo-200 uppercase tracking-widest">Institutional Aggregate Contract Sum</p>
-                            </div>
-                            <div className="pt-5 border-t border-indigo-500 space-y-3">
-                               <div className="flex justify-between text-[10px] text-indigo-200 font-bold uppercase tracking-widest">
-                                  <span>Security Retention</span>
-                                  <span className="font-mono text-white">₹{(formTotal * 0.05).toLocaleString('en-IN')}</span>
-                                </div>
-                               <div className="flex justify-between text-[10px] text-indigo-200 font-bold uppercase tracking-widest">
-                                  <span>TDS Est.</span>
-                                  <span className="font-mono text-white">₹{(formTotal * 0.02).toLocaleString('en-IN')}</span>
-                               </div>
-                            </div>
-                         </div>
-                      </div>
-                   </div>
+                {/* Total bar */}
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="text-xs text-slate-400">
+                    Security Deposit (5%): <span className="font-mono text-slate-600">₹{inr(formTotal * 0.05)}</span>
+                    <span className="mx-3">·</span>
+                    TDS Est. (2%): <span className="font-mono text-slate-600">₹{inr(formTotal * 0.02)}</span>
+                  </div>
+                  <div className="text-sm font-bold text-slate-900">
+                    Total: <span className="font-mono text-indigo-700">₹{inr(formTotal)}</span>
+                  </div>
                 </div>
-             </div>
+              </div>
 
-             <div className="p-6 bg-slate-50 border-t border-slate-100 shrink-0 flex gap-4">
-                <button 
-                  onClick={() => setShowForm(false)}
-                  className="flex-1 py-5 bg-white border border-slate-200 text-slate-600 font-black uppercase text-[11px] tracking-[0.2em] rounded-[2rem] hover:text-slate-900 transition-all shadow-sm italic hover:bg-slate-50 hover:border-slate-300"
-                >
-                  Discard Draft
-                </button>
-                <button 
-                  onClick={() => createMutation.mutate({ ...formData, items })}
-                  disabled={createMutation.isPending || !formData.project_id || !formData.vendor_id || items.length === 0}
-                  className="flex-[2] py-5 bg-indigo-600 text-white font-black uppercase text-[11px] tracking-[0.2em] rounded-[2rem] hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/30 italic disabled:opacity-50"
-                >
-                  {createMutation.isPending ? 'Finalizing Core Contract...' : 'Authorize and Finalize Work Order'}
-                </button>
-             </div>
+              {/* Terms */}
+              <div className="border border-slate-200 rounded-xl p-5">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Terms & Conditions</h3>
+                <textarea
+                  rows={5}
+                  className={inputCls}
+                  value={formData.terms_conditions}
+                  onChange={e => setFormData(p => ({ ...p, terms_conditions: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 shrink-0 flex gap-3">
+              <button onClick={resetForm}
+                className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-100 transition-all">
+                Cancel
+              </button>
+              <button
+                onClick={() => createMutation.mutate({ ...formData, items })}
+                disabled={createMutation.isPending || !formData.project_id || !formData.vendor_id}
+                className="flex-[2] py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 shadow-sm transition-all disabled:opacity-60">
+                {createMutation.isPending ? 'Issuing…' : 'Issue Work Order'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* WO Detail Sidebar / Modal */}
+      {/* WO Detail Side Panel */}
       {selectedWO && (
-         <div className="fixed inset-0 z-[100] flex justify-end bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="w-full max-w-2xl bg-white border-l border-slate-200 h-full p-10 overflow-y-auto space-y-10 shadow-2xl animate-in slide-in-from-right duration-500">
-               <div className="flex items-center justify-between border-b border-slate-100 pb-6">
-                  <div>
-                    <h2 className="text-2xl font-black text-slate-900 italic tracking-tighter uppercase leading-none">{selectedWO.wo_number}</h2>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2">{selectedWO.subject}</p>
-                  </div>
-                  <button onClick={() => setSelectedWO(null)} className="p-3 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-900 transition-all shadow-sm">
-                    <X size={20} />
-                  </button>
-               </div>
+        <div className="fixed inset-0 z-[60] flex">
+          <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedWO(null)} />
+          <div className="w-full max-w-xl bg-white shadow-2xl flex flex-col overflow-hidden">
 
-               <div className="grid grid-cols-2 gap-8">
-                  <div className="bg-slate-50 border border-slate-200 p-6 rounded-[2rem] shadow-sm">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 italic">Authorized Sub-Contractor</label>
-                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight italic">{selectedWO.vendor_name}</p>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 p-6 rounded-[2rem] shadow-sm">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 italic">Linked Project Entity</label>
-                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight italic">{selectedWO.project_name}</p>
-                  </div>
-               </div>
-
-               <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 space-y-6 shadow-sm relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-[100px] -z-0"></div>
-                  <div className="flex justify-between items-center relative z-10">
-                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Core Contract Progress</span>
-                     <span className="text-[11px] font-black text-indigo-700 italic tracking-tighter uppercase whitespace-nowrap px-4 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl shadow-sm">₹0.00 Billed to Date</span>
-                  </div>
-                  
-                  <div className="space-y-3 relative z-10">
-                     <div className="flex justify-between text-xs font-black text-slate-900 uppercase tracking-widest italic">
-                        <span>Physical Completion</span>
-                        <span className="text-indigo-600">0%</span>
-                     </div>
-                     <div className="h-1.5 bg-slate-100 border border-slate-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-600 w-0" />
-                     </div>
-                  </div>
-               </div>
-
-               <div className="space-y-4">
-                  <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic flex items-center gap-2"><FileText size={14} className="text-slate-400" /> Official Work Specifications</h3>
-                  <div className="bg-slate-50 border border-slate-200 rounded-[2.5rem] p-8 space-y-5 shadow-inner">
-                     <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest italic mb-2">Sub-Contractor Obligations</p>
-                     <p className="text-[11px] text-slate-600 font-bold whitespace-pre-line leading-relaxed italic overflow-y-auto max-h-[300px] scrollbar-thin scrollbar-thumb-slate-200 pr-4">
-                        {selectedWO.terms_conditions}
-                     </p>
-                  </div>
-               </div>
-
-               <div className="flex gap-4 pt-10 border-t border-slate-100">
-                  <button className="flex-1 py-5 bg-white border border-slate-200 text-slate-600 font-black uppercase text-[11px] tracking-[0.2em] rounded-2xl hover:text-slate-900 hover:border-slate-300 transition-all flex items-center justify-center gap-2 italic shadow-sm">
-                     <Printer size={16} /> Official Audit Print
-                  </button>
-                  <button className="flex-1 py-5 bg-slate-900 text-white font-black uppercase text-[11px] tracking-[0.2em] rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 italic flex items-center justify-center gap-2">
-                     Modify Contract
-                  </button>
-               </div>
+            <div className="bg-slate-900 px-6 py-4 flex items-start justify-between shrink-0">
+              <div>
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Work Order</div>
+                <h2 className="text-xl font-black text-white font-mono">{selectedWO.wo_number}</h2>
+                <p className="text-sm text-slate-400 mt-0.5">{selectedWO.subject || '—'}</p>
+              </div>
+              <button onClick={() => setSelectedWO(null)}
+                className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all">
+                <X className="w-4 h-4" />
+              </button>
             </div>
-         </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#f4f6f9]">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  ['Vendor', selectedWO.vendor_name],
+                  ['Project', selectedWO.project_name],
+                  ['WO Date', selectedWO.wo_date ? dayjs(selectedWO.wo_date).format('DD MMM YYYY') : '—'],
+                  ['Status', selectedWO.status],
+                  ['Total Value', `₹${inr(selectedWO.total_value)}`],
+                ].map(([label, value]) => (
+                  <div key={label} className="bg-white border border-slate-200 rounded-lg p-3">
+                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">{label}</p>
+                    <p className="text-sm font-semibold text-slate-800 truncate">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {selectedWO.terms_conditions && (
+                <div className="bg-white border border-slate-200 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Terms & Conditions</p>
+                  <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{selectedWO.terms_conditions}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-100 bg-white shrink-0 flex gap-3">
+              <button className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:border-slate-300 transition-all">
+                <Printer className="w-4 h-4" /> Print
+              </button>
+              <button onClick={() => setSelectedWO(null)}
+                className="flex-1 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-all">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

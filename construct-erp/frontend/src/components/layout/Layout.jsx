@@ -59,9 +59,10 @@ const navGroups = [
       { to: '/procurement/vendor-performance', icon: Star, label: 'Vendor Performance' },
       { to: '/procurement/rate-contracts', icon: Landmark, label: 'Rate Contracts' },
       { to: '/procurement/vendor-payments', icon: Wallet, label: 'Vendor Payments' },
-      { to: '/procurement/quotations', icon: ScrollText,   label: 'Quotations & CS' },
-      { to: '/procurement/po',         icon: ShoppingCart, label: 'Purchase Orders' },
-      { to: '/procurement/inventory',  icon: Package,      label: 'Inventory' },
+      { to: '/procurement/quotations',   icon: ScrollText,   label: 'Quotations & CS' },
+      { to: '/procurement/po',           icon: ShoppingCart, label: 'Purchase Orders' },
+      { to: '/procurement/work-orders',  icon: Hammer,       label: 'Work Orders' },
+      { to: '/procurement/inventory',    icon: Package,      label: 'Inventory' },
     ]
   },
 
