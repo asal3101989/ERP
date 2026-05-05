@@ -16,7 +16,7 @@ import dayjs from 'dayjs';
 
 const BillingReportsPage = () => {
   const [selectedReport, setSelectedReport] = useState('');
-  const [dateRange, setDateRange] = useState('this-month');
+  const [dateRange, setDateRange] = useState('this-year');
   const [selectedProject, setSelectedProject] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [billingStatus, setBillingStatus] = useState('all');
@@ -158,7 +158,7 @@ const BillingReportsPage = () => {
         case 'last-month': startDate = now.subtract(1, 'month').startOf('month'); break;
         case 'this-quarter': startDate = now.startOf('quarter'); break;
         case 'this-year': startDate = now.startOf('year'); break;
-        default: startDate = now.startOf('month');
+        default: startDate = now.startOf('year');
       }
       filteredBills = filteredBills.filter(b => dayjs(b.bill_date || b.created_at).isAfter(startDate));
       filteredPayments = filteredPayments.filter(p => dayjs(p.payment_date || p.created_at).isAfter(startDate));
@@ -191,7 +191,7 @@ const BillingReportsPage = () => {
           title: 'Payment Register',
           type: reportId,
           data: filteredPayments.length > 0 ? filteredPayments.map(p => ({
-            reference: p.reference || `PAY-${p.id}`,
+            reference: p.reference_number || `PAY-${p.id}`,
             date: p.payment_date || p.created_at || '—',
             amount: parseFloat(p.amount || 0),
             mode: p.payment_mode || 'N/A',
@@ -527,6 +527,7 @@ const BillingReportsPage = () => {
             <Calendar size={14} color="#94a3b8" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
             <select value={dateRange} onChange={e => setDateRange(e.target.value)}
               style={{ width: '100%', paddingLeft: 32, paddingRight: 12, paddingTop: 9, paddingBottom: 9, border: '1px solid #e2e8f0', borderRadius: 9, fontSize: 13, color: '#334155', appearance: 'none', background: '#f8fafc', outline: 'none' }}>
+              <option value="all">All Time</option>
               <option value="today">Today</option>
               <option value="this-week">This Week</option>
               <option value="this-month">This Month</option>
