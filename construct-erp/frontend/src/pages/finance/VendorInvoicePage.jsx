@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
-import { invoiceAPI, projectAPI, vendorAPI, default as api } from '../../api/client';
+import { invoiceAPI, projectAPI, tqsBillsAPI, default as api } from '../../api/client';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import DataToolbar from '../../components/common/DataToolbar';
@@ -30,12 +30,46 @@ export default function VendorInvoicePage() {
 
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['vendor-invoices'],
-    queryFn: () => invoiceAPI.list().then(r => r.data.data),
+    queryFn: () => invoiceAPI.list().then(r => r.data.data).catch(() => []),
+  });
+
+  const { data: tqsBillsRaw } = useQuery({
+    queryKey: ['tqs-bills-finance'],
+    queryFn: () => tqsBillsAPI.list({ limit: 500 }).then(r => {
+      const rows = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
+      // Map TQS bill fields to invoice shape for unified display
+      return rows.map(b => ({
+        id: b.id,
+        _source: 'tqs',
+        invoice_number: b.inv_number || b.sl_number,
+        invoice_date: b.inv_date || b.created_at,
+        vendor_name: b.vendor_name,
+        project_name: b.project_name,
+        project_id: b.project_id,
+        net_amount: b.total_amount || 0,
+        taxable_amount: b.basic_amount || 0,
+        due_date: null,
+        po_number: b.po_number,
+        grn_number: null,
+        tqs_sl: b.sl_number,
+        bill_type: b.bill_type,
+        payment_status: b.payment_status,
+        status: (() => {
+          const ws = b.workflow_status;
+          if (ws === 'paid') return 'paid';
+          if (ws === 'procurement' || ws === 'accounts') return 'authorized';
+          if (ws === 'qs') return 'verified';
+          return 'pending';
+        })(),
+        verified_by_name: null,
+        authorized_by_name: null,
+      }));
+    }).catch(() => []),
   });
 
   const { data: projects } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => projectAPI.list().then(r => r.data.data),
+    queryFn: () => projectAPI.list().then(r => r.data.data).catch(() => []),
   });
 
   const verifyMut = useMutation({
@@ -57,7 +91,9 @@ export default function VendorInvoicePage() {
     onError: () => toast.error('Failed to delete invoice'),
   });
 
-  const filtered = (invoices || []).filter(inv => {
+  const allInvoices = [...(invoices || []), ...(tqsBillsRaw || [])];
+
+  const filtered = allInvoices.filter(inv => {
     if (filterProject !== 'all' && inv.project_id !== filterProject) return false;
     if (filterStatus !== 'all' && inv.status !== filterStatus) return false;
     return true;
@@ -141,12 +177,20 @@ export default function VendorInvoicePage() {
                               <Building2 className="w-6 h-6" />
                            </div>
                            <div>
-                              <div className="text-slate-900 font-black text-xs uppercase tracking-tight italic">{inv.vendor_name}</div>
+                              <div className="flex items-center gap-2">
+                                <div className="text-slate-900 font-black text-xs uppercase tracking-tight italic">{inv.vendor_name}</div>
+                                {inv._source === 'tqs' && (
+                                  <span className="text-[8px] font-black uppercase tracking-widest bg-violet-100 text-violet-600 border border-violet-200 px-1.5 py-0.5 rounded-md">TQS</span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2 mt-1.5">
                                  <Tag className="w-3.5 h-3.5 text-slate-400" />
                                  <span className="text-[10px] font-mono text-indigo-600 font-black uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">{inv.invoice_number}</span>
-                                 <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">• {dayjs(inv.invoice_date).format('DD MMM YYYY')}</span>
+                                 <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">• {inv.invoice_date ? dayjs(inv.invoice_date).format('DD MMM YYYY') : '—'}</span>
                               </div>
+                              {inv._source === 'tqs' && inv.tqs_sl && (
+                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">SL: {inv.tqs_sl} · {inv.bill_type === 'wo' ? 'Work Order' : 'Purchase Order'}</div>
+                              )}
                            </div>
                         </div>
                      </td>
@@ -175,12 +219,17 @@ export default function VendorInvoicePage() {
                         </div>
                      </td>
                      <td className="py-5 px-6 text-right flex justify-end gap-2 items-center">
-                         {inv.status === 'pending' && <button onClick={() => verifyMut.mutate(inv.id)} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-blue-600/20 italic">Verify</button>}
-                         {inv.status === 'verified' && <button onClick={() => authMut.mutate(inv.id)} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-emerald-600/20 italic">Authorize</button>}
-                         <button className="w-10 h-10 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-400 flex items-center justify-center rounded-xl border border-slate-200 shadow-sm transition-all"><Printer className="w-4 h-4 text-slate-500" /></button>
+                         {inv._source !== 'tqs' && inv.status === 'pending' && <button onClick={() => verifyMut.mutate(inv.id)} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-blue-600/20 italic">Verify</button>}
+                         {inv._source !== 'tqs' && inv.status === 'verified' && <button onClick={() => authMut.mutate(inv.id)} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-emerald-600/20 italic">Authorize</button>}
+                         {inv._source === 'tqs' && (
+                           <button onClick={() => navigate(`/tqs/bills/${inv.id}`)} className="px-4 py-2.5 bg-violet-50 hover:bg-violet-100 text-violet-600 border border-violet-200 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all italic flex items-center gap-1.5">
+                             <ExternalLink className="w-3 h-3" /> Open in TQS
+                           </button>
+                         )}
+                         {inv._source !== 'tqs' && <button className="w-10 h-10 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-400 flex items-center justify-center rounded-xl border border-slate-200 shadow-sm transition-all"><Printer className="w-4 h-4 text-slate-500" /></button>}
                      </td>
                      <td className="py-5 px-6" onClick={e => e.stopPropagation()}>
-                         <TableActions disableEdit onDelete={() => deleteMut.mutate(inv.id)} />
+                         {inv._source !== 'tqs' && <TableActions disableEdit onDelete={() => deleteMut.mutate(inv.id)} />}
                       </td>
                    </tr>
                  );

@@ -1104,14 +1104,15 @@ router.patch('/:id/payment', requireTqsStageAccess('payment'), async (req, res) 
       let finance_payment_id = null;
       if (new_paid > 0 && payment_date && bill.project_id) {
         const payType = bill.bill_type === 'wo' ? 'subcontractor' : 'vendor';
+        const costHead = bill.bill_type === 'wo' ? 'Subcontractor' : 'Material';
         const netPaid = new_paid - tds;
         const fp = await client.query(`
           INSERT INTO payments
             (project_id, payment_type, entity_name,
              amount, tds_deducted, net_amount,
              payment_date, payment_mode, reference_number, bank_name,
-             remarks, created_by, tqs_bill_id, source)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+             cost_head, remarks, created_by, tqs_bill_id, source)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
           RETURNING id
         `, [
           bill.project_id, payType, bill.vendor_name,
@@ -1120,6 +1121,7 @@ router.patch('/:id/payment', requireTqsStageAccess('payment'), async (req, res) 
           payment_mode || 'bank_transfer',
           reference_number || null,
           bank_name || null,
+          costHead,
           `TQS Bill ${bill.sl_number} — Inv: ${bill.inv_number || '—'}`,
           req.user.id, req.params.id, 'tqs',
         ]);
