@@ -9,7 +9,7 @@ import {
   ChevronDown, Printer, Eye, Clock,
   CheckCircle, XCircle, ArrowUpRight, X, Zap
 } from 'lucide-react';
-import { projectAPI, raBillAPI, paymentAPI } from '../../api/client';
+import { projectAPI, raBillAPI, paymentAPI, reportAPI, vendorAPI } from '../../api/client';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import dayjs from 'dayjs';
@@ -38,6 +38,17 @@ const BillingReportsPage = () => {
   const { data: payments = [] } = useQuery({
     queryKey: ['payments'],
     queryFn: () => paymentAPI.list().then(r => r.data?.data || []).catch(() => []),
+  });
+
+  const { data: vendorLedger = [] } = useQuery({
+    queryKey: ['vendor-ledger-report', selectedProject],
+    queryFn: () => reportAPI.vendorLedger(selectedProject !== 'all' ? { project_id: selectedProject } : {})
+      .then(r => r.data?.data || []).catch(() => []),
+  });
+
+  const { data: vendors = [] } = useQuery({
+    queryKey: ['vendors-list'],
+    queryFn: () => vendorAPI.list().then(r => r.data?.data || r.data || []).catch(() => []),
   });
 
   const billingReportTypes = [
@@ -113,9 +124,45 @@ const BillingReportsPage = () => {
       accentLight: '#fdf2f8',
       category: 'Summary',
     },
+    {
+      id: 'vendor-ledger',
+      name: 'Vendor Ledger',
+      description: 'Consolidated invoiced, certified, paid and outstanding per vendor',
+      icon: Building2,
+      accent: '#0f766e',
+      accentLight: '#f0fdfa',
+      category: 'Vendor',
+    },
+    {
+      id: 'vendor-outstanding',
+      name: 'Vendor Outstanding',
+      description: 'Unpaid balances owed to each vendor across all sources',
+      icon: AlertCircle,
+      accent: '#b45309',
+      accentLight: '#fffbeb',
+      category: 'Vendor',
+    },
+    {
+      id: 'vendor-tds',
+      name: 'Vendor TDS Report',
+      description: 'TDS deducted per vendor — useful for Form 26Q filing',
+      icon: CreditCard,
+      accent: '#7c3aed',
+      accentLight: '#f5f3ff',
+      category: 'Vendor',
+    },
+    {
+      id: 'vendor-payment-register',
+      name: 'Vendor Payment Register',
+      description: 'All payments made to vendors with mode and reference',
+      icon: DollarSign,
+      accent: '#0369a1',
+      accentLight: '#f0f9ff',
+      category: 'Vendor',
+    },
   ];
 
-  const categories = ['All', 'Register', 'Analysis', 'Summary'];
+  const categories = ['All', 'Register', 'Analysis', 'Summary', 'Vendor'];
 
   const filteredReports = billingReportTypes.filter(report => {
     const matchesSearch = report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -356,6 +403,128 @@ const BillingReportsPage = () => {
             'Total Billed': fmtC(grandNet),
             'Total Collected': fmtC(grandCollected),
             'Outstanding': fmtC(grandNet - grandCollected),
+          },
+        };
+      }
+
+      case 'vendor-ledger': {
+        const fmtV = v => `₹${parseFloat(v || 0).toLocaleString('en-IN')}`;
+        const rows = vendorLedger.length > 0
+          ? vendorLedger.map(v => ({
+              vendor: v.vendor_name || '—',
+              bills: v.bill_count || 0,
+              invoiced: fmtV(v.total_invoiced),
+              certified: fmtV(v.total_certified),
+              paid: fmtV(v.total_paid),
+              tdsDeducted: fmtV(v.total_tds),
+              retention: fmtV(v.total_retention),
+              outstanding: fmtV(v.outstanding),
+            }))
+          : [{ vendor: 'No Data', bills: 0, invoiced: '₹0', certified: '₹0', paid: '₹0', tdsDeducted: '₹0', retention: '₹0', outstanding: '₹0' }];
+        const totInvoiced = vendorLedger.reduce((s, v) => s + parseFloat(v.total_invoiced || 0), 0);
+        const totPaid = vendorLedger.reduce((s, v) => s + parseFloat(v.total_paid || 0), 0);
+        const totOutstanding = vendorLedger.reduce((s, v) => s + parseFloat(v.outstanding || 0), 0);
+        const totTds = vendorLedger.reduce((s, v) => s + parseFloat(v.total_tds || 0), 0);
+        return {
+          title: 'Vendor Ledger',
+          type: 'vendor-ledger',
+          data: rows,
+          summary: {
+            'Total Vendors': vendorLedger.length,
+            'Total Invoiced': fmtV(totInvoiced),
+            'Total Paid': fmtV(totPaid),
+            'Outstanding': fmtV(totOutstanding),
+            'TDS Deducted': fmtV(totTds),
+          },
+        };
+      }
+
+      case 'vendor-outstanding': {
+        const fmtO = v => `₹${parseFloat(v || 0).toLocaleString('en-IN')}`;
+        const outstanding = vendorLedger.filter(v => parseFloat(v.outstanding || 0) > 0);
+        const rows = outstanding.length > 0
+          ? outstanding
+              .sort((a, b) => parseFloat(b.outstanding) - parseFloat(a.outstanding))
+              .map(v => ({
+                vendor: v.vendor_name || '—',
+                bills: v.bill_count || 0,
+                totalInvoiced: fmtO(v.total_invoiced),
+                totalPaid: fmtO(v.total_paid),
+                outstanding: fmtO(v.outstanding),
+                retentionHeld: fmtO(v.total_retention),
+              }))
+          : [{ vendor: 'No Outstanding', bills: 0, totalInvoiced: '₹0', totalPaid: '₹0', outstanding: '₹0', retentionHeld: '₹0' }];
+        const totOut = outstanding.reduce((s, v) => s + parseFloat(v.outstanding || 0), 0);
+        const totRet = outstanding.reduce((s, v) => s + parseFloat(v.total_retention || 0), 0);
+        return {
+          title: 'Vendor Outstanding Report',
+          type: 'vendor-outstanding',
+          data: rows,
+          summary: {
+            'Vendors with Outstanding': outstanding.length,
+            'Total Outstanding': fmtO(totOut),
+            'Retention Held': fmtO(totRet),
+            'Net Payable': fmtO(totOut - totRet),
+          },
+        };
+      }
+
+      case 'vendor-tds': {
+        const fmtT = v => `₹${parseFloat(v || 0).toLocaleString('en-IN')}`;
+        const rows = vendorLedger.filter(v => parseFloat(v.total_tds || 0) > 0);
+        const data = rows.length > 0
+          ? rows
+              .sort((a, b) => parseFloat(b.total_tds) - parseFloat(a.total_tds))
+              .map(v => ({
+                vendor: v.vendor_name || '—',
+                grossInvoiced: fmtT(v.total_invoiced),
+                tdsDeducted: fmtT(v.total_tds),
+                netPaid: fmtT(v.total_paid),
+              }))
+          : [{ vendor: 'No TDS Data', grossInvoiced: '₹0', tdsDeducted: '₹0', netPaid: '₹0' }];
+        const totTdsV = rows.reduce((s, v) => s + parseFloat(v.total_tds || 0), 0);
+        const totGross = rows.reduce((s, v) => s + parseFloat(v.total_invoiced || 0), 0);
+        return {
+          title: 'Vendor TDS Report',
+          type: 'vendor-tds',
+          data,
+          summary: {
+            'Vendors with TDS': rows.length,
+            'Total Gross': fmtT(totGross),
+            'Total TDS Deducted': fmtT(totTdsV),
+            'Effective TDS %': totGross > 0 ? `${((totTdsV / totGross) * 100).toFixed(1)}%` : '0%',
+          },
+        };
+      }
+
+      case 'vendor-payment-register': {
+        const fmtP2 = v => `₹${parseFloat(v || 0).toLocaleString('en-IN')}`;
+        const vendorPayments = payments.filter(p => p.payment_type !== 'customer_receipt');
+        const data = vendorPayments.length > 0
+          ? vendorPayments.map(p => ({
+              date: p.payment_date ? dayjs(p.payment_date).format('DD MMM YYYY') : '—',
+              vendor: p.entity_name || '—',
+              reference: p.reference_number || `PAY-${p.id?.slice(0, 8)}`,
+              mode: p.payment_mode || '—',
+              bank: p.bank_name || '—',
+              amount: fmtP2(p.amount),
+              tds: fmtP2(p.tds_deducted),
+              netPaid: fmtP2(p.net_amount),
+              costHead: p.cost_head || '—',
+            }))
+          : [{ date: 'No Payments', vendor: '—', reference: '—', mode: '—', bank: '—', amount: '₹0', tds: '₹0', netPaid: '₹0', costHead: '—' }];
+        const totAmt = vendorPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+        const totTdsPay = vendorPayments.reduce((s, p) => s + parseFloat(p.tds_deducted || 0), 0);
+        const totNet = vendorPayments.reduce((s, p) => s + parseFloat(p.net_amount || 0), 0);
+        return {
+          title: 'Vendor Payment Register',
+          type: 'vendor-payment-register',
+          data,
+          summary: {
+            'Total Payments': vendorPayments.length,
+            'Gross Amount': fmtP2(totAmt),
+            'TDS Deducted': fmtP2(totTdsPay),
+            'Net Paid': fmtP2(totNet),
           },
         };
       }
