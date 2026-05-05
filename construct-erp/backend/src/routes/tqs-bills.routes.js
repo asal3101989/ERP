@@ -348,12 +348,20 @@ function parseTqsTrackerSheet(workbook, sheetName, billType) {
   if (headerIndex < 0) return [];
 
   const headers = rows[headerIndex].map(normalizeHeader);
+  const serialHeaderRow = headerIndex > 0 ? rows[headerIndex - 1].map(normalizeHeader) : [];
   const indexOf = (...names) => {
     const wanted = names.map(normalizeHeader);
     return headers.findIndex(h => wanted.includes(h));
   };
+  const indexOfSerial = () => {
+    const direct = indexOf('S.no', 'S.No', 'S No');
+    if (direct >= 0) return direct;
+    const prevRowMatch = serialHeaderRow.findIndex(h => h === 's no' || h === 's no.');
+    if (prevRowMatch >= 0) return prevRowMatch;
+    return 0;
+  };
   const indexes = {
-    serial: indexOf('S.no', 'S.No', 'S No'),
+    serial: indexOfSerial(),
     vendor: indexOf('Vendor Name'),
     orderNumber: indexOf(billType === 'wo' ? 'Work Order Number' : 'Purchase Order Number'),
     orderDate: indexOf(billType === 'wo' ? 'Work order Date' : 'Purchase order Date'),
