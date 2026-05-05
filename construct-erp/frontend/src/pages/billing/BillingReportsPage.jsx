@@ -296,7 +296,7 @@ const BillingReportsPage = () => {
         return {
           title: 'Billing Efficiency Report',
           type: 'billing-efficiency',
-          data: data.length > 0 ? byProject : [{ project: 'No Data', totalBills: 0, paidBills: 0, totalBilled: '₹0', collected: '₹0', collectionRate: '0%', avgDaysToCollect: 0 }],
+          data: byProject.length > 0 ? byProject : [{ project: 'No Data', totalBills: 0, paidBills: 0, totalBilled: '₹0', collected: '₹0', collectionRate: '0%', avgDaysToCollect: 0 }],
           summary: {
             'Total Bills': filteredBills.length,
             'Paid Bills': allPaid,
