@@ -126,8 +126,19 @@ export default function PaymentsPage() {
   // ── Derived ──────────────────────────────────────────────────────────────────
   const filtered = payments.filter(p => {
     if (filterStatus !== 'all' && p.status !== filterStatus) return false;
-    if (search && !p.payee_name?.toLowerCase().includes(search.toLowerCase()) &&
-        !p.payment_number?.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search) {
+      const needle = search.toLowerCase();
+      const matches = [
+        p.payee_name,
+        p.entity_name,
+        p.payment_number,
+        p.reference_number,
+        p.bank_name,
+        p.remarks,
+        p.project_name,
+      ].some(value => String(value || '').toLowerCase().includes(needle));
+      if (!matches) return false;
+    }
     return true;
   });
 
