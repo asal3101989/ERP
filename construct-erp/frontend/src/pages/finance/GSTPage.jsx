@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { DollarSign, Plus, X, FileText, TrendingUp, Landmark, Calculator } from 'lucide-react';
-import api, { invoiceAPI, projectAPI } from '../../api/client';
+import api, { invoiceAPI, projectAPI, reportAPI } from '../../api/client';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -112,6 +112,11 @@ export default function GSTPage() {
     queryFn: () => invoiceAPI.gstSummary({ year: new Date().getFullYear() }).then(r => r.data).catch(() => null),
   });
 
+  const { data: gstReport } = useQuery({
+    queryKey: ['gst-report', new Date().getFullYear()],
+    queryFn: () => reportAPI.gstReport({ year: new Date().getFullYear() }).then(r => r.data).catch(() => null),
+  });
+
   const createMutation = useMutation({
     mutationFn: (d) => invoiceAPI.create({ ...d, taxable_amount: parseFloat(d.taxable_amount) }),
     onSuccess: () => { toast.success('Invoice created!'); reset(); setShowForm(false); qc.invalidateQueries(['invoices']); },
@@ -131,6 +136,14 @@ export default function GSTPage() {
   const totalCollected = invoices.filter(i => i.payment_status === 'paid').reduce((s, i) => s + parseFloat(i.total_amount || 0), 0);
   const totalGST = invoices.reduce((s, i) => s + parseFloat(i.cgst_amount || 0) + parseFloat(i.sgst_amount || 0) + parseFloat(i.igst_amount || 0), 0);
   const totalPending = invoices.filter(i => i.payment_status === 'unpaid').reduce((s, i) => s + parseFloat(i.total_amount || 0), 0);
+
+  const outputRows = gstReport?.output || [];
+  const cgstCollected = outputRows.reduce((s, r) => s + parseFloat(r.cgst || 0), 0);
+  const sgstCollected = outputRows.reduce((s, r) => s + parseFloat(r.sgst || 0), 0);
+  const igstCollected = outputRows.reduce((s, r) => s + parseFloat(r.igst || 0), 0);
+  const totalOutputGST = cgstCollected + sgstCollected + igstCollected;
+  const totalITC = parseFloat(gstReport?.itc?.total_itc || 0);
+  const netGSTPayable = parseFloat(gstReport?.net_payable || 0);
 
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto bg-slate-50 min-h-screen">
@@ -165,7 +178,7 @@ export default function GSTPage() {
            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Pending Collection</div>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 text-center shadow-md">
-           <div className="text-3xl font-black text-red-400 font-mono tracking-tighter italic">₹1.40L</div>
+           <div className="text-3xl font-black text-red-400 font-mono tracking-tighter italic">₹{(netGSTPayable / 1e5).toFixed(1)}L</div>
            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Net GST Payable</div>
         </div>
       </div>
@@ -271,31 +284,29 @@ export default function GSTPage() {
 
       {tab === 'itc' && (
         <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic border-b border-slate-100 pb-4 mb-6">Input Tax Credit (ITC) Summary — FY 2024-25</div>
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic border-b border-slate-100 pb-4 mb-6">Input Tax Credit (ITC) Summary — FY {new Date().getFullYear() - 1}-{String(new Date().getFullYear()).slice(2)}</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="bg-slate-50 border border-slate-200 rounded-[2rem] p-8 shadow-inner">
-              <div className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-6 italic">Output Tax (GST Collected)</div>
+              <div className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-6 italic">Output Tax (GST on Client Billing)</div>
               <div className="space-y-4 font-mono text-sm font-bold">
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">CGST Collected</span><span className="text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">₹1,33,425</span></div>
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">SGST Collected</span><span className="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">₹1,33,425</span></div>
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">IGST Collected</span><span className="text-purple-600 bg-purple-50 px-3 py-1 rounded-lg border border-purple-100">₹4,03,200</span></div>
-                <div className="flex justify-between items-center border-t border-slate-200 pt-4 font-black text-slate-900 text-lg tracking-tighter italic"><span className="text-[11px] uppercase tracking-widest text-slate-900">Total Output</span><span>₹6,70,050</span></div>
+                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">CGST Collected</span><span className="text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">{inr(cgstCollected)}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">SGST Collected</span><span className="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">{inr(sgstCollected)}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">IGST Collected</span><span className="text-purple-600 bg-purple-50 px-3 py-1 rounded-lg border border-purple-100">{inr(igstCollected)}</span></div>
+                <div className="flex justify-between items-center border-t border-slate-200 pt-4 font-black text-slate-900 text-lg tracking-tighter italic"><span className="text-[11px] uppercase tracking-widest text-slate-900">Total Output</span><span>{inr(totalOutputGST)}</span></div>
               </div>
             </div>
             <div className="bg-slate-50 border border-slate-200 rounded-[2rem] p-8 shadow-inner">
-              <div className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-6 italic">Input Tax Credit Available</div>
+              <div className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-6 italic">Input Tax Credit (from POs)</div>
               <div className="space-y-4 font-mono text-sm font-bold">
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">ITC on Cement (28%)</span><span className="text-emerald-600">₹2,12,800</span></div>
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">ITC on Steel (18%)</span><span className="text-emerald-600">₹98,600</span></div>
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">ITC on Services</span><span className="text-emerald-600">₹42,000</span></div>
-                <div className="flex justify-between items-center border-t border-slate-200 pt-4 font-black text-emerald-600 text-lg tracking-tighter italic"><span className="text-[11px] uppercase tracking-widest text-emerald-600">Total ITC</span><span>₹3,53,400</span></div>
+                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">ITC from Purchase Orders</span><span className="text-emerald-600">{inr(totalITC)}</span></div>
+                <div className="flex justify-between items-center border-t border-slate-200 pt-4 font-black text-emerald-600 text-lg tracking-tighter italic"><span className="text-[11px] uppercase tracking-widest text-emerald-600">Total ITC Available</span><span>{inr(totalITC)}</span></div>
               </div>
             </div>
           </div>
           <div className="mt-8 p-8 bg-amber-50 border border-amber-200 rounded-[2.5rem] font-mono shadow-sm">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <span className="text-sm font-black text-amber-700 uppercase tracking-widest italic">Net GST Payable (Output − ITC)</span>
-              <span className="text-4xl text-amber-600 font-black tracking-tighter italic bg-white px-5 py-2 rounded-2xl shadow-sm border border-amber-100">₹3,16,650</span>
+              <span className="text-4xl text-amber-600 font-black tracking-tighter italic bg-white px-5 py-2 rounded-2xl shadow-sm border border-amber-100">{inr(netGSTPayable)}</span>
             </div>
             <div className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mt-4 text-center border-t border-amber-200 pt-3">Due by 20th of next month via GSTR-3B</div>
           </div>

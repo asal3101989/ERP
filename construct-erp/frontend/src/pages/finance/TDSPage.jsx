@@ -1,12 +1,35 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download, FileSignature, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
-import api from '../../api/client';
+import api, { reportAPI } from '../../api/client';
 import dayjs from 'dayjs';
 import { clsx } from 'clsx';
 import DataToolbar from '../../components/common/DataToolbar';
 
 const fmt  = v => `₹${Number(v || 0).toLocaleString('en-IN')}`;
+
+function download26Q(records) {
+  const rows = [
+    ['Payee', 'PAN', 'Section', 'Payment Amount', 'TDS Rate %', 'TDS Amount', 'Payment Date', 'Reference'].join(','),
+    ...records.map(r => [
+      `"${r.entity_name || ''}"`,
+      r.entity_pan || '',
+      r.tds_section || '194C',
+      r.amount || 0,
+      r.tds_rate || 2,
+      r.tds_deducted || 0,
+      r.payment_date ? dayjs(r.payment_date).format('DD-MM-YYYY') : '',
+      `"${r.reference_number || ''}"`,
+    ].join(',')),
+  ].join('\n');
+  const blob = new Blob([rows], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Form_26Q_${dayjs().format('YYYY-MM')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function TDSPage() {
   const [activeTab, setActiveTab] = useState('outgoing'); // 'outgoing' | 'incoming'
@@ -45,7 +68,7 @@ export default function TDSPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => {}}
+            onClick={() => download26Q(outgoing)}
             className="px-4 py-2.5 bg-white border border-slate-200 text-indigo-600 hover:border-indigo-300 font-black uppercase text-[9px] tracking-widest rounded-xl transition-all shadow-sm flex items-center gap-2 italic"
           >
             <Download className="w-3.5 h-3.5" /> Download Form 26Q
