@@ -143,14 +143,14 @@ async function run() {
     for (const item of BOQ_ITEMS) {
       await client.query(
         `INSERT INTO boq_items
-          (project_id, chapter_no, chapter_name, item_no, sr_no, description, unit, quantity, rate, hsn_code, remarks, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          (project_id, chapter_no, chapter_name, item_no, description, unit, quantity, rate, hsn_code, remarks, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [
           projectId, '01', 'Road Work & Storm Water Drain',
-          item.item_no, item.sr_no, item.description,
+          item.item_no, item.description,
           item.unit, item.quantity, item.rate,
           '995411',
-          'WO: WDIRY0194 | WRF 092 dtd 28.11.2025',
+          `SR: ${item.sr_no} | WO: WDIRY0194 | WRF 092 dtd 28.11.2025`,
           userId,
         ]
       );
