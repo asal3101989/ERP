@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS boq_items (
   chapter_no VARCHAR(10),
   chapter_name VARCHAR(200),
   item_no VARCHAR(20) NOT NULL,
+  sr_no VARCHAR(100),
   description TEXT NOT NULL,
   unit VARCHAR(20) NOT NULL,      -- CUM, SQM, RMT, KG, NOS, LS
   quantity NUMERIC(12,3) NOT NULL,

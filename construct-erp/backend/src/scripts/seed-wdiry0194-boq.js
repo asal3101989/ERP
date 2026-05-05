@@ -128,38 +128,49 @@ async function run() {
       console.log(`✅  Project created: Residential Apartments - Yelahanka (id: ${projectId})`);
     }
 
+    // Ensure sr_no column exists (idempotent)
+    await client.query(`ALTER TABLE boq_items ADD COLUMN IF NOT EXISTS sr_no VARCHAR(100)`);
+
     // Check if BOQ items already exist
     const existingBOQ = await client.query(
       `SELECT COUNT(*) FROM boq_items WHERE project_id = $1 AND is_active = true`,
       [projectId]
     );
-    if (parseInt(existingBOQ.rows[0].count) > 0) {
-      console.warn(`⚠️   ${existingBOQ.rows[0].count} BOQ items already exist. Skipping.`);
-      await client.query('COMMIT');
-      process.exit(0);
-    }
+    const existingCount = parseInt(existingBOQ.rows[0].count);
 
-    // Insert all 9 BOQ items
-    for (const item of BOQ_ITEMS) {
-      await client.query(
-        `INSERT INTO boq_items
-          (project_id, chapter_no, chapter_name, item_no, description, unit, quantity, rate, hsn_code, remarks, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-        [
-          projectId, '01', 'Road Work & Storm Water Drain',
-          item.item_no, item.description,
-          item.unit, item.quantity, item.rate,
-          '995411',
-          `SR: ${item.sr_no} | WO: WDIRY0194 | WRF 092 dtd 28.11.2025`,
-          userId,
-        ]
-      );
-      const amount = (item.quantity * item.rate).toLocaleString('en-IN');
-      console.log(`   ✔ Item ${item.item_no}: ${item.unit} ${item.quantity} × ₹${item.rate} = ₹${amount}`);
+    if (existingCount > 0) {
+      // Items exist — just patch sr_no values
+      console.log(`ℹ️   ${existingCount} BOQ items found. Patching sr_no (CSI Code) values...`);
+      for (const item of BOQ_ITEMS) {
+        await client.query(
+          `UPDATE boq_items SET sr_no = $1 WHERE project_id = $2 AND item_no = $3`,
+          [item.sr_no, projectId, item.item_no]
+        );
+        console.log(`   ✔ Patched Item ${item.item_no}: sr_no = ${item.sr_no}`);
+      }
+    } else {
+      // Fresh insert
+      for (const item of BOQ_ITEMS) {
+        await client.query(
+          `INSERT INTO boq_items
+            (project_id, chapter_no, chapter_name, item_no, sr_no, description, unit, quantity, rate, hsn_code, remarks, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [
+            projectId, '01', 'Road Work & Storm Water Drain',
+            item.item_no, item.sr_no, item.description,
+            item.unit, item.quantity, item.rate,
+            '995411',
+            'WO: WDIRY0194 | WRF 092 dtd 28.11.2025',
+            userId,
+          ]
+        );
+        const amount = (item.quantity * item.rate).toLocaleString('en-IN');
+        console.log(`   ✔ Item ${item.item_no}: ${item.unit} ${item.quantity} × ₹${item.rate} = ₹${amount}`);
+      }
     }
 
     await client.query('COMMIT');
-    console.log('\n✅  All 9 BOQ items inserted successfully!');
+    console.log('\n✅  Done! CSI Codes (sr_no) are now set for all 9 BOQ items.');
     console.log('   Gross Total : ₹28,19,263.70');
     console.log('   GST 18%     : ₹5,07,467.48  (CGST ₹2,53,733.74 + SGST ₹2,53,733.74)');
     console.log('   Net Total   : ₹33,26,731.18');
