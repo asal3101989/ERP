@@ -111,22 +111,12 @@ const navGroups = [
   {
     label: 'Finance',
     items: [
-      { to: '/finance',                icon: BookOpen,   label: 'Finance Home' },
-      { to: '/finance/accounts-dashboard', icon: LayoutDashboard, label: 'Accounts Dashboard' },
-      { to: '/finance/customer-statements', icon: FileSignature, label: 'Customer Statements' },
-      { to: '/finance/bank-reconciliation', icon: Landmark, label: 'Bank Reconciliation' },
-      { to: '/finance/payment-run',       icon: Clock3,    label: 'Payment Run' },
-      { to: '/finance/cheque-tracker',     icon: CircleSlash, label: 'Cheque Tracker' },
-      { to: '/finance/control-dashboard',  icon: ShieldCheck, label: 'Control Dashboard' },
-      { to: '/finance/management-mis',     icon: FolderSearch, label: 'Management MIS' },
-      { to: '/finance/gst',             icon: DollarSign, label: 'GST Billing' },
-      { to: '/finance/tds',             icon: CreditCard, label: 'TDS Register' },
-      { to: '/finance/invoices',        icon: FileText,   label: 'Vendor Payables' },
-      { to: '/finance/invoices/booking', icon: FileText,  label: 'Bill Booking' },
-      { to: '/finance/budget',          icon: TrendingUp, label: 'Budget vs Actual' },
-      { to: '/finance/payments',        icon: Wallet,     label: 'Payments' },
-      { to: '/finance/billing-reports', icon: BarChart3,  label: 'Billing Reports' },
-      { to: '/finance/intelligence',    icon: TrendingUp, label: 'Finance Intelligence' },
+      { to: '/finance',                 icon: BookOpen,      label: 'Overview' },
+      { to: '/finance/payables',        icon: FileText,      label: 'Payables' },
+      { to: '/finance/payments',        icon: Wallet,        label: 'Payments' },
+      { to: '/finance/receivables',     icon: FileSignature, label: 'Receivables' },
+      { to: '/finance/tax-compliance',  icon: DollarSign,    label: 'Tax & Compliance' },
+      { to: '/finance/reports',         icon: BarChart3,     label: 'Reports' },
     ]
   },
 

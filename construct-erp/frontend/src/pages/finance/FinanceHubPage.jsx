@@ -1,71 +1,83 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, BookOpen, FileText, Receipt, CreditCard, DollarSign,
-  TrendingUp, Landmark, ShieldCheck, Wallet, ArrowRight, LineChart, BarChart3,
-  Building2, Calculator, ClipboardList, CircleSlash, Banknote, FileSignature,
-  FolderSearch, Clock3, BadgeDollarSign
+  BookOpen, FileText, Receipt, CreditCard, DollarSign, TrendingUp, Landmark,
+  Wallet, ArrowRight, LineChart, BarChart3, ClipboardList, CircleSlash,
+  FileSignature, Clock3, BadgeDollarSign, ShieldCheck
 } from 'lucide-react';
 
-const sections = [
+const workspaces = [
   {
-    title: 'Overview',
-    subtitle: 'Start here for a Zoho Books-style finance command center',
-    items: [
-      { label: 'Finance Home', to: '/finance', icon: LayoutDashboard, tone: 'indigo', desc: 'Executive finance landing page', featured: true },
-      { label: 'Accounts Dashboard', to: '/finance/accounts-dashboard', icon: BookOpen, tone: 'emerald', desc: 'AP aging and payment queue' },
-      { label: 'Finance Intelligence', to: '/finance/intelligence', icon: LineChart, tone: 'violet', desc: 'Vendor ledger, P&L and AP aging' },
-      { label: 'Billing Reports', to: '/finance/billing-reports', icon: BarChart3, tone: 'sky', desc: 'Registers and cash flow analysis' },
+    label: 'Overview',
+    to: '/finance',
+    icon: BookOpen,
+    tone: 'indigo',
+    desc: 'Dashboards, management highlights and the finance starting point.',
+    featured: true,
+    links: [
+      { label: 'Accounts Dashboard', to: '/finance/accounts-dashboard' },
+      { label: 'Control Dashboard', to: '/finance/control-dashboard' },
+      { label: 'Management MIS', to: '/finance/management-mis' },
     ],
   },
   {
-    title: 'Sales & Receivables',
-    subtitle: 'Customer billing, collections and statutory tax tracking',
-    items: [
-      { label: 'RA Bills', to: '/qs/ra-bills', icon: Receipt, tone: 'indigo', desc: 'Running account bills and certification' },
-      { label: 'GST Billing', to: '/finance/gst', icon: DollarSign, tone: 'amber', desc: 'Tax invoice and GST summary' },
-      { label: 'Collections', to: '/finance/customer-statements', icon: BadgeDollarSign, tone: 'emerald', desc: 'Receipts and collection visibility' },
-      { label: 'Customer Statements', to: '/finance/customer-statements', icon: FileSignature, tone: 'slate', desc: 'Statement of accounts and ageing' },
+    label: 'Payables',
+    to: '/finance/payables',
+    icon: FileText,
+    tone: 'rose',
+    desc: 'Vendor invoices, bill booking, approvals and payable control.',
+    links: [
+      { label: 'Vendor Payables', to: '/finance/invoices' },
+      { label: 'Bill Booking', to: '/finance/invoices/booking' },
+      { label: 'Payment Run', to: '/finance/payment-run' },
     ],
   },
   {
-    title: 'Purchases & Payables',
-    subtitle: 'Vendor invoices, bill booking and payment processing',
-    items: [
-      { label: 'Vendor Payables', to: '/finance/invoices', icon: FileText, tone: 'rose', desc: 'Audit and authorize vendor invoices' },
-      { label: 'Bill Booking', to: '/finance/invoices/booking', icon: ClipboardList, tone: 'amber', desc: '3-way matching and invoice booking' },
-      { label: 'Payments', to: '/finance/payments', icon: Wallet, tone: 'emerald', desc: 'Payment register and disbursement control' },
-      { label: 'TDS Register', to: '/finance/tds', icon: CreditCard, tone: 'violet', desc: 'TDS payable and credit tracking' },
+    label: 'Payments',
+    to: '/finance/payments',
+    icon: Wallet,
+    tone: 'emerald',
+    desc: 'Outgoing disbursements, bank matching, instruments and treasury follow-through.',
+    links: [
+      { label: 'Bank Reconciliation', to: '/finance/bank-reconciliation' },
+      { label: 'Cheque Tracker', to: '/finance/cheque-tracker' },
+      { label: 'TQS-linked Payments', to: '/tqs/bills' },
     ],
   },
   {
-    title: 'Banking & Cash',
-    subtitle: 'Cash movement, bank control and reconciliation',
-    items: [
-      { label: 'Cash Flow', to: '/finance/billing-reports', icon: Banknote, tone: 'emerald', desc: 'Billing and payment movement trends' },
-      { label: 'Bank Reconciliation', to: '/finance/bank-reconciliation', icon: Landmark, tone: 'sky', desc: 'Match books with bank register' },
-      { label: 'Payment Run', to: '/finance/payment-run', icon: Clock3, tone: 'slate', desc: 'Batch queue for payments' },
-      { label: 'Cheque / UTR Tracker', to: '/finance/cheque-tracker', icon: CircleSlash, tone: 'slate', desc: 'Instrument and reference control' },
+    label: 'Receivables',
+    to: '/finance/receivables',
+    icon: FileSignature,
+    tone: 'sky',
+    desc: 'Client-side collections, RA bill receipts and outstanding visibility.',
+    links: [
+      { label: 'Customer Statements', to: '/finance/customer-statements' },
+      { label: 'RA Bills', to: '/qs/ra-bills' },
+      { label: 'Receipts Register', to: '/finance/payments?tab=ra-bills' },
     ],
   },
   {
-    title: 'Budget & Control',
-    subtitle: 'Project profitability, control accounts and budget monitoring',
-    items: [
-      { label: 'Budget vs Actual', to: '/finance/budget', icon: TrendingUp, tone: 'violet', desc: 'Cost head budget performance' },
-      { label: 'Project P&L', to: '/finance/intelligence', icon: LineChart, tone: 'emerald', desc: 'Project-level revenue and margin' },
-      { label: 'AP Aging', to: '/finance/accounts-dashboard', icon: Calculator, tone: 'amber', desc: 'Outstanding liability buckets' },
-      { label: 'Control Dashboard', to: '/finance/control-dashboard', icon: ShieldCheck, tone: 'slate', desc: 'Approvals and controls matrix' },
+    label: 'Tax & Compliance',
+    to: '/finance/tax-compliance',
+    icon: DollarSign,
+    tone: 'amber',
+    desc: 'GST, TDS and statutory follow-up in one lane.',
+    links: [
+      { label: 'GST Billing', to: '/finance/gst' },
+      { label: 'TDS Register', to: '/finance/tds' },
+      { label: 'Control Dashboard', to: '/finance/control-dashboard' },
     ],
   },
   {
-    title: 'Reports & Compliance',
-    subtitle: 'Statutory reports and management summaries',
-    items: [
-      { label: 'Finance Reports', to: '/finance/billing-reports', icon: BarChart3, tone: 'sky', desc: 'Registers, ageing and summaries' },
-      { label: 'GST Summary', to: '/finance/gst', icon: DollarSign, tone: 'amber', desc: 'GST invoice register' },
-      { label: 'TDS Summary', to: '/finance/tds', icon: CreditCard, tone: 'violet', desc: 'Form 26Q and TDS ledgers' },
-      { label: 'Management MIS', to: '/finance/management-mis', icon: FolderSearch, tone: 'slate', desc: 'Executive financial MIS pack' },
+    label: 'Reports',
+    to: '/finance/reports',
+    icon: BarChart3,
+    tone: 'violet',
+    desc: 'Budget, project P&L, billing reports and finance intelligence.',
+    links: [
+      { label: 'Budget vs Actual', to: '/finance/budget' },
+      { label: 'Finance Intelligence', to: '/finance/intelligence' },
+      { label: 'Billing Reports', to: '/finance/billing-reports' },
     ],
   },
 ];
@@ -79,6 +91,17 @@ const TONE = {
   rose: 'border-rose-100 bg-rose-50 text-rose-700',
   slate: 'border-slate-200 bg-slate-50 text-slate-600',
 };
+
+const supportTools = [
+  { label: 'Accounts Dashboard', to: '/finance/accounts-dashboard', icon: BookOpen, desc: 'AP aging and payment queue', tone: 'emerald' },
+  { label: 'Bill Booking', to: '/finance/invoices/booking', icon: ClipboardList, desc: '3-way matching and invoice intake', tone: 'amber' },
+  { label: 'Bank Reconciliation', to: '/finance/bank-reconciliation', icon: Landmark, desc: 'Books vs bank match register', tone: 'sky' },
+  { label: 'Payment Run', to: '/finance/payment-run', icon: Clock3, desc: 'Batch-ready payable queue', tone: 'slate' },
+  { label: 'GST Billing', to: '/finance/gst', icon: DollarSign, desc: 'GST invoice register', tone: 'amber' },
+  { label: 'TDS Register', to: '/finance/tds', icon: CreditCard, desc: 'TDS payable and certificates', tone: 'violet' },
+  { label: 'Customer Statements', to: '/finance/customer-statements', icon: BadgeDollarSign, desc: 'Collections and receivable aging', tone: 'emerald' },
+  { label: 'Control Dashboard', to: '/finance/control-dashboard', icon: ShieldCheck, desc: 'Approval and control checks', tone: 'slate' },
+];
 
 function MenuCard({ item }) {
   const body = (
@@ -111,6 +134,18 @@ function MenuCard({ item }) {
         <h3 className={`font-black text-[0.98rem] tracking-tight ${item.featured ? 'text-white' : 'text-slate-900'}`}>{item.label}</h3>
         <p className={`text-[12px] mt-1.5 ${item.featured ? 'text-white/70' : 'text-slate-500'}`}>{item.desc}</p>
       </div>
+      {Array.isArray(item.links) && item.links.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {item.links.map(link => (
+            <span
+              key={link.label}
+              className={`rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] ${item.featured ? 'border-white/15 text-white/70' : 'border-slate-200 text-slate-400'}`}
+            >
+              {link.label}
+            </span>
+          ))}
+        </div>
+      )}
       {!item.soon && (
         <div className="mt-4 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em]">
           <span className={item.featured ? 'text-white/70' : 'text-slate-400'}>Go to page</span>
@@ -138,34 +173,34 @@ export default function FinanceHubPage() {
           <div>
             <h1 className="text-[1.3rem] md:text-[1.75rem] font-black text-slate-900 uppercase tracking-tight italic">Finance Command Center</h1>
             <p className="text-slate-500 mt-1.5 max-w-3xl text-[12px] leading-5">
-              A Zoho Books-style menu hub for sales, purchases, banking, taxes, budgets and reporting.
-              Use it as the one place to jump into every finance workflow.
+              Six clear workspaces for payables, payments, receivables, tax, reporting and finance oversight.
+              The detailed tools still exist, but the first choice is now much calmer.
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2.5">
           <button
-            onClick={() => navigate('/finance/intelligence')}
+            onClick={() => navigate('/finance/payables')}
             className="px-3 py-2 rounded-xl bg-slate-900 text-white font-black text-[7px] uppercase tracking-[0.18em] shadow-lg shadow-slate-900/10"
           >
-            Open Intelligence
+            Open Payables
           </button>
           <button
-            onClick={() => navigate('/finance/billing-reports')}
+            onClick={() => navigate('/finance/receivables')}
             className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-[7px] uppercase tracking-[0.18em] shadow-sm"
           >
-            Billing Reports
+            Open Receivables
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         {[
-          { label: 'Menu Sections', value: '6', sub: 'Zoho-style groups' },
-          { label: 'Live Pages', value: '9', sub: 'Already implemented' },
-          { label: 'Coming Soon', value: '12', sub: 'Planned finance tools' },
-          { label: 'Quick Start', value: 'Finance Home', sub: 'Start from the hub' },
+          { label: 'Primary Menus', value: '6', sub: 'Finance workspaces' },
+          { label: 'Core Workflows', value: 'AP / AR', sub: 'Split more clearly' },
+          { label: 'Support Tools', value: '8', sub: 'Still available below' },
+          { label: 'Quick Start', value: 'Overview', sub: 'Start from the hub' },
         ].map(card => (
           <div key={card.label} className="bg-white border border-slate-200 rounded-[1.5rem] p-4 shadow-sm">
             <div className="text-[7px] font-black uppercase tracking-[0.18em] text-slate-400">{card.label}</div>
@@ -176,19 +211,29 @@ export default function FinanceHubPage() {
       </div>
 
       <div className="space-y-5">
-        {sections.map(section => (
-          <section key={section.title} className="space-y-2.5">
-            <div>
-              <h2 className="text-[0.82rem] font-black text-slate-900 uppercase tracking-tight">{section.title}</h2>
-              <p className="text-[10px] text-slate-500 mt-0.5">{section.subtitle}</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-              {section.items.map(item => (
-                <MenuCard key={item.label} item={item} />
-              ))}
-            </div>
-          </section>
-        ))}
+        <section className="space-y-2.5">
+          <div>
+            <h2 className="text-[0.82rem] font-black text-slate-900 uppercase tracking-tight">Primary Workspaces</h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">These are the only six destinations shown in the Finance sidebar.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {workspaces.map(item => (
+              <MenuCard key={item.label} item={item} />
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-2.5">
+          <div>
+            <h2 className="text-[0.82rem] font-black text-slate-900 uppercase tracking-tight">Support Tools</h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">Useful operational pages that stay available from links, but no longer crowd the sidebar.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            {supportTools.map(item => (
+              <MenuCard key={item.label} item={item} />
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

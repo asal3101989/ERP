@@ -217,7 +217,6 @@ export default function App() {
                 <Route path="projects" element={<ProjectList />} />
                 <Route path="projects/new" element={<ProjectCreate />} />
                 <Route path="projects/:id" element={<ProjectDetail />} />
-
                 {/* QS */}
                 <Route path="qs/boq" element={<BOQPage />} />
                 <Route path="qs/measurements" element={<MeasurementPage />} />
@@ -233,6 +232,10 @@ export default function App() {
 
                 {/* Finance */}
                 <Route path="finance" element={<FinanceHubPage />} />
+                <Route path="finance/payables" element={<Navigate to="/finance/invoices" replace />} />
+                <Route path="finance/receivables" element={<Navigate to="/finance/customer-statements" replace />} />
+                <Route path="finance/tax-compliance" element={<Navigate to="/finance/gst" replace />} />
+                <Route path="finance/reports" element={<Navigate to="/finance/billing-reports" replace />} />
                 <Route path="finance/accounts-dashboard" element={<AccountsDashboard />} />
                 <Route path="finance/customer-statements" element={<CustomerStatementsPage />} />
                 <Route path="finance/bank-reconciliation" element={<BankReconciliationPage />} />
