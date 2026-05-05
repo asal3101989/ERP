@@ -353,6 +353,7 @@ function parseTqsTrackerSheet(workbook, sheetName, billType) {
     return headers.findIndex(h => wanted.includes(h));
   };
   const indexes = {
+    serial: indexOf('S.no', 'S.No', 'S No'),
     vendor: indexOf('Vendor Name'),
     orderNumber: indexOf(billType === 'wo' ? 'Work Order Number' : 'Purchase Order Number'),
     orderDate: indexOf(billType === 'wo' ? 'Work order Date' : 'Purchase order Date'),
@@ -402,6 +403,7 @@ function parseTqsTrackerSheet(workbook, sheetName, billType) {
       const isPaid = paymentStatusText.includes('paid') || (paidAmount > 0 && Math.abs(paidAmount - total) < 1);
 
       return {
+        source_sl_number: excelText(get(row, 'serial')),
         vendor_name: vendorName,
         po_number: orderNumber,
         po_date: excelDate(get(row, 'orderDate')),
@@ -440,6 +442,12 @@ function parseTqsTrackerSheet(workbook, sheetName, billType) {
       };
     })
     .filter(Boolean);
+}
+
+function importSlNumber(row, fallback) {
+  const source = String(row.source_sl_number || '').trim();
+  if (!source) return fallback;
+  return `${String(row.bill_type || 'po').toUpperCase()}-${source}`;
 }
 
 // ── Helper: generate PC number ─────────────────────────────────────────────
@@ -639,7 +647,7 @@ router.get('/vendor-ledger', async (req, res) => {
 // ── GET /tqs/bills ─────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { project_id, status, search, from_date, to_date, from, to } = req.query;
+    const { project_id, status, search, from_date, to_date, from, to, bill_type } = req.query;
     // accept either from_date/to_date or from/to aliases sent by the Reports Hub
     const dateFrom = from_date || from;
     const dateTo   = to_date   || to;
@@ -654,6 +662,7 @@ router.get('/', async (req, res) => {
     }
     if (project_id) { conditions.push(`b.project_id = $${i++}`); params.push(project_id); }
     if (status)     { conditions.push(`b.workflow_status = $${i++}`); params.push(status); }
+    if (bill_type)  { conditions.push(`b.bill_type = $${i++}`); params.push(bill_type); }
     if (dateFrom)   { conditions.push(`b.inv_date >= $${i++}`); params.push(dateFrom); }
     if (dateTo)     { conditions.push(`b.inv_date <= $${i++}`); params.push(dateTo); }
     if (search) {
@@ -721,32 +730,35 @@ router.post('/import-excel', importUpload.single('file'), async (req, res) => {
           row.bill_type,
         ]);
 
+        const importSl = importSlNumber(row, nextImportSl());
         let billId;
         if (existing.rows.length) {
           billId = existing.rows[0].id;
           await client.query(`
             UPDATE tqs_bills SET
               project_id = COALESCE($1, project_id),
-              vendor_name = $2,
-              po_number = $3,
-              po_date = $4,
-              inv_number = $5,
-              inv_date = $6,
-              inv_month = $7,
-              received_date = $8,
-              bill_type = $9,
-              basic_amount = $10,
-              gst_amount = $11,
-              transport_charges = $12,
-              credit_note_num = $13,
-              credit_note_val = $14,
-              total_amount = $15,
-              workflow_status = $16,
-              remarks = $17,
+              sl_number = $2,
+              vendor_name = $3,
+              po_number = $4,
+              po_date = $5,
+              inv_number = $6,
+              inv_date = $7,
+              inv_month = $8,
+              received_date = $9,
+              bill_type = $10,
+              basic_amount = $11,
+              gst_amount = $12,
+              transport_charges = $13,
+              credit_note_num = $14,
+              credit_note_val = $15,
+              total_amount = $16,
+              workflow_status = $17,
+              remarks = $18,
               updated_at = NOW()
-            WHERE id = $18
+            WHERE id = $19
           `, [
             req.body.project_id || null,
+            importSl,
             row.vendor_name,
             row.po_number,
             row.po_date,
@@ -779,7 +791,7 @@ router.post('/import-excel', importUpload.single('file'), async (req, res) => {
           `, [
             req.user.company_id || null,
             req.body.project_id || null,
-            nextImportSl(),
+            importSl,
             row.vendor_name,
             row.po_number,
             row.po_date,
