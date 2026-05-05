@@ -458,6 +458,89 @@ function importSlNumber(row, fallback) {
   return `${String(row.bill_type || 'po').toUpperCase()}-${source}`;
 }
 
+async function syncImportedFinancePayment(client, { billId, companyId, userId, bill, updates }) {
+  const paidAmount = parseFloat(updates.paid_amount || 0);
+  if (!(paidAmount > 0) || !updates.payment_date || !bill.project_id) {
+    return null;
+  }
+
+  const tds = parseFloat(updates.tds_deduction || 0);
+  const netPaid = Math.max(0, paidAmount - tds);
+  const paymentType = bill.bill_type === 'wo' ? 'subcontractor' : 'vendor';
+  const remarks = `TQS Bill ${bill.sl_number} - Inv: ${bill.inv_number || '-'}`;
+
+  const existing = await client.query(
+    `SELECT id FROM payments WHERE tqs_bill_id=$1 AND source='tqs' ORDER BY created_at DESC LIMIT 1`,
+    [billId]
+  );
+
+  let paymentId;
+  if (existing.rows.length) {
+    paymentId = existing.rows[0].id;
+    await client.query(`
+      UPDATE payments SET
+        project_id=$1,
+        payment_type=$2,
+        entity_name=$3,
+        amount=$4,
+        tds_deducted=$5,
+        net_amount=$6,
+        payment_date=$7,
+        payment_mode=$8,
+        reference_number=$9,
+        bank_name=$10,
+        remarks=$11
+      WHERE id=$12
+    `, [
+      bill.project_id,
+      paymentType,
+      bill.vendor_name,
+      paidAmount,
+      tds,
+      netPaid,
+      updates.payment_date,
+      updates.payment_mode || 'bank_transfer',
+      updates.reference_number || null,
+      updates.bank_name || null,
+      remarks,
+      paymentId,
+    ]);
+  } else {
+    const inserted = await client.query(`
+      INSERT INTO payments
+        (project_id, payment_type, entity_name,
+         amount, tds_deducted, net_amount,
+         payment_date, payment_mode, reference_number, bank_name,
+         remarks, created_by, tqs_bill_id, source)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      RETURNING id
+    `, [
+      bill.project_id,
+      paymentType,
+      bill.vendor_name,
+      paidAmount,
+      tds,
+      netPaid,
+      updates.payment_date,
+      updates.payment_mode || 'bank_transfer',
+      updates.reference_number || null,
+      updates.bank_name || null,
+      remarks,
+      userId || null,
+      billId,
+      'tqs',
+    ]);
+    paymentId = inserted.rows[0].id;
+  }
+
+  await client.query(
+    `UPDATE tqs_bill_updates SET finance_payment_id=$1 WHERE bill_id=$2`,
+    [paymentId, billId]
+  );
+
+  return paymentId;
+}
+
 // ── Helper: generate PC number ─────────────────────────────────────────────
 async function nextPCNumber() {
   const yr = new Date().getFullYear();
@@ -718,7 +801,7 @@ router.post('/import-excel', importUpload.single('file'), async (req, res) => {
       `);
       let nextSl = Number(maxRes.rows[0]?.max_sl || 350) + 1;
       const nextImportSl = () => String(nextSl++);
-      const result = { imported: rows.length, created: 0, updated: 0 };
+      const result = { imported: rows.length, created: 0, updated: 0, finance_synced: 0 };
 
       for (const row of rows) {
         const existing = await client.query(`
@@ -828,9 +911,9 @@ router.post('/import-excel', importUpload.single('file'), async (req, res) => {
             bill_id, qs_gross, qs_tax, qs_total, advance_recovered,
             credit_note_amt, retention_money, tds_deduction, other_deductions,
             total_deductions, certified_net, pc_number, handed_over_accounts_date,
-            paid_amount, balance_to_pay, payment_status, payment_date, reference_number,
+            paid_amount, balance_to_pay, payment_status, payment_date, reference_number, bank_name,
             updated_at
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW())
           ON CONFLICT (bill_id) DO UPDATE SET
             qs_gross = EXCLUDED.qs_gross,
             qs_tax = EXCLUDED.qs_tax,
@@ -849,6 +932,7 @@ router.post('/import-excel', importUpload.single('file'), async (req, res) => {
             payment_status = EXCLUDED.payment_status,
             payment_date = EXCLUDED.payment_date,
             reference_number = EXCLUDED.reference_number,
+            bank_name = EXCLUDED.bank_name,
             updated_at = NOW()
         `, [
           billId,
@@ -869,7 +953,21 @@ router.post('/import-excel', importUpload.single('file'), async (req, res) => {
           u.payment_status,
           u.payment_date,
           u.reference_number,
+          u.bank_name || null,
         ]);
+
+        const billRes = await client.query(
+          `SELECT id, project_id, bill_type, vendor_name, sl_number, inv_number FROM tqs_bills WHERE id=$1`,
+          [billId]
+        );
+        const paymentId = await syncImportedFinancePayment(client, {
+          billId,
+          companyId: req.user.company_id || null,
+          userId: req.user.id || null,
+          bill: billRes.rows[0],
+          updates: u,
+        });
+        if (paymentId) result.finance_synced += 1;
       }
 
       return result;
