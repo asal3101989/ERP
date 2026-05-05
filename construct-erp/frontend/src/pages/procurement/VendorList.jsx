@@ -142,6 +142,7 @@ export default function VendorList() {
             onImport={f => importMut.mutate(f)}
             templateName="Vendor_Import_Template"
             templateData={[{ name: 'ABC Trading Co', vendor_type: 'material_supplier', gstin: '27AABCS1234A1Z5', pan: 'AABCS1234A', contact_person: 'John Doe', phone: '9876543210', city: 'Mumbai', state: 'Maharashtra', website_url: 'https://example.com', credit_days: '30' }]}
+            hideAdd
           />
           <button
             onClick={() => setShowForm(true)}
