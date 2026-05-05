@@ -18,7 +18,6 @@ import {
   Gavel, Target, Send
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
-import AIAssistant from '../ai/AIAssistant';
 import CommandPalette from './CommandPalette';
 import { clsx } from 'clsx';
 import LoadingScreen from '../common/LoadingScreen';
@@ -32,6 +31,7 @@ const navGroups = [
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
       { to: '/projects',  icon: Building2,       label: 'Projects' },
+      { to: '/meetings',  icon: Users,           label: 'Meeting Minutes' },
     ]
   },
 
@@ -149,6 +149,8 @@ const navGroups = [
     label: 'Quality (QA/QC)',
     items: [
       { to: '/quality',           icon: BadgeCheck,     label: 'QA/QC Hub' },
+      { to: '/quality/drawings',  icon: ScrollText,     label: 'Drawing Register' },
+      { to: '/quality/submittals',icon: ClipboardCheck, label: 'Submittals' },
       { to: '/quality/rfi',       icon: FileSearch,     label: 'RFI Ledger' },
       { to: '/quality/ncr',       icon: AlertTriangle,  label: 'NCR Ledger' },
       { to: '/quality/lab-tests', icon: Activity,       label: 'Lab Certifications' },
@@ -1004,7 +1006,6 @@ export default function Layout() {
         </main>
       </div>
 
-      <AIAssistant />
 
       <CommandPalette
         isOpen={paletteOpen}
