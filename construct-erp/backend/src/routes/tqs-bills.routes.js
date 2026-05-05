@@ -3,6 +3,7 @@ const express = require('express');
 const multer  = require('multer');
 const path    = require('path');
 const fs      = require('fs');
+const XLSX    = require('xlsx');
 const { authenticate } = require('../middleware/auth');
 const { query, withTransaction } = require('../config/database');
 const { uploadToOneDrive, isConfigured } = require('../services/onedrive.service');
@@ -49,6 +50,10 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+});
 
 async function getBillProjectName(billId) {
   let projectName = 'General';
@@ -281,6 +286,160 @@ async function logHistory(billId, dept, action, userId) {
     `INSERT INTO tqs_bill_history (bill_id, dept, action, changed_by) VALUES ($1,$2,$3,$4)`,
     [billId, dept, action, userId]
   );
+}
+
+function excelDate(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (!parsed) return null;
+    const mm = String(parsed.m).padStart(2, '0');
+    const dd = String(parsed.d).padStart(2, '0');
+    return `${parsed.y}-${mm}-${dd}`;
+  }
+  const text = String(value).trim();
+  if (!text || text === '-') return null;
+  const parts = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (parts) {
+    const yyyy = parts[3].length === 2 ? `20${parts[3]}` : parts[3];
+    return `${yyyy}-${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+  }
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+}
+
+function excelText(value) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text && text !== '-' ? text : null;
+}
+
+function excelNumber(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const cleaned = String(value).replace(/[₹,\s]/g, '').trim();
+  if (!cleaned || cleaned === '-') return 0;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeHeader(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function findHeaderRow(rows) {
+  return rows.findIndex(row => {
+    const headers = row.map(normalizeHeader);
+    return headers.includes('vendor name') && headers.includes('invoice number');
+  });
+}
+
+function parseTqsTrackerSheet(workbook, sheetName, billType) {
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) return [];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, blankrows: false, defval: '' });
+  const headerIndex = findHeaderRow(rows);
+  if (headerIndex < 0) return [];
+
+  const headers = rows[headerIndex].map(normalizeHeader);
+  const indexOf = (...names) => {
+    const wanted = names.map(normalizeHeader);
+    return headers.findIndex(h => wanted.includes(h));
+  };
+  const indexes = {
+    vendor: indexOf('Vendor Name'),
+    orderNumber: indexOf(billType === 'wo' ? 'Work Order Number' : 'Purchase Order Number'),
+    orderDate: indexOf(billType === 'wo' ? 'Work order Date' : 'Purchase order Date'),
+    invoiceNumber: indexOf('Invoice Number'),
+    invoiceDate: indexOf('Invoice Date'),
+    invoiceMonth: indexOf('Invoice Month,year'),
+    receivedDate: indexOf('Received Date'),
+    basic: indexOf('Basic Amount without GST'),
+    gst: indexOf('GST Amount'),
+    total: indexOf('Total Amount Inclusive of GST'),
+    transport: indexOf('TRANSPORT CHARGES'),
+    creditNoteNumber: indexOf('Credit Note Number'),
+    creditNoteValue: indexOf('Credit note Value'),
+    comments: indexOf('Comments'),
+    qsGross: indexOf('QS Certified - Gross Amount'),
+    qsTax: indexOf('QS Certified - Total Tax Amount'),
+    qsTotal: indexOf('QS Certified - Total Gross Amount with GST'),
+    advanceRecovered: indexOf('Advance Amount Recovered'),
+    otherDeductions: indexOf('Any Other Deductions'),
+    retentionMoney: indexOf('Retention Money'),
+    tds: indexOf('TDS'),
+    totalDeductions: indexOf('Total Deductions Amount'),
+    certifiedNet: indexOf('QS Certified - Certified Net Amount'),
+    pcNumber: indexOf('Payment Certificate Number'),
+    accountsDate: indexOf('Handing over to Account for JV Passing'),
+    remarks: indexOf('Remarks'),
+    paymentStatus: indexOf('Status of Payment Paid Not Paid'),
+    paidAmount: indexOf('Paid Amount'),
+    balance: indexOf('Balance To pay', 'Balance Amount'),
+    bankReference: indexOf('Bank Reference Number Cheque No UTR Number'),
+    paymentDate: indexOf('Date of Payment'),
+  };
+
+  const get = (row, key) => indexes[key] >= 0 ? row[indexes[key]] : '';
+  return rows.slice(headerIndex + 1)
+    .map((row) => {
+      const vendorName = excelText(get(row, 'vendor'));
+      const invNumber = excelText(get(row, 'invoiceNumber'));
+      if (!vendorName || !invNumber) return null;
+      const orderNumber = excelText(get(row, 'orderNumber'));
+      const basic = excelNumber(get(row, 'basic'));
+      const gstAmount = excelNumber(get(row, 'gst'));
+      const transport = excelNumber(get(row, 'transport'));
+      const total = excelNumber(get(row, 'total')) || basic + gstAmount + transport;
+      const paidAmount = excelNumber(get(row, 'paidAmount'));
+      const paymentStatusText = String(get(row, 'paymentStatus') || '').toLowerCase();
+      const isPaid = paymentStatusText.includes('paid') || (paidAmount > 0 && Math.abs(paidAmount - total) < 1);
+
+      return {
+        vendor_name: vendorName,
+        po_number: orderNumber,
+        po_date: excelDate(get(row, 'orderDate')),
+        inv_number: invNumber,
+        inv_date: excelDate(get(row, 'invoiceDate')),
+        inv_month: excelDate(get(row, 'invoiceMonth')) || excelText(get(row, 'invoiceMonth')),
+        received_date: excelDate(get(row, 'receivedDate')),
+        basic_amount: basic,
+        gst_amount: gstAmount,
+        total_amount: total,
+        transport_charges: transport,
+        credit_note_num: excelText(get(row, 'creditNoteNumber')),
+        credit_note_val: excelNumber(get(row, 'creditNoteValue')),
+        bill_type: billType,
+        remarks: excelText(get(row, 'remarks')) || excelText(get(row, 'comments')),
+        workflow_status: isPaid ? 'paid' : 'accounts',
+        updates: {
+          qs_gross: excelNumber(get(row, 'qsGross')),
+          qs_tax: excelNumber(get(row, 'qsTax')),
+          qs_total: excelNumber(get(row, 'qsTotal')),
+          advance_recovered: excelNumber(get(row, 'advanceRecovered')),
+          credit_note_amt: excelNumber(get(row, 'creditNoteValue')),
+          retention_money: excelNumber(get(row, 'retentionMoney')),
+          tds_deduction: excelNumber(get(row, 'tds')),
+          other_deductions: excelNumber(get(row, 'otherDeductions')),
+          total_deductions: excelNumber(get(row, 'totalDeductions')),
+          certified_net: excelNumber(get(row, 'certifiedNet')),
+          pc_number: excelText(get(row, 'pcNumber')),
+          handed_over_accounts_date: excelDate(get(row, 'accountsDate')),
+          paid_amount: paidAmount,
+          balance_to_pay: excelNumber(get(row, 'balance')),
+          payment_status: isPaid ? 'paid' : 'pending',
+          payment_date: excelDate(get(row, 'paymentDate')),
+          reference_number: excelText(get(row, 'bankReference')),
+        },
+      };
+    })
+    .filter(Boolean);
 }
 
 // ── Helper: generate PC number ─────────────────────────────────────────────
@@ -520,6 +679,189 @@ router.get('/', async (req, res) => {
 });
 
 // ── POST /tqs/bills ────────────────────────────────────────────────────────
+// Import the legacy "TQS PO Bill Tracker.xlsx" workbook.
+router.post('/import-excel', importUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Excel file is required' });
+
+  try {
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: false });
+    const rows = [
+      ...parseTqsTrackerSheet(workbook, 'Purchase order Bills', 'po'),
+      ...parseTqsTrackerSheet(workbook, 'Work order Bills', 'wo'),
+    ];
+
+    if (!rows.length) {
+      return res.status(400).json({ error: 'No PO or WO bill rows found in this workbook.' });
+    }
+
+    const summary = await withTransaction(async (client) => {
+      const maxRes = await client.query(`
+        SELECT COALESCE(MAX(NULLIF(regexp_replace(sl_number, '\\D', '', 'g'), '')::INT), 350) AS max_sl
+        FROM tqs_bills
+      `);
+      let nextSl = Number(maxRes.rows[0]?.max_sl || 350) + 1;
+      const nextImportSl = () => String(nextSl++);
+      const result = { imported: rows.length, created: 0, updated: 0 };
+
+      for (const row of rows) {
+        const existing = await client.query(`
+          SELECT id FROM tqs_bills
+          WHERE is_deleted = FALSE
+            AND COALESCE(company_id::TEXT, '') = COALESCE($1::TEXT, '')
+            AND lower(trim(COALESCE(vendor_name, ''))) = lower(trim($2))
+            AND COALESCE(po_number, '') = COALESCE($3, '')
+            AND COALESCE(inv_number, '') = COALESCE($4, '')
+            AND COALESCE(bill_type, 'po') = $5
+          LIMIT 1
+        `, [
+          req.user.company_id || null,
+          row.vendor_name,
+          row.po_number,
+          row.inv_number,
+          row.bill_type,
+        ]);
+
+        let billId;
+        if (existing.rows.length) {
+          billId = existing.rows[0].id;
+          await client.query(`
+            UPDATE tqs_bills SET
+              project_id = COALESCE($1, project_id),
+              vendor_name = $2,
+              po_number = $3,
+              po_date = $4,
+              inv_number = $5,
+              inv_date = $6,
+              inv_month = $7,
+              received_date = $8,
+              bill_type = $9,
+              basic_amount = $10,
+              gst_amount = $11,
+              transport_charges = $12,
+              credit_note_num = $13,
+              credit_note_val = $14,
+              total_amount = $15,
+              workflow_status = $16,
+              remarks = $17,
+              updated_at = NOW()
+            WHERE id = $18
+          `, [
+            req.body.project_id || null,
+            row.vendor_name,
+            row.po_number,
+            row.po_date,
+            row.inv_number,
+            row.inv_date,
+            row.inv_month,
+            row.received_date,
+            row.bill_type,
+            row.basic_amount,
+            row.gst_amount,
+            row.transport_charges,
+            row.credit_note_num,
+            row.credit_note_val,
+            row.total_amount,
+            row.workflow_status,
+            row.remarks,
+            billId,
+          ]);
+          result.updated += 1;
+        } else {
+          const created = await client.query(`
+            INSERT INTO tqs_bills (
+              company_id, project_id, sl_number, vendor_name,
+              po_number, po_date, inv_number, inv_date, inv_month, received_date,
+              bill_type, basic_amount, gst_amount, transport_charges,
+              credit_note_num, credit_note_val, total_amount, workflow_status,
+              remarks, created_by
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+            RETURNING id
+          `, [
+            req.user.company_id || null,
+            req.body.project_id || null,
+            nextImportSl(),
+            row.vendor_name,
+            row.po_number,
+            row.po_date,
+            row.inv_number,
+            row.inv_date,
+            row.inv_month,
+            row.received_date,
+            row.bill_type,
+            row.basic_amount,
+            row.gst_amount,
+            row.transport_charges,
+            row.credit_note_num,
+            row.credit_note_val,
+            row.total_amount,
+            row.workflow_status,
+            row.remarks,
+            req.user.id || null,
+          ]);
+          billId = created.rows[0].id;
+          result.created += 1;
+        }
+
+        const u = row.updates;
+        await client.query(`
+          INSERT INTO tqs_bill_updates (
+            bill_id, qs_gross, qs_tax, qs_total, advance_recovered,
+            credit_note_amt, retention_money, tds_deduction, other_deductions,
+            total_deductions, certified_net, pc_number, handed_over_accounts_date,
+            paid_amount, balance_to_pay, payment_status, payment_date, reference_number,
+            updated_at
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
+          ON CONFLICT (bill_id) DO UPDATE SET
+            qs_gross = EXCLUDED.qs_gross,
+            qs_tax = EXCLUDED.qs_tax,
+            qs_total = EXCLUDED.qs_total,
+            advance_recovered = EXCLUDED.advance_recovered,
+            credit_note_amt = EXCLUDED.credit_note_amt,
+            retention_money = EXCLUDED.retention_money,
+            tds_deduction = EXCLUDED.tds_deduction,
+            other_deductions = EXCLUDED.other_deductions,
+            total_deductions = EXCLUDED.total_deductions,
+            certified_net = EXCLUDED.certified_net,
+            pc_number = EXCLUDED.pc_number,
+            handed_over_accounts_date = EXCLUDED.handed_over_accounts_date,
+            paid_amount = EXCLUDED.paid_amount,
+            balance_to_pay = EXCLUDED.balance_to_pay,
+            payment_status = EXCLUDED.payment_status,
+            payment_date = EXCLUDED.payment_date,
+            reference_number = EXCLUDED.reference_number,
+            updated_at = NOW()
+        `, [
+          billId,
+          u.qs_gross,
+          u.qs_tax,
+          u.qs_total,
+          u.advance_recovered,
+          u.credit_note_amt,
+          u.retention_money,
+          u.tds_deduction,
+          u.other_deductions,
+          u.total_deductions,
+          u.certified_net,
+          u.pc_number,
+          u.handed_over_accounts_date,
+          u.paid_amount,
+          u.balance_to_pay,
+          u.payment_status,
+          u.payment_date,
+          u.reference_number,
+        ]);
+      }
+
+      return result;
+    });
+
+    res.json({ message: 'TQS tracker imported', ...summary });
+  } catch (err) {
+    logger.error('TQS tracker import failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/', async (req, res) => {
   try {
     const {

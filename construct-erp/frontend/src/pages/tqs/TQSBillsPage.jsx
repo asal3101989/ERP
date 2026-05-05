@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tqsBillsAPI, projectAPI, tqsVendorsAPI, poAPI, inventoryAPI } from '../../api/client';
 import toast from 'react-hot-toast';
-import { FileText, Plus, Search, ChevronRight, X, ChevronUp, ChevronDown, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { FileText, Plus, Search, ChevronRight, X, ChevronUp, ChevronDown, Pencil, Trash2, AlertTriangle, Upload } from 'lucide-react';
 
 const STATUS_CONFIG = {
   pending:  { label: 'Pending',  cls: 'bg-amber-100 text-amber-700' },
@@ -985,6 +985,7 @@ export default function TQSBillsPage() {
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
   const [sortCol, setSortCol] = useState('sl_number');
   const [sortDir, setSortDir] = useState('desc');
+  const importInputRef = useRef(null);
 
   const deleteMut = useMutation({
     mutationFn: (id) => tqsBillsAPI.delete(id),
@@ -995,6 +996,26 @@ export default function TQSBillsPage() {
     },
     onError: (err) => toast.error(err?.response?.data?.error || 'Delete failed'),
   });
+
+  const importMut = useMutation({
+    mutationFn: (fd) => tqsBillsAPI.importExcel(fd),
+    onSuccess: (res) => {
+      const data = res.data || {};
+      toast.success(`Imported ${data.imported || 0} bills (${data.created || 0} new, ${data.updated || 0} updated)`);
+      qc.invalidateQueries({ queryKey: ['tqs-bills'] });
+    },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Excel import failed'),
+  });
+
+  const handleImportFile = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    if (projectFilter) fd.append('project_id', projectFilter);
+    importMut.mutate(fd);
+    event.target.value = '';
+  };
 
   // Sync status filter with URL search params so sidebar links switch the view
   useEffect(() => {
@@ -1071,6 +1092,13 @@ export default function TQSBillsPage() {
 
   return (
     <div className="p-4 space-y-4 bg-[#f4f6f9] min-h-full">
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        className="hidden"
+        onChange={handleImportFile}
+      />
 
       {/* ── Project Banner ── */}
       {activeProject && (
@@ -1092,6 +1120,13 @@ export default function TQSBillsPage() {
           >
             <Plus className="w-4 h-4" /> New Bill
           </button>
+          <button
+            onClick={() => importInputRef.current?.click()}
+            disabled={importMut.isPending}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-500 text-white text-sm font-black rounded-lg hover:bg-indigo-400 transition-all flex-shrink-0 disabled:opacity-60"
+          >
+            <Upload className="w-4 h-4" /> {importMut.isPending ? 'Importing' : 'Import Excel'}
+          </button>
         </div>
       )}
 
@@ -1107,10 +1142,19 @@ export default function TQSBillsPage() {
               <p className="text-xs text-slate-500">Select a project to view bills</p>
             </div>
           </div>
-          <button onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">
-            <Plus className="w-4 h-4" /> New Bill
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => importInputRef.current?.click()}
+              disabled={importMut.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:border-indigo-300 text-slate-700 text-sm font-semibold rounded-lg disabled:opacity-60"
+            >
+              <Upload className="w-4 h-4" /> {importMut.isPending ? 'Importing' : 'Import Excel'}
+            </button>
+            <button onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">
+              <Plus className="w-4 h-4" /> New Bill
+            </button>
+          </div>
         </div>
       )}
 

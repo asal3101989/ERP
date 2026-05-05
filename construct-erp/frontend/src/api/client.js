@@ -96,6 +96,12 @@ export const projectAPI = {
   delete:    (id)     => api.delete(`/projects/${id}`),
 };
 
+export const meetingsAPI = {
+  list:      (params) => api.get('/meetings', { params }),
+  create:    (data)   => api.post('/meetings', data),
+  close:     (id)     => api.patch(`/meetings/${id}/close`),
+};
+
 export const subcontractorAPI = {
   // Dashboard
   getDashboard:      (params) => api.get('/subcontractors/dashboard', { params }),
@@ -415,6 +421,8 @@ export const qualityAPI = {
 
   // Submittals
   listSubmittals: (params) => api.get('/quality/submittals', { params }),
+  createSubmittal: (data)  => api.post('/quality/submittals', data),
+  updateSubmittalStatus: (id, data) => api.patch(`/quality/submittals/${id}/status`, data),
   
   // Lab Tests
   listLabTests:   (params) => api.get('/quality/lab-tests', { params }),
@@ -500,6 +508,7 @@ export const tqsBillsAPI = {
   list:         (params)   => api.get('/tqs/bills', { params }),
   get:          (id)       => api.get(`/tqs/bills/${id}`),
   create:       (data)     => api.post('/tqs/bills', data),
+  importExcel:  (fd)       => api.post('/tqs/bills/import-excel', fd, { headers: { 'Content-Type': 'multipart/form-data' } }),
   update:       (id, d)    => api.put(`/tqs/bills/${id}`, d),
   updateStores: (id, d)    => api.patch(`/tqs/bills/${id}/stores`, d),
   updateDocumentControl: (id, d) => api.patch(`/tqs/bills/${id}/document-control`, d),
