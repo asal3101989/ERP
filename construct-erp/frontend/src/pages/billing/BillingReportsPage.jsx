@@ -7,7 +7,8 @@ import {
   TrendingUp, BarChart3, PieChart, Activity,
   DollarSign, Receipt, CreditCard, AlertCircle,
   ChevronDown, Printer, Eye, Clock,
-  CheckCircle, XCircle, ArrowUpRight, X, Zap
+  CheckCircle, XCircle, ArrowUpRight, X, Zap,
+  Building2
 } from 'lucide-react';
 import { projectAPI, raBillAPI, paymentAPI, reportAPI, vendorAPI } from '../../api/client';
 import jsPDF from 'jspdf';
