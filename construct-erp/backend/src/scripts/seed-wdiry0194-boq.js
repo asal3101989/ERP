@@ -102,8 +102,8 @@ async function run() {
       const projRes = await client.query(
         `INSERT INTO projects
           (company_id, project_code, name, type, status, client_name, client_gstin, client_pan,
-           location, city, state, contract_value, start_date, end_date, gst_type, description, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+           location, city, state, contract_value, start_date, end_date, gst_type, description)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
          RETURNING id`,
         [
           companyId,
@@ -122,7 +122,6 @@ async function run() {
           '2027-01-22',
           'intra',
           'Main entry Gate Road work & storm water drain civil work. WO No: WDIRY0194, WRF No: WRF 092 dtd 28.11.2025. SAC Code: 995411.',
-          userId,
         ]
       );
       projectId = projRes.rows[0].id;
