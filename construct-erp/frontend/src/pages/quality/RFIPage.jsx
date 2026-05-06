@@ -21,6 +21,7 @@ import PhotoMarkupTool from './PhotoMarkupTool';
 
 export default function RFIPage() {
   const [showForm, setShowForm] = useState(false);
+  const [newAttachments, setNewAttachments] = useState([]);
   const [selectedRFI, setSelectedRFI] = useState(null);
   const [activeTab, setActiveTab] = useState('pending'); // pending, inspected, approved
   const [markupImage, setMarkupImage] = useState(null); // URL for markup
@@ -56,10 +57,10 @@ export default function RFIPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: (d) => qualityAPI.createRFI(d),
+    mutationFn: (d) => qualityAPI.createRFI({ ...d, attachments: newAttachments }),
     onSuccess: () => {
       toast.success('Inspection Request (RFI) Raised');
-      reset(); setShowForm(false);
+      reset(); setShowForm(false); setNewAttachments([]);
       qc.invalidateQueries(['quality-rfi']);
     },
   });
@@ -339,10 +340,16 @@ export default function RFIPage() {
                 </p>
               </div>
 
+              <AttachmentPanel
+                attachments={newAttachments}
+                onUpdate={setNewAttachments}
+                label="Attachments (optional)"
+              />
+
               <div className="flex gap-3 pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => { setShowForm(false); setNewAttachments([]); }}
                   className="bg-white border border-[#e2e6ec] text-slate-700 text-sm font-semibold rounded-lg px-4 py-2 flex-1"
                 >
                   Discard

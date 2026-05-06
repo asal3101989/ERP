@@ -36,6 +36,7 @@ function ResultBadge({ status }) {
 
 export default function LabTestPage() {
   const [showForm, setShowForm] = useState(false);
+  const [newAttachments, setNewAttachments] = useState([]);
   const [selectedTest, setSelectedTest] = useState(null);
   const [search, setSearch] = useState('');
   const qc = useQueryClient();
@@ -55,11 +56,12 @@ export default function LabTestPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: (d) => qualityAPI.createLabTest(d),
+    mutationFn: (d) => qualityAPI.createLabTest({ ...d, attachments: newAttachments }),
     onSuccess: () => {
       toast.success('Lab sample recorded');
       reset();
       setShowForm(false);
+      setNewAttachments([]);
       qc.invalidateQueries(['quality-lab']);
     },
     onError: () => toast.error('Failed to record sample'),
