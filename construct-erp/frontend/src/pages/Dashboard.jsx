@@ -16,9 +16,7 @@ import {
   BarChart2, Users, Star,
 } from 'lucide-react';
 import {
-  projectAPI, incidentAPI, raBillAPI, analyticsAPI,
-  paymentAPI, poAPI, inventoryAPI, permitAPI, qualityAPI,
-  documentsAPI, workerAPI,
+  projectAPI, analyticsAPI, tqsBillsAPI,
 } from '../api/client';
 import useAuthStore from '../store/authStore';
 import dayjs from 'dayjs';
@@ -279,6 +277,11 @@ export default function Dashboard() {
     staleTime: 1000 * 60 * 10,
   });
 
+  const { data: tqsBills = [] } = useQuery({
+    queryKey: ['dashboard-tqs-bills', refreshKey],
+    queryFn: () => tqsBillsAPI.list({}).then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])).catch(() => []),
+  });
+
   const dashboardProjects   = dashboard?.projects || [];
   const filterOptions       = dashboard?.filters?.options || {};
   const projectOptions      = filterOptions.projects?.length ? filterOptions.projects : companyProjects.map(p => ({ id: p.id, name: p.name, project_code: p.project_code, type: p.type }));
@@ -332,6 +335,15 @@ export default function Dashboard() {
   const pendingVendorBillValue = dashboardPulse?.procurement_stores?.pending_vendor_bill_value ?? pendingRAValue;
   const safetyScoreValue      = dashboardPulse?.quality_safety?.safety_score ?? safetyScore;
   const collectionRate        = totalCertified > 0 ? Math.round((totalCollections / totalCertified) * 100) : 0;
+
+  // TQS bills stats
+  const tqsTotalBills      = tqsBills.length;
+  const tqsTotalInvoice    = tqsBills.reduce((s, b) => s + parseFloat(b.total_amount || 0), 0);
+  const tqsTotalCertified  = tqsBills.reduce((s, b) => s + parseFloat(b.certified_net || 0), 0);
+  const tqsTotalPaid       = tqsBills.reduce((s, b) => s + parseFloat(b.paid_amount || 0), 0);
+  const tqsBalance         = tqsTotalCertified - tqsTotalPaid;
+  const tqsPaid            = tqsBills.filter(b => b.workflow_status === 'paid').length;
+  const tqsPending         = tqsBills.filter(b => b.workflow_status !== 'paid').length;
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -427,6 +439,14 @@ export default function Dashboard() {
           <KpiCard title="Safety Score"     value={safetyScore != null ? `${Math.round(safetyScore)}/100` : 'N/A'} sub={`${openIncidents} open incidents`} gradient={GRADIENTS[5]} icon={Shield}      delay={0.35} to="/hse/incidents" />
           <KpiCard title="Quality Issues"   value={openRFIs + openNCRs} sub={`${openRFIs} RFIs · ${openNCRs} NCRs`} gradient={GRADIENTS[6]} icon={FileWarning}  delay={0.42} to="/quality" />
           <KpiCard title="Workforce"        value={workforceCount} sub={`${documentsCount} documents`} gradient={GRADIENTS[7]} icon={HardHat}      delay={0.49} to="/hr/workers" />
+        </div>
+
+        {/* TQS Bills Summary Row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 14 }}>
+          <KpiCard title="TQS Total Bills"     value={String(tqsTotalBills)}          sub={`${tqsPaid} paid · ${tqsPending} pending`}  gradient={['#f7971e','#ffd200']} icon={FileText}      delay={0.56} to="/tqs" />
+          <KpiCard title="TQS Invoice Value"   rawValue={tqsTotalInvoice}             sub="Total vendor invoices"                       gradient={['#11998e','#38ef7d']} icon={DollarSign}    delay={0.6}  to="/tqs/bills" />
+          <KpiCard title="TQS Certified"       rawValue={tqsTotalCertified}           sub="QS certified amount"                         gradient={['#6a11cb','#2575fc']} icon={ClipboardList}  delay={0.64} to="/tqs/bills" />
+          <KpiCard title="TQS Balance to Pay"  rawValue={tqsBalance}                  sub="Outstanding vendor payments"                 gradient={['#f953c6','#b91d73']} icon={Clock}          delay={0.68} to="/tqs/bills" />
         </div>
 
         {/* Charts row 1 */}
