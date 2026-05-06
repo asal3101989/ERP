@@ -583,49 +583,90 @@ function FormField({ label, children }) {
 function ITAssetBarcodeModal({ asset, onClose }) {
   const assetType  = TYPE_ICON[asset.asset_type]?.label || 'IT Asset';
   const assetTitle = `${asset.brand || ''} ${asset.model || ''}`.trim() || asset.asset_tag;
+  const { Icon: TypeIcon, color: typeColor } = TYPE_ICON[asset.asset_type] || { Icon: HelpCircle, color: '#5f6368' };
+  const daysLeft = asset.warranty_expiry ? dayjs(asset.warranty_expiry).diff(dayjs(), 'day') : null;
+
+  const specs = [
+    { label: 'Asset Tag',      value: asset.asset_tag },
+    { label: 'Type',           value: assetType },
+    { label: 'Brand',          value: asset.brand || '—' },
+    { label: 'Model',          value: asset.model || '—' },
+    { label: 'Serial No.',     value: asset.serial_number || '—' },
+    { label: 'OS / Firmware',  value: asset.os || '—' },
+    { label: 'Status',         value: LABEL[asset.status] || asset.status || '—' },
+    { label: 'Assigned To',    value: asset.assigned_to_name || '—' },
+    { label: 'Project',        value: asset.project_name || '—' },
+    { label: 'Location',       value: asset.location_description || '—' },
+    { label: 'Purchase Date',  value: asset.purchase_date ? dayjs(asset.purchase_date).format('DD MMM YYYY') : '—' },
+    { label: 'Purchase Cost',  value: asset.purchase_cost ? `₹${parseInt(asset.purchase_cost).toLocaleString('en-IN')}` : '—' },
+    { label: 'Warranty',       value: daysLeft === null ? '—' : daysLeft < 0 ? `Expired (${Math.abs(daysLeft)}d ago)` : `${dayjs(asset.warranty_expiry).format('DD MMM YYYY')} (${daysLeft}d left)` },
+    { label: 'Notes',          value: asset.notes || '—' },
+  ];
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">{asset.asset_tag}</h2>
-            <p className="text-xs text-gray-400">{assetTitle} · {assetType}</p>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4"
+          style={{ background: 'linear-gradient(135deg, #0f2d6b 0%, #1a56db 100%)' }}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+              <TypeIcon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="font-mono text-lg font-black tracking-wider text-white">{asset.asset_tag}</h2>
+              <p className="text-xs text-blue-200">{assetTitle} &nbsp;·&nbsp; {assetType}</p>
+            </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100">
+          <button type="button" onClick={onClose}
+            className="rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition">
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="grid gap-6 p-6 sm:grid-cols-2">
-          <AssetBarcodeCard
-            value={asset.asset_tag}
-            title={assetTitle}
-            subtitle={assetType}
-            metaLabel="Asset Tag"
-            metaValue={asset.asset_tag}
-            size={160}
-            extraFields={[
-              { label: 'Serial No.', value: asset.serial_number },
-              { label: 'Status',     value: LABEL[asset.status] || asset.status },
-              { label: 'Location',   value: asset.location_description },
-              { label: 'Assigned',   value: asset.assigned_to_name },
-            ]}
-          />
-          <div className="space-y-3 text-sm">
-            {[
-              ['Asset Tag',     asset.asset_tag],
-              ['Brand / Model', assetTitle],
-              ['Serial No.',    asset.serial_number || '—'],
-              ['Status',        LABEL[asset.status] || asset.status || '—'],
-              ['Assigned To',   asset.assigned_to_name || '—'],
-              ['Location',      asset.location_description || '—'],
-              ['Notes',         asset.notes || '—'],
-            ].map(([k, v]) => (
-              <div key={k} className="flex justify-between rounded border border-gray-100 bg-gray-50 px-3 py-2">
-                <span className="text-xs font-medium text-gray-400">{k}</span>
-                <span className="text-xs text-gray-800 text-right max-w-[55%]">{v}</span>
-              </div>
-            ))}
+
+        {/* Modal Body */}
+        <div className="grid sm:grid-cols-[auto_1fr] gap-0">
+
+          {/* Left — Label Preview */}
+          <div className="border-r border-gray-100 bg-slate-50 p-6">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Asset Label</p>
+            <AssetBarcodeCard
+              value={asset.asset_tag}
+              title={assetTitle}
+              subtitle={assetType}
+              metaLabel="Asset Tag"
+              metaValue={asset.asset_tag}
+              size={140}
+              extraFields={[
+                { label: 'Serial No.', value: asset.serial_number },
+                { label: 'Status',     value: LABEL[asset.status] || asset.status },
+                { label: 'Location',   value: asset.location_description },
+                { label: 'Assigned',   value: asset.assigned_to_name },
+              ]}
+            />
+          </div>
+
+          {/* Right — Asset Specs */}
+          <div className="p-6 overflow-y-auto max-h-[70vh]">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Asset Specifications</p>
+            <div className="space-y-1">
+              {specs.map(({ label, value }) => (
+                <div key={label} className="flex items-start gap-3 rounded-lg px-3 py-2 odd:bg-gray-50">
+                  <span className="w-28 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-gray-400 pt-0.5">
+                    {label}
+                  </span>
+                  <span className={`flex-1 text-xs font-semibold break-all
+                    ${label === 'Asset Tag' ? 'font-mono text-sm font-black text-[#0f2d6b]' : 'text-gray-800'}
+                    ${label === 'Status' ? (asset.status === 'in_use' ? 'text-green-700' : asset.status === 'under_repair' ? 'text-amber-700' : asset.status === 'lost' ? 'text-red-700' : 'text-gray-700') : ''}
+                    ${label === 'Warranty' && daysLeft !== null && daysLeft < 0 ? 'text-red-600' : ''}
+                    ${label === 'Warranty' && daysLeft !== null && daysLeft >= 0 && daysLeft <= 90 ? 'text-amber-600' : ''}
+                  `}>
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
