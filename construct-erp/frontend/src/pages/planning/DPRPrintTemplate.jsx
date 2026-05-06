@@ -146,11 +146,11 @@ function DataTable({ columns, rows, emptyText = 'No data' }) {
 
 export default function DPRPrintTemplate({ dpr, project }) {
   const view = toView(dpr, project);
-  const workRows = view.workRows.slice(0, 12);
-  const labourRows = view.directWorkers.slice(0, 8);
-  const subRows = view.subcontractors.slice(0, 6);
-  const plantRows = view.plant.filter(row => Number(row.nos) || normalize(row.item)).slice(0, 7);
-  const materialRows = view.materialRows.slice(0, 7);
+  const workRows = view.workRows.slice(0, 9);
+  const labourRows = view.directWorkers.slice(0, 5);
+  const subRows = view.subcontractors.slice(0, 4);
+  const plantRows = view.plant.filter(row => Number(row.nos) || normalize(row.item)).slice(0, 4);
+  const materialRows = view.materialRows.slice(0, 4);
   const totalLabour = view.directDay + view.directNight + view.subDay + view.subNight;
   const totalAchieved = sum(workRows, 'achieved');
 
@@ -177,7 +177,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
         }
         .dpr-template-page {
           width: 297mm;
-          min-height: 210mm;
+          height: 210mm;
           margin: 0 auto;
           background: ${C.bg};
           color: ${C.text};
@@ -185,8 +185,8 @@ export default function DPRPrintTemplate({ dpr, project }) {
           overflow: hidden;
         }
         .dpr-topbar {
-          height: 48px;
-          padding: 0 18px;
+          height: 38px;
+          padding: 0 14px;
           background: ${C.panel};
           border-bottom: 1px solid ${C.border};
           display: flex;
@@ -200,7 +200,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
           min-width: 0;
         }
         .dpr-brand img {
-          height: 24px;
+          height: 20px;
           width: auto;
           object-fit: contain;
           background: #fff;
@@ -209,14 +209,14 @@ export default function DPRPrintTemplate({ dpr, project }) {
         }
         .dpr-brand-title {
           color: ${C.accent};
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 800;
           letter-spacing: 1.5px;
           white-space: nowrap;
         }
         .dpr-subtitle {
           color: ${C.muted};
-          font-size: 11px;
+          font-size: 10px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -233,86 +233,86 @@ export default function DPRPrintTemplate({ dpr, project }) {
           white-space: nowrap;
         }
         .dpr-content {
-          padding: 14px 18px 18px;
+          padding: 10px 14px 12px;
         }
         .dpr-kpis {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
-          gap: 10px;
-          margin-bottom: 12px;
+          gap: 8px;
+          margin-bottom: 8px;
         }
         .dpr-kpi {
           background: ${C.panel};
           border: 1px solid ${C.border};
           border-left: 3px solid ${C.accent};
-          border-radius: 8px;
-          padding: 10px 12px;
-          min-height: 70px;
+          border-radius: 6px;
+          padding: 7px 10px;
+          min-height: 54px;
         }
         .dpr-kpi-label {
           display: block;
           color: ${C.muted};
-          font-size: 9px;
+          font-size: 8px;
           letter-spacing: .8px;
           text-transform: uppercase;
           margin-bottom: 5px;
         }
         .dpr-kpi-value {
           display: block;
-          font-size: 22px;
+          font-size: 18px;
           font-weight: 800;
           line-height: 1;
         }
         .dpr-kpi-value small {
           color: ${C.muted};
-          font-size: 11px;
+          font-size: 9px;
           font-weight: 400;
           margin-left: 4px;
         }
         .dpr-kpi-sub {
           display: block;
           color: ${C.muted};
-          font-size: 9px;
-          margin-top: 4px;
+          font-size: 8px;
+          margin-top: 2px;
         }
         .dpr-grid {
           display: grid;
-          grid-template-columns: 1.1fr 1.9fr;
-          gap: 12px;
-          margin-bottom: 12px;
+          grid-template-columns: .82fr 2.18fr;
+          gap: 8px;
+          margin-bottom: 8px;
         }
         .dpr-panel {
           background: ${C.panel};
           border: 1px solid ${C.border};
-          border-radius: 9px;
-          padding: 12px;
+          border-radius: 7px;
+          padding: 9px;
           overflow: hidden;
         }
         .dpr-section-title {
           display: flex;
           align-items: center;
-          gap: 8px;
-          margin-bottom: 9px;
+          gap: 6px;
+          margin-bottom: 6px;
         }
         .dpr-section-title > span {
           width: 3px;
-          height: 17px;
+          height: 14px;
           border-radius: 2px;
           background: ${C.accent};
         }
         .dpr-section-title h2 {
           margin: 0;
           color: ${C.text};
-          font-size: 11px;
+          font-size: 9px;
           font-weight: 800;
           letter-spacing: .8px;
           text-transform: uppercase;
         }
         .dpr-info {
           display: grid;
-          grid-template-columns: 120px 1fr;
-          gap: 6px 10px;
-          font-size: 10px;
+          grid-template-columns: 86px 1fr;
+          gap: 4px 8px;
+          font-size: 8px;
         }
         .dpr-info dt {
           color: ${C.muted};
@@ -329,19 +329,19 @@ export default function DPRPrintTemplate({ dpr, project }) {
         .dpr-two-col {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-bottom: 12px;
+          gap: 8px;
+          margin-bottom: 8px;
         }
         .dpr-data-table {
           width: 100%;
           border-collapse: collapse;
           table-layout: fixed;
-          font-size: 9px;
+          font-size: 8px;
         }
         .dpr-data-table th {
           background: ${C.bg};
           color: ${C.muted};
-          padding: 5px 6px;
+          padding: 3px 5px;
           border-bottom: 1px solid ${C.border};
           text-align: left;
           font-weight: 800;
@@ -352,7 +352,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
         .dpr-data-table td {
           border-bottom: 1px solid ${C.mutedDark};
           color: ${C.text};
-          padding: 4px 6px;
+          padding: 3px 5px;
           vertical-align: middle;
           overflow-wrap: anywhere;
         }
@@ -368,24 +368,24 @@ export default function DPRPrintTemplate({ dpr, project }) {
         .dpr-footer-notes {
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
-          gap: 12px;
+          gap: 8px;
         }
         .dpr-note-box {
-          min-height: 50px;
+          min-height: 38px;
           background: ${C.bg};
           border: 1px solid ${C.border};
-          border-radius: 8px;
-          padding: 8px;
-          font-size: 10px;
+          border-radius: 6px;
+          padding: 6px;
+          font-size: 8px;
           color: ${C.text};
         }
         .dpr-note-box strong {
           display: block;
           color: ${C.accent};
-          font-size: 9px;
+          font-size: 8px;
           letter-spacing: .7px;
           text-transform: uppercase;
-          margin-bottom: 5px;
+          margin-bottom: 3px;
         }
         @media print {
           body * { visibility: hidden !important; }
@@ -393,7 +393,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
           .planning-dpr-print-root, .planning-dpr-print-root * { visibility: visible !important; }
           .planning-dpr-print-root { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; background: ${C.bg} !important; }
           .planning-dpr-print-hide { display: none !important; }
-          .dpr-template-page { width: 297mm; min-height: 210mm; margin: 0; box-shadow: none; }
+          .dpr-template-page { width: 297mm; height: 210mm; margin: 0; box-shadow: none; }
           @page { size: A4 landscape; margin: 0; }
         }
       `}</style>
