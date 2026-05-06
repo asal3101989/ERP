@@ -513,6 +513,8 @@ CREATE TABLE IF NOT EXISTS inventory (
   site_location VARCHAR(100),
   opening_stock NUMERIC(12,3) DEFAULT 0,
   closing_stock NUMERIC(12,3) DEFAULT 0,
+  unit_rate NUMERIC(12,2) DEFAULT 0,
+  category VARCHAR(100),
   minimum_level NUMERIC(12,3) DEFAULT 0,
   reorder_level NUMERIC(12,3) DEFAULT 0,
   last_updated TIMESTAMPTZ DEFAULT NOW(),
