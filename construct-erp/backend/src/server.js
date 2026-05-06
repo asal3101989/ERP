@@ -42,6 +42,9 @@ const incidentRoutes = require('./routes/incident.routes');
 const permitRoutes = require('./routes/permit.routes');
 const ppeRoutes = require('./routes/ppe.routes');
 const qualityRoutes = require('./routes/quality.routes');
+const drawingRoutes = require('./routes/drawings.routes');
+const submittalRoutes = require('./routes/submittals.routes');
+const meetingRoutes = require('./routes/meetings.routes');
 const assetRoutes = require('./routes/asset.routes');
 const inventoryAssetRoutes = require('./routes/inventoryAsset.routes');
 const itAssetRoutes = require('./routes/itAsset.routes');
@@ -220,6 +223,9 @@ app.use(`${API}/incidents`, incidentRoutes);
 app.use(`${API}/permits`, permitRoutes);
 app.use(`${API}/ppe`, ppeRoutes);
 app.use(`${API}/quality`, qualityRoutes);
+app.use(`${API}/quality/drawings`, drawingRoutes);
+app.use(`${API}/quality/submittals`, submittalRoutes);
+app.use(`${API}/meetings`, meetingRoutes);
 app.use(`${API}/snags`, snagRoutes);
 
 // Assets

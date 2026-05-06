@@ -135,6 +135,9 @@ const TQSVendorsPage        = lazy(() => import('./pages/tqs/TQSVendorsPage'));
 const TQSTransmittalPage    = lazy(() => import('./pages/tqs/TQSTransmittalPage'));
 const QSRABillPrint         = lazy(() => import('./pages/tqs/QSRABillPrint'));
 const QAQCReportsPage       = lazy(() => import('./pages/quality/QAQCReportsPage'));
+const DrawingRegisterPage   = lazy(() => import('./pages/quality/DrawingRegisterPage'));
+const SubmittalsPage        = lazy(() => import('./pages/quality/SubmittalsPage'));
+const MeetingsPage          = lazy(() => import('./pages/common/MeetingsPage'));
 const ERPChatPage           = lazy(() => import('./pages/ERPChat'));
 
 // Route guard — blocks access until token is verified with backend
@@ -217,6 +220,7 @@ export default function App() {
                 <Route path="projects" element={<ProjectList />} />
                 <Route path="projects/new" element={<ProjectCreate />} />
                 <Route path="projects/:id" element={<ProjectDetail />} />
+                <Route path="meetings" element={<MeetingsPage />} />
                 {/* QS */}
                 <Route path="qs/boq" element={<BOQPage />} />
                 <Route path="qs/measurements" element={<MeasurementPage />} />
@@ -316,6 +320,8 @@ export default function App() {
                 {/* QA/QC & Compliance */}
                 <Route path="quality" element={<QAQCDashboard />} />
                 <Route path="quality/reports" element={<QAQCReportsPage />} />
+                <Route path="quality/drawings" element={<DrawingRegisterPage />} />
+                <Route path="quality/submittals" element={<SubmittalsPage />} />
                 <Route path="quality/rfi" element={<RFIPage />} />
                 <Route path="quality/ncr" element={<NCRPage />} />
                 <Route path="quality/lab-tests" element={<LabTestPage />} />
