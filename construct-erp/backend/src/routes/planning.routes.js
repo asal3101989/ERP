@@ -105,9 +105,29 @@ function parseDPRWorkbook(buffer) {
     return '';
   };
 
-  const reportDate = excelDateToISO(findAfterAny(['Report for', 'Report Date', 'DPR Date', 'DPR for', 'Date']));
+  let reportDate = excelDateToISO(findAfterAny([
+    'Report for', 'Report Date', 'DPR Date', 'DPR for', 'Date',
+    'Dated', 'Report On', 'Date of Report', 'For Date', 'Day',
+  ]));
+
+  // Fallback: scan first 30 rows for any cell that looks like a date
   if (!reportDate) {
-    throw new Error('Could not find DPR report date in Excel. Please keep a date beside "Report for", "Report Date", or "DPR Date".');
+    for (let r = 0; r < Math.min(30, rows.length); r++) {
+      for (const cell of rows[r]) {
+        const d = excelDateToISO(cell);
+        if (d && d >= '2020-01-01' && d <= '2099-12-31') {
+          reportDate = d;
+          break;
+        }
+      }
+      if (reportDate) break;
+    }
+  }
+
+  // Last resort: use today
+  if (!reportDate) {
+    const now = new Date();
+    reportDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   }
 
   const concrete_today = [];
@@ -484,9 +504,13 @@ router.post('/dpr/import', authorize(...PLANNERS), uploadDPRWorkbook, async (req
       },
     });
   } catch (err) {
-    const isWorkbookError = /DPR report date|workbook|excel/i.test(err.message || '');
-    console.error('[Planning DPR Import]:', err.message);
-    res.status(isWorkbookError ? 400 : 500).json({ error: err.message || 'Failed to import DPR' });
+    console.error('[Planning DPR Import]:', err.message, err.stack);
+    let msg = err.message || 'Failed to import DPR';
+    if (/password|encrypted/i.test(msg)) msg = 'The Excel file is password-protected. Please remove the password and try again.';
+    else if (/CFB|zip|not a valid/i.test(msg)) msg = 'Could not read the Excel file. Make sure it is a valid .xlsx or .xls file.';
+    else if (/duplicate|unique.*dpr_number/i.test(msg)) msg = 'A DPR with this number already exists. Try with overwrite enabled.';
+    const status = /password|encrypted|CFB|zip|not a valid|duplicate/i.test(msg) ? 400 : 500;
+    res.status(status).json({ error: msg });
   }
 });
 
