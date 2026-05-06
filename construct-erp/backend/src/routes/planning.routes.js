@@ -97,9 +97,18 @@ function parseDPRWorkbook(buffer) {
     }
     return '';
   };
+  const findAfterAny = (labels) => {
+    for (const label of labels) {
+      const value = findAfter(label);
+      if (cellText(value)) return value;
+    }
+    return '';
+  };
 
-  const reportDate = excelDateToISO(findAfter('Report for'));
-  if (!reportDate) throw new Error('Could not find DPR report date in Excel');
+  const reportDate = excelDateToISO(findAfterAny(['Report for', 'Report Date', 'DPR Date', 'DPR for', 'Date']));
+  if (!reportDate) {
+    throw new Error('Could not find DPR report date in Excel. Please keep a date beside "Report for", "Report Date", or "DPR Date".');
+  }
 
   const concrete_today = [];
   const concreteSheetName = wb.SheetNames.find((name) => /concrete\s+consumption/i.test(name));
@@ -476,6 +485,7 @@ router.post('/dpr/import', authorize(...PLANNERS), uploadDPRWorkbook, async (req
     });
   } catch (err) {
     const isWorkbookError = /DPR report date|workbook|excel/i.test(err.message || '');
+    console.error('[Planning DPR Import]:', err.message);
     res.status(isWorkbookError ? 400 : 500).json({ error: err.message || 'Failed to import DPR' });
   }
 });

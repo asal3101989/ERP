@@ -1038,7 +1038,8 @@ export default function DPRPage() {
       if (importInputRef.current) importInputRef.current.value = '';
     },
     onError: e => {
-      toast.error(e?.response?.data?.error || 'DPR import failed');
+      const message = e?.response?.data?.error || e?.message || 'DPR import failed';
+      toast.error(message);
       if (importInputRef.current) importInputRef.current.value = '';
     },
   });
