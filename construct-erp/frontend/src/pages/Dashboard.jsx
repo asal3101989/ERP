@@ -1,67 +1,49 @@
 // src/pages/Dashboard.jsx
-import React, { Suspense, lazy, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { Suspense, lazy, useMemo, useState, useEffect } from 'react';
+import { motion, animate } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell,
+  ResponsiveContainer, AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, Tooltip, PieChart, Pie, Cell,
+  RadialBarChart, RadialBar, CartesianGrid,
 } from 'recharts';
 import {
-  Building2,
-  DollarSign,
-  Shield,
-  Receipt,
-  TrendingUp,
-  AlertTriangle,
-  ArrowRight,
-  RefreshCw,
-  Package,
-  CheckCircle2,
-  Clock,
-  Wallet,
-  FileWarning,
-  HardHat,
-  CalendarRange,
-  FileText,
-  ClipboardList,
+  Building2, DollarSign, Shield, Receipt, TrendingUp,
+  AlertTriangle, ArrowRight, RefreshCw, Package, CheckCircle2,
+  Clock, Wallet, FileWarning, HardHat, CalendarRange, FileText,
+  ClipboardList, Zap, Activity, ChevronRight, TrendingDown,
+  BarChart2, Users, Star,
 } from 'lucide-react';
 import {
-  projectAPI,
-  incidentAPI,
-  raBillAPI,
-  analyticsAPI,
-  paymentAPI,
-  poAPI,
-  inventoryAPI,
-  permitAPI,
-  qualityAPI,
-  documentsAPI,
-  workerAPI,
+  projectAPI, incidentAPI, raBillAPI, analyticsAPI,
+  paymentAPI, poAPI, inventoryAPI, permitAPI, qualityAPI,
+  documentsAPI, workerAPI,
 } from '../api/client';
 import useAuthStore from '../store/authStore';
 import dayjs from 'dayjs';
 
-const PMDashboard = lazy(() => import('./dashboards/PMDashboard'));
+const PMDashboard           = lazy(() => import('./dashboards/PMDashboard'));
 const SiteEngineerDashboard = lazy(() => import('./dashboards/SiteEngineerDashboard'));
-const QSDashboard = lazy(() => import('./dashboards/QSDashboard'));
-const AccountsDashboard = lazy(() => import('./dashboards/AccountsDashboard'));
-const HRDashboard = lazy(() => import('./dashboards/HRDashboard'));
-const HSEDashboard = lazy(() => import('./dashboards/HSEDashboard'));
-const StoresDashboard = lazy(() => import('./dashboards/StoresDashboard'));
-const ProcurementDashboard = lazy(() => import('./dashboards/ProcurementDashboard'));
+const QSDashboard           = lazy(() => import('./dashboards/QSDashboard'));
+const AccountsDashboard     = lazy(() => import('./dashboards/AccountsDashboard'));
+const HRDashboard           = lazy(() => import('./dashboards/HRDashboard'));
+const HSEDashboard          = lazy(() => import('./dashboards/HSEDashboard'));
+const StoresDashboard       = lazy(() => import('./dashboards/StoresDashboard'));
+const ProcurementDashboard  = lazy(() => import('./dashboards/ProcurementDashboard'));
 
 const PIE_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444'];
+
+const GRADIENTS = [
+  ['#667eea', '#764ba2'],
+  ['#4facfe', '#00f2fe'],
+  ['#43e97b', '#38f9d7'],
+  ['#fa709a', '#fee140'],
+  ['#f093fb', '#f5576c'],
+  ['#a18cd1', '#fbc2eb'],
+  ['#fccb90', '#d57eeb'],
+  ['#a1c4fd', '#c2e9fb'],
+];
 
 const inr = (value) => {
   const n = parseFloat(value) || 0;
@@ -87,133 +69,172 @@ const toArray = (response) => {
 
 const getRangeBounds = (range) => {
   if (range === 'all') return { dateFrom: null, dateTo: null };
-
   const now = dayjs();
-  const map = {
-    '7d': 6,
-    '30d': 29,
-    '90d': 89,
-    '1y': 364,
-  };
+  const map = { '7d': 6, '30d': 29, '90d': 89, '1y': 364 };
   const days = map[range] ?? 29;
-  return {
-    dateFrom: now.subtract(days, 'day').format('YYYY-MM-DD'),
-    dateTo: now.format('YYYY-MM-DD'),
-  };
+  return { dateFrom: now.subtract(days, 'day').format('YYYY-MM-DD'), dateTo: now.format('YYYY-MM-DD') };
 };
+
+// Animated counter
+function AnimatedNumber({ target, prefix = '', suffix = '', format }) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    const controls = animate(0, parseFloat(target) || 0, {
+      duration: 1.5, ease: 'easeOut',
+      onUpdate: v => setVal(v),
+    });
+    return controls.stop;
+  }, [target]);
+  const display = format ? format(val) : Math.round(val);
+  return <>{prefix}{display}{suffix}</>;
+}
 
 function DashLoader() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', background: '#f8fafc' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', background: 'linear-gradient(135deg,#0f172a,#1e1b4b)' }}>
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-        style={{
-          width: 36,
-          height: 36,
-          border: '3px solid rgba(99,102,241,0.2)',
-          borderTopColor: '#6366f1',
-          borderRadius: '50%',
-        }}
+        style={{ width: 36, height: 36, border: '3px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%' }}
       />
     </div>
   );
 }
 
-function KPICard({ title, value, sub, icon: Icon, tone = 'indigo', delay = 0, to }) {
-  const tones = {
-    indigo: { bg: 'linear-gradient(135deg,#eef2ff,#ffffff)', badge: '#6366f1', glow: 'rgba(99,102,241,0.18)' },
-    emerald: { bg: 'linear-gradient(135deg,#ecfdf5,#ffffff)', badge: '#10b981', glow: 'rgba(16,185,129,0.18)' },
-    amber: { bg: 'linear-gradient(135deg,#fff7ed,#ffffff)', badge: '#f59e0b', glow: 'rgba(245,158,11,0.18)' },
-    red: { bg: 'linear-gradient(135deg,#fef2f2,#ffffff)', badge: '#ef4444', glow: 'rgba(239,68,68,0.18)' },
-    sky: { bg: 'linear-gradient(135deg,#f0f9ff,#ffffff)', badge: '#0ea5e9', glow: 'rgba(14,165,233,0.18)' },
-  };
-  const palette = tones[tone] || tones.indigo;
+// 3D tilt KPI card
+function KpiCard({ title, value, rawValue, sub, gradient, icon: Icon, delay = 0, to }) {
+  const [rot, setRot] = useState({ x: 0, y: 0 });
+  const ref = React.useRef(null);
 
-  const card = (
+  const handleMove = (e) => {
+    const el = ref.current; if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setRot({
+      x: ((e.clientY - rect.top) / rect.height - 0.5) * 12,
+      y: ((e.clientX - rect.left) / rect.width - 0.5) * -12,
+    });
+  };
+
+  const inner = (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -2, boxShadow: `0 10px 28px ${palette.glow}` }}
-      style={{
-        background: palette.bg,
-        border: '1px solid #e8edf3',
-        borderRadius: 14,
-        padding: '12px 14px',
-        position: 'relative',
-        overflow: 'hidden',
-        boxShadow: '0 2px 8px rgba(15,23,42,0.05)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-      }}
+      ref={ref}
+      onMouseMove={handleMove}
+      onMouseLeave={() => setRot({ x: 0, y: 0 })}
+      animate={{ rotateX: rot.x, rotateY: rot.y }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      style={{ transformStyle: 'preserve-3d', perspective: 800, height: '100%' }}
     >
-      <div
+      <motion.div
+        initial={{ opacity: 0, y: 30, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay, duration: 0.5 }}
+        whileHover={{ y: -3 }}
         style={{
-          width: 38,
-          height: 38,
-          borderRadius: 11,
-          background: palette.badge,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          boxShadow: `0 6px 16px ${palette.glow}`,
+          background: `linear-gradient(135deg,${gradient[0]},${gradient[1]})`,
+          borderRadius: 14, padding: '18px 16px', color: '#fff',
+          position: 'relative', overflow: 'hidden',
+          boxShadow: `0 16px 32px ${gradient[0]}44`,
+          height: '100%',
         }}
       >
-        <Icon style={{ width: 18, height: 18, color: '#fff' }} />
-      </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>
-          {title}
+        <div style={{ position: 'absolute', top: -15, right: -15, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+        <div style={{ position: 'absolute', bottom: -20, right: 20, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ fontSize: 9, fontWeight: 700, opacity: 0.8, marginBottom: 6, letterSpacing: 0.8, textTransform: 'uppercase' }}>{title}</p>
+            <p style={{ fontSize: 20, fontWeight: 800, margin: 0, lineHeight: 1.1 }}>
+              {rawValue !== undefined
+                ? <AnimatedNumber target={rawValue} format={v => inr(v).replace('₹', '')} prefix="₹" />
+                : value}
+            </p>
+            {sub && <p style={{ fontSize: 10, opacity: 0.7, marginTop: 5, lineHeight: 1.3 }}>{sub}</p>}
+          </div>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', flexShrink: 0, marginLeft: 8 }}>
+            <Icon size={19} color="#fff" />
+          </div>
         </div>
-        <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginBottom: 1, lineHeight: 1.2 }}>{value}</div>
-        <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>
-      </div>
+        <div style={{ marginTop: 12, height: 2, background: 'rgba(255,255,255,0.2)', borderRadius: 2, position: 'relative', zIndex: 1 }}>
+          <motion.div initial={{ width: 0 }} animate={{ width: '65%' }} transition={{ delay: delay + 0.4, duration: 1 }}
+            style={{ height: '100%', background: 'rgba(255,255,255,0.65)', borderRadius: 2 }} />
+        </div>
+      </motion.div>
     </motion.div>
   );
 
-  if (!to) return card;
-
-  return (
-    <Link to={to} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
-      {card}
-    </Link>
-  );
+  if (!to) return inner;
+  return <Link to={to} style={{ textDecoration: 'none', display: 'block' }}>{inner}</Link>;
 }
 
-function SectionCard({ title, action, actionTo, children, delay = 0, minHeight }) {
+// Glass section card
+function GlassCard({ title, action, actionTo, children, delay = 0, style = {} }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
+      initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ delay, duration: 0.45 }}
       style={{
-        background: '#ffffff',
-        border: '1px solid #e8edf3',
+        background: 'rgba(255,255,255,0.88)',
+        backdropFilter: 'blur(12px)',
         borderRadius: 14,
-        padding: '14px 16px',
-        boxShadow: '0 2px 8px rgba(15,23,42,0.05)',
-        minHeight,
+        border: '1px solid rgba(255,255,255,0.6)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+        padding: '16px 18px',
+        ...style,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{title}</div>
-        {action && actionTo && (
-          <Link to={actionTo} style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', fontSize: 11, fontWeight: 700, color: '#6366f1' }}>
-            {action}
-            <ArrowRight style={{ width: 11, height: 11 }} />
-          </Link>
-        )}
-      </div>
+      {(title || action) && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          {title && (
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Activity size={13} color="#6366f1" /> {title}
+            </p>
+          )}
+          {action && actionTo && (
+            <Link to={actionTo} style={{ fontSize: 11, color: '#6366f1', textDecoration: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
+              {action} <ChevronRight size={12} />
+            </Link>
+          )}
+        </div>
+      )}
       {children}
     </motion.div>
   );
 }
 
 function EmptyState({ text }) {
-  return <div style={{ padding: '16px 0', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{text}</div>;
+  return <div style={{ padding: '20px 0', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{text}</div>;
+}
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: 'rgba(15,23,42,0.92)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 11 }}>
+      <p style={{ margin: 0, fontWeight: 600, marginBottom: 4 }}>{label}</p>
+      {payload.map((p, i) => (
+        <p key={i} style={{ margin: '2px 0', color: p.color }}>
+          {p.name}: {typeof p.value === 'number' && p.value > 1000 ? `₹${compactNumber(p.value)}` : p.value}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+function PulseRow({ icon: Icon, label, value, sub, color = '#6366f1' }) {
+  return (
+    <motion.div
+      whileHover={{ x: 4 }}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${color}22`, borderRadius: 10, padding: '9px 10px', background: `${color}08` }}
+    >
+      <div style={{ width: 32, height: 32, borderRadius: 9, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={15} color={color} />
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>{label}</div>
+        <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{sub}</div>
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 900, color }}>{value}</div>
+    </motion.div>
+  );
 }
 
 export default function Dashboard() {
@@ -258,271 +279,210 @@ export default function Dashboard() {
     staleTime: 1000 * 60 * 10,
   });
 
-  const dashboardProjects = dashboard?.projects || [];
-  const filterOptions = dashboard?.filters?.options || {};
-  const projectOptions = filterOptions.projects?.length
-    ? filterOptions.projects
-    : companyProjects.map((project) => ({ id: project.id, name: project.name, project_code: project.project_code, type: project.type }));
-  const businessUnitOptions = filterOptions.business_units?.length
-    ? filterOptions.business_units
-    : [...new Set(companyProjects.map((project) => project.type).filter(Boolean))].sort();
-  const dashboardKpis = dashboard?.kpis || {};
-  const dashboardCharts = dashboard?.charts || {};
-  const dashboardRecent = dashboard?.recent || {};
+  const dashboardProjects   = dashboard?.projects || [];
+  const filterOptions       = dashboard?.filters?.options || {};
+  const projectOptions      = filterOptions.projects?.length ? filterOptions.projects : companyProjects.map(p => ({ id: p.id, name: p.name, project_code: p.project_code, type: p.type }));
+  const businessUnitOptions = filterOptions.business_units?.length ? filterOptions.business_units : [...new Set(companyProjects.map(p => p.type).filter(Boolean))].sort();
+  const dashboardKpis       = dashboard?.kpis || {};
+  const dashboardCharts     = dashboard?.charts || {};
+  const dashboardRecent     = dashboard?.recent || {};
   const dashboardWatchlists = dashboard?.watchlists || {};
-  const dashboardPulse = dashboard?.pulse || {};
+  const dashboardPulse      = dashboard?.pulse || {};
   const dashboardExceptions = dashboard?.exceptions || [];
-  const safeProjects = Array.isArray(dashboardProjects) ? dashboardProjects : [];
-  const safeRABills = Array.isArray(dashboardRecent.ra_bills) ? dashboardRecent.ra_bills : [];
-  const safePayments = Array.isArray(dashboardRecent.payments) ? dashboardRecent.payments : [];
-  const safeDocs = Array.isArray(dashboardRecent.documents) ? dashboardRecent.documents : [];
-  const lowStockCount = dashboardKpis.low_stock_count ?? dashboardPulse?.procurement_stores?.low_stock_materials ?? 0;
-  const workforceCount = dashboardKpis.workforce_count ?? 0;
-  const openIncidents = dashboardKpis.open_incidents ?? 0;
-  const expiringPermits = dashboardKpis.expiring_permits ?? 0;
-  const openRFIs = dashboardKpis.open_rfis ?? 0;
-  const openNCRs = dashboardKpis.open_ncrs ?? 0;
-  const safetyScore = dashboardKpis.safety_score;
+
+  const safeProjects  = Array.isArray(dashboardProjects) ? dashboardProjects : [];
+  const safeRABills   = Array.isArray(dashboardRecent.ra_bills) ? dashboardRecent.ra_bills : [];
+  const safePayments  = Array.isArray(dashboardRecent.payments) ? dashboardRecent.payments : [];
+  const safeDocs      = Array.isArray(dashboardRecent.documents) ? dashboardRecent.documents : [];
+
+  const lowStockCount         = dashboardKpis.low_stock_count ?? dashboardPulse?.procurement_stores?.low_stock_materials ?? 0;
+  const workforceCount        = dashboardKpis.workforce_count ?? 0;
+  const openIncidents         = dashboardKpis.open_incidents ?? 0;
+  const expiringPermits       = dashboardKpis.expiring_permits ?? 0;
+  const openRFIs              = dashboardKpis.open_rfis ?? 0;
+  const openNCRs              = dashboardKpis.open_ncrs ?? 0;
+  const safetyScore           = dashboardKpis.safety_score;
+  const activeProjects        = dashboardKpis.active_projects ?? 0;
+  const delayedProjects       = dashboardKpis.delayed_projects ?? 0;
+  const completedProjects     = dashboardKpis.completed_projects ?? 0;
+  const planningProjects      = dashboardKpis.planning_projects ?? 0;
+  const totalContractValue    = dashboardKpis.total_contract_value ?? 0;
+  const totalCertified        = dashboardKpis.total_certified ?? 0;
+  const pendingRABillCount    = dashboardKpis.pending_ra_bills ?? 0;
+  const pendingRAValue        = dashboardKpis.pending_ra_value ?? 0;
+  const totalCollections      = dashboardKpis.total_collections ?? 0;
+  const receivables           = dashboardKpis.receivables ?? Math.max(totalCertified - totalCollections, 0);
+  const documentsCount        = dashboardKpis.documents_count ?? safeDocs.length;
+  const financeTrendData      = dashboardCharts.finance_trend || [];
+  const projectStatusData     = dashboardCharts.project_status || [];
+  const delayedWatchlist      = [...(dashboardWatchlists.delayed_projects || [])].slice(0, 5);
+  const recentBills           = [...safeRABills].slice(0, 5);
+  const recentPayments        = [...safePayments].slice(0, 5);
+  const recentDocuments       = [...safeDocs].slice(0, 4);
+  const topLowStock           = dashboardPulse?.procurement_stores?.top_low_stock_material || 'No critical material';
+  const overduePOCount        = dashboardPulse?.procurement_stores?.pos_requiring_attention ?? 0;
+  const totalPurchaseOrders   = dashboardPulse?.procurement_stores?.total_pos ?? 0;
+  const totalDocuments        = dashboardPulse?.procurement_stores?.open_documents ?? documentsCount;
+  const registeredWorkforce   = dashboardPulse?.documents_workforce?.workforce_count ?? workforceCount;
+  const completedProjectsCount = dashboardPulse?.documents_workforce?.completed_projects ?? completedProjects;
+  const totalPermits          = dashboardPulse?.quality_safety?.permits_count ?? expiringPermits;
+  const totalRFICount         = dashboardPulse?.quality_safety?.rfi_count ?? openRFIs;
+  const totalNCRCount         = dashboardPulse?.quality_safety?.ncr_count ?? openNCRs;
+  const pendingVendorBills    = dashboardPulse?.procurement_stores?.pending_vendor_bills ?? pendingRABillCount;
+  const pendingVendorBillValue = dashboardPulse?.procurement_stores?.pending_vendor_bill_value ?? pendingRAValue;
+  const safetyScoreValue      = dashboardPulse?.quality_safety?.safety_score ?? safetyScore;
+  const collectionRate        = totalCertified > 0 ? Math.round((totalCollections / totalCertified) * 100) : 0;
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  const activeProjects = dashboardKpis.active_projects ?? 0;
-  const delayedProjects = dashboardKpis.delayed_projects ?? 0;
-  const completedProjects = dashboardKpis.completed_projects ?? 0;
-  const planningProjects = dashboardKpis.planning_projects ?? 0;
-  const totalContractValue = dashboardKpis.total_contract_value ?? 0;
-  const totalProjects = dashboardKpis.total_projects ?? safeProjects.length;
-  const totalCertified = dashboardKpis.total_certified ?? 0;
-  const pendingRABillCount = dashboardKpis.pending_ra_bills ?? 0;
-  const pendingRAValue = dashboardKpis.pending_ra_value ?? 0;
-  const totalCollections = dashboardKpis.total_collections ?? 0;
-  const receivables = dashboardKpis.receivables ?? Math.max(totalCertified - totalCollections, 0);
-  const documentsCount = dashboardKpis.documents_count ?? safeDocs.length;
-
-  const financeTrendData = dashboardCharts.finance_trend || [];
-  const projectStatusData = dashboardCharts.project_status || [];
-  const exceptionCards = dashboardExceptions;
-  const recentDocuments = [...safeDocs].slice(0, 5);
-  const delayedWatchlist = [...(dashboardWatchlists.delayed_projects || [])].slice(0, 5);
-  const recentBills = [...safeRABills].slice(0, 5);
-  const recentPayments = [...safePayments].slice(0, 5);
-  const topLowStock = dashboardPulse?.procurement_stores?.top_low_stock_material || 'No critical material right now';
-  const overduePOCount = dashboardPulse?.procurement_stores?.pos_requiring_attention ?? 0;
-  const totalPurchaseOrders = dashboardPulse?.procurement_stores?.total_pos ?? 0;
-  const totalDocuments = dashboardPulse?.procurement_stores?.open_documents ?? documentsCount;
-  const registeredWorkforce = dashboardPulse?.documents_workforce?.workforce_count ?? workforceCount;
-  const completedProjectsCount = dashboardPulse?.documents_workforce?.completed_projects ?? completedProjects;
-  const totalPermits = dashboardPulse?.quality_safety?.permits_count ?? expiringPermits;
-  const totalRFICount = dashboardPulse?.quality_safety?.rfi_count ?? openRFIs;
-  const totalNCRCount = dashboardPulse?.quality_safety?.ncr_count ?? openNCRs;
-  const pendingVendorBills = dashboardPulse?.procurement_stores?.pending_vendor_bills ?? pendingRABillCount;
-  const pendingVendorBillValue = dashboardPulse?.procurement_stores?.pending_vendor_bill_value ?? pendingRAValue;
-  const safetyScoreValue = dashboardPulse?.quality_safety?.safety_score ?? safetyScore;
+  // Radial data for collection rate
+  const radialData = [{ name: 'Collected', value: collectionRate, fill: '#10b981' }];
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#f1f5f9',
-        fontFamily: "'Inter',-apple-system,sans-serif",
-        padding: '14px 16px',
-      }}
-    >
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          opacity: 0.38,
-          pointerEvents: 'none',
-          zIndex: 0,
-          backgroundImage:
-            'linear-gradient(rgba(148,163,184,0.15) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,0.15) 1px,transparent 1px)',
-          backgroundSize: '50px 50px',
-        }}
-      />
+    <div style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e1b4b 40%,#0f172a 100%)', minHeight: '100vh', fontFamily: "'Inter',-apple-system,sans-serif" }}>
 
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1520, margin: '0 auto' }}>
-        <motion.div
-          initial={{ opacity: 0, y: -18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}
-        >
+      {/* Animated bg blobs */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 0 }}>
+        {[...Array(5)].map((_, i) => (
+          <motion.div key={i}
+            animate={{ x: [0, 20, 0], y: [0, -20, 0], opacity: [0.25, 0.5, 0.25] }}
+            transition={{ duration: 7 + i * 2, repeat: Infinity, ease: 'easeInOut', delay: i * 1.2 }}
+            style={{
+              position: 'absolute', borderRadius: '50%',
+              width: 350 + i * 80, height: 350 + i * 80,
+              background: `radial-gradient(circle,${['#6366f144','#8b5cf644','#06b6d433','#f59e0b22','#10b98133'][i]},transparent)`,
+              left: `${[5, 55, 25, 75, 40][i]}%`, top: `${[5, 45, 75, 15, 55][i]}%`,
+              transform: 'translate(-50%,-50%)',
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Top bar */}
+      <div style={{ position: 'relative', zIndex: 10, borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(20px)', background: 'rgba(255,255,255,0.02)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <motion.div animate={{ rotate: [0, 360] }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+            style={{ width: 34, height: 34, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 18px #6366f155' }}>
+            <Zap size={16} color="#fff" />
+          </motion.div>
           <div>
-            <div style={{ fontSize: 10, color: '#6366f1', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>
-              Executive Command Centre
-            </div>
-            <h1 style={{ fontSize: 20, fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
-              {greeting}, {user?.name?.split(' ')[0] || 'Admin'}
-            </h1>
-            <p style={{ fontSize: 11, color: '#94a3b8', margin: '2px 0 0' }}>
-              {dayjs().format('dddd, D MMMM YYYY')} · Portfolio wide executive view
-            </p>
+            <div style={{ fontSize: 9, color: '#818cf8', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Executive Command Centre</div>
+            <h1 style={{ fontSize: 15, fontWeight: 900, color: '#fff', margin: 0 }}>{greeting}, {user?.name?.split(' ')[0] || 'Admin'}</h1>
+            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', margin: 0 }}>{dayjs().format('dddd, D MMMM YYYY')} · Portfolio wide view</p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setRefreshKey((key) => key + 1)}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 9,
-                background: 'rgba(99,102,241,0.12)',
-                border: '1px solid rgba(99,102,241,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#6366f1',
-                cursor: 'pointer',
-              }}
-            >
-              <RefreshCw style={{ width: 14, height: 14 }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {dashboardLoading && (
+            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              style={{ width: 16, height: 16, border: '2px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', borderRadius: '50%' }} />
+          )}
+          <Link to="/projects" style={{ textDecoration: 'none' }}>
+            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+              style={{ padding: '7px 14px', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}>
+              <Building2 size={13} /> All Projects
             </motion.button>
-            <Link to="/projects" style={{ textDecoration: 'none' }}>
-              <motion.button
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                style={{
-                  padding: '7px 14px',
-                  background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-                  border: 'none',
-                  borderRadius: 9,
-                  color: '#fff',
-                  fontSize: 12,
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  boxShadow: '0 6px 16px rgba(99,102,241,0.24)',
-                }}
-              >
-                <Building2 style={{ width: 13, height: 13 }} />
-                All Projects
-              </motion.button>
-            </Link>
+          </Link>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+            onClick={() => setRefreshKey(k => k + 1)}
+            style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <RefreshCw size={13} color="rgba(255,255,255,0.6)" />
+          </motion.button>
+        </div>
+      </div>
+
+      <div style={{ position: 'relative', zIndex: 1, padding: '20px 24px', maxWidth: 1520, margin: '0 auto' }}>
+
+        {/* Filters */}
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 14px', marginBottom: 18, backdropFilter: 'blur(10px)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(140px,0.6fr) minmax(140px,0.6fr)', gap: 10, alignItems: 'end' }}>
+            {[
+              { label: 'Project', value: selectedProjectId, onChange: setSelectedProjectId, options: [{ value: 'all', label: 'All Projects' }, ...projectOptions.map(p => ({ value: p.id, label: p.project_code ? `${p.name} (${p.project_code})` : p.name }))] },
+              { label: 'Date Range', value: selectedDateRange, onChange: setSelectedDateRange, options: [{ value: 'all', label: 'All Time' }, { value: '7d', label: 'Last 7 Days' }, { value: '30d', label: 'Last 30 Days' }, { value: '90d', label: 'Last 90 Days' }, { value: '1y', label: 'Last 1 Year' }] },
+              { label: 'Business Unit', value: selectedBusinessUnit, onChange: setSelectedBusinessUnit, options: [{ value: 'all', label: 'All Units' }, ...businessUnitOptions.map(u => ({ value: u, label: u }))] },
+            ].map(f => (
+              <label key={f.label} style={{ display: 'grid', gap: 4 }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{f.label}</span>
+                <select value={f.value} onChange={e => f.onChange(e.target.value)}
+                  style={{ height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', padding: '0 10px', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 12, fontWeight: 600, outline: 'none' }}>
+                  {f.options.map(o => <option key={o.value} value={o.value} style={{ background: '#1e293b' }}>{o.label}</option>)}
+                </select>
+              </label>
+            ))}
           </div>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, delay: 0.05 }}
-          style={{
-            background: '#ffffff',
-            border: '1px solid #e8edf3',
-            borderRadius: 12,
-            padding: '10px 14px',
-            boxShadow: '0 2px 8px rgba(15,23,42,0.05)',
-            marginBottom: 12,
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(160px,0.7fr) minmax(160px,0.7fr) auto', gap: 10, alignItems: 'end' }}>
-            <label style={{ display: 'grid', gap: 4 }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Project</span>
-              <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} style={{ width: '100%', height: 34, borderRadius: 8, border: '1px solid #dbe4ee', padding: '0 10px', background: '#f8fafc', color: '#0f172a', fontSize: 12, fontWeight: 600, outline: 'none' }}>
-                <option value="all">All Projects</option>
-                {projectOptions.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.project_code ? `${project.name} (${project.project_code})` : project.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label style={{ display: 'grid', gap: 4 }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Date Range</span>
-              <select value={selectedDateRange} onChange={(e) => setSelectedDateRange(e.target.value)} style={{ width: '100%', height: 34, borderRadius: 8, border: '1px solid #dbe4ee', padding: '0 10px', background: '#f8fafc', color: '#0f172a', fontSize: 12, fontWeight: 600, outline: 'none' }}>
-                <option value="all">All Time</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-                <option value="90d">Last 90 Days</option>
-                <option value="1y">Last 1 Year</option>
-              </select>
-            </label>
-
-            <label style={{ display: 'grid', gap: 4 }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Business Unit</span>
-              <select value={selectedBusinessUnit} onChange={(e) => setSelectedBusinessUnit(e.target.value)} style={{ width: '100%', height: 34, borderRadius: 8, border: '1px solid #dbe4ee', padding: '0 10px', background: '#f8fafc', color: '#0f172a', fontSize: 12, fontWeight: 600, outline: 'none' }}>
-                <option value="all">All Business Units</option>
-                {businessUnitOptions.map((unit) => (
-                  <option key={unit} value={unit}>{unit}</option>
-                ))}
-              </select>
-            </label>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
-              <div style={{ fontSize: 11, color: '#64748b', textAlign: 'right' }}>{dashboardLoading ? 'Refreshing...' : 'Live view'}</div>
-              <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={() => setRefreshKey((key) => key + 1)} style={{ height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid #dbe4ee', background: '#f8fafc', color: '#0f172a', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-                Refresh
-              </motion.button>
-            </div>
-          </div>
-        </motion.div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 10, marginBottom: 12 }}>
-          <KPICard title="Portfolio Value" value={inr(totalContractValue)} sub={`${safeProjects.length} total projects`} icon={DollarSign} tone="indigo" delay={0} to="/projects" />
-          <KPICard title="Certified Billing" value={inr(totalCertified)} sub={`${pendingRABillCount} bills pending action`} icon={Receipt} tone="sky" delay={0.05} to="/qs/ra-bills" />
-          <KPICard title="Collections" value={inr(totalCollections)} sub={`${compactNumber(receivables)} receivables outstanding`} icon={Wallet} tone="emerald" delay={0.1} to="/finance/payments" />
-          <KPICard title="Active Projects" value={activeProjects} sub={`${delayedProjects} delayed · ${planningProjects} planning`} icon={Building2} tone="sky" delay={0.15} to="/projects" />
-          <KPICard title="Safety Score" value={safetyScore != null ? `${Math.round(safetyScore)}/100` : 'N/A'} sub={`${openIncidents} open incidents · ${expiringPermits} expiring permits`} icon={Shield} tone="red" delay={0.2} to="/hse/incidents" />
-          <KPICard title="Quality Exposure" value={`${openRFIs + openNCRs}`} sub={`${openRFIs} RFIs · ${openNCRs} NCRs open`} icon={FileWarning} tone="amber" delay={0.25} to="/quality" />
-          <KPICard title="Stores Watch" value={lowStockCount} sub={topLowStock} icon={Package} tone="amber" delay={0.3} to="/procurement/inventory" />
-          <KPICard title="Workforce Base" value={workforceCount} sub={`${documentsCount} documents tracked`} icon={HardHat} tone="emerald" delay={0.35} to="/hr/workers" />
+        {/* KPI Cards — row 1 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14 }}>
+          <KpiCard title="Portfolio Value"    rawValue={totalContractValue} sub={`${safeProjects.length} projects`} gradient={GRADIENTS[0]} icon={DollarSign}  delay={0}    to="/projects" />
+          <KpiCard title="Certified Billing"  rawValue={totalCertified}     sub={`${pendingRABillCount} bills pending`} gradient={GRADIENTS[1]} icon={Receipt}    delay={0.07} to="/qs/ra-bills" />
+          <KpiCard title="Collections"        rawValue={totalCollections}   sub={`${inr(receivables)} receivable`} gradient={GRADIENTS[2]} icon={Wallet}     delay={0.14} to="/finance/payments" />
+          <KpiCard title="Pending RA Value"   rawValue={pendingRAValue}     sub={`${pendingRABillCount} pending bills`} gradient={GRADIENTS[3]} icon={Clock}      delay={0.21} to="/qs/ra-bills" />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
-          <SectionCard title="Billing vs Collections (₹ Lakhs)" delay={0.2} minHeight={260}>
-            {financeTrendData.every((item) => item.billed === 0 && item.collected === 0) ? (
-              <EmptyState text="No billing or collection data available for the last 6 months" />
+        {/* KPI Cards — row 2 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 18 }}>
+          <KpiCard title="Active Projects"  value={activeProjects}  sub={`${delayedProjects} delayed · ${planningProjects} planning`} gradient={GRADIENTS[4]} icon={Building2}   delay={0.28} to="/projects" />
+          <KpiCard title="Safety Score"     value={safetyScore != null ? `${Math.round(safetyScore)}/100` : 'N/A'} sub={`${openIncidents} open incidents`} gradient={GRADIENTS[5]} icon={Shield}      delay={0.35} to="/hse/incidents" />
+          <KpiCard title="Quality Issues"   value={openRFIs + openNCRs} sub={`${openRFIs} RFIs · ${openNCRs} NCRs`} gradient={GRADIENTS[6]} icon={FileWarning}  delay={0.42} to="/quality" />
+          <KpiCard title="Workforce"        value={workforceCount} sub={`${documentsCount} documents`} gradient={GRADIENTS[7]} icon={HardHat}      delay={0.49} to="/hr/workers" />
+        </div>
+
+        {/* Charts row 1 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
+
+          {/* Area chart */}
+          <GlassCard title="Billing vs Collections Trend" delay={0.3}>
+            {financeTrendData.every(i => i.billed === 0 && i.collected === 0) ? (
+              <EmptyState text="No billing or collection data for selected range" />
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={financeTrendData}>
                   <defs>
-                    <linearGradient id="billGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
+                    <linearGradient id="gBill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
                       <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="collectGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <linearGradient id="gCollect" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
-                  <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 12 }}
-                    formatter={(value) => [`₹${Number(value).toFixed(2)} L`, '']}
-                  />
-                  <Area type="monotone" dataKey="billed" stroke="#6366f1" strokeWidth={2.5} fill="url(#billGrad)" name="Billed" />
-                  <Area type="monotone" dataKey="collected" stroke="#10b981" strokeWidth={2.5} fill="url(#collectGrad)" name="Collected" />
+                  <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#64748b', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" dataKey="billed" stroke="#6366f1" strokeWidth={2.5} fill="url(#gBill)" name="Billed" />
+                  <Area type="monotone" dataKey="collected" stroke="#10b981" strokeWidth={2.5} fill="url(#gCollect)" name="Collected" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
-          </SectionCard>
+            <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
+              {[['#6366f1', 'Billed'], ['#10b981', 'Collected']].map(([c, l]) => (
+                <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ width: 18, height: 2.5, background: c, borderRadius: 2 }} />
+                  <span style={{ fontSize: 10, color: '#64748b' }}>{l}</span>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
 
-          <SectionCard title="Project Status" action="Projects" actionTo="/projects" delay={0.25} minHeight={260}>
-            {projectStatusData.length === 0 ? (
-              <EmptyState text="No project status data available" />
-            ) : (
+          {/* Project status donut */}
+          <GlassCard title="Project Status" action="View All" actionTo="/projects" delay={0.35}>
+            {projectStatusData.length === 0 ? <EmptyState text="No project data" /> : (
               <>
-                <ResponsiveContainer width="100%" height={160}>
+                <ResponsiveContainer width="100%" height={150}>
                   <PieChart>
-                    <Pie data={projectStatusData} dataKey="value" innerRadius={42} outerRadius={68} paddingAngle={3}>
-                      {projectStatusData.map((entry, index) => (
-                        <Cell key={entry.name} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
+                    <Pie data={projectStatusData} dataKey="value" innerRadius={40} outerRadius={65} paddingAngle={3} animationBegin={400} animationDuration={1000}>
+                      {projectStatusData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="none" />)}
                     </Pie>
-                    <Tooltip contentStyle={{ background: '#0f172a', border: 'none', borderRadius: 12, color: '#fff', fontSize: 12 }} />
+                    <Tooltip contentStyle={{ background: '#0f172a', border: 'none', borderRadius: 10, color: '#fff', fontSize: 11 }} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div style={{ display: 'grid', gap: 6 }}>
-                  {projectStatusData.map((item, index) => (
-                    <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: PIE_COLORS[index % PIE_COLORS.length] }} />
+                <div style={{ display: 'grid', gap: 5 }}>
+                  {projectStatusData.map((item, i) => (
+                    <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
                       <span style={{ color: '#64748b' }}>{item.name}</span>
                       <strong style={{ marginLeft: 'auto', color: '#0f172a' }}>{item.value}</strong>
                     </div>
@@ -530,194 +490,159 @@ export default function Dashboard() {
                 </div>
               </>
             )}
-          </SectionCard>
+          </GlassCard>
 
-          <SectionCard title="Exceptions" delay={0.3} minHeight={260}>
+          {/* Collection rate radial */}
+          <GlassCard title="Collection Rate" delay={0.4}>
+            <div style={{ position: 'relative', height: 150 }}>
+              <ResponsiveContainer width="100%" height={150}>
+                <RadialBarChart cx="50%" cy="50%" innerRadius="45%" outerRadius="85%"
+                  data={[{ name: 'Collected', value: collectionRate, fill: '#10b981' }, { name: 'Target', value: 100, fill: '#e2e8f0' }]}
+                  startAngle={180} endAngle={-180}>
+                  <RadialBar dataKey="value" cornerRadius={6} animationBegin={500} animationDuration={1200} />
+                </RadialBarChart>
+              </ResponsiveContainer>
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
+                <p style={{ fontSize: 26, fontWeight: 800, color: '#10b981', margin: 0 }}>{collectionRate}%</p>
+                <p style={{ fontSize: 9, color: '#94a3b8', margin: 0 }}>of certified</p>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: '#64748b' }}>Certified</span>
+                <strong style={{ color: '#0f172a' }}>{inr(totalCertified)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: '#64748b' }}>Collected</span>
+                <strong style={{ color: '#10b981' }}>{inr(totalCollections)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: '#64748b' }}>Outstanding</span>
+                <strong style={{ color: '#ef4444' }}>{inr(receivables)}</strong>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+
+        {/* Exceptions + Delayed watchlist row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr 1.2fr', gap: 14, marginBottom: 14 }}>
+
+          {/* Exceptions */}
+          <GlassCard title="Exceptions & Alerts" delay={0.45}>
             <div style={{ display: 'grid', gap: 7 }}>
-              {exceptionCards.map((card) => (
-                <Link
-                  key={card.label}
-                  to={card.to}
-                  style={{
-                    textDecoration: 'none',
-                    border: '1px solid #e8edf3',
-                    borderRadius: 10,
-                    padding: '8px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: '#f8fafc',
-                  }}
-                >
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: card.tone, flexShrink: 0 }} />
-                  <span style={{ color: '#334155', fontSize: 12, fontWeight: 700 }}>{card.label}</span>
-                  <span style={{ marginLeft: 'auto', color: '#0f172a', fontSize: 14, fontWeight: 800 }}>{card.value}</span>
+              {dashboardExceptions.length === 0 ? <EmptyState text="No exceptions" /> : dashboardExceptions.map((card) => (
+                <Link key={card.label} to={card.to} style={{ textDecoration: 'none', border: `1px solid ${card.tone}33`, borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, background: `${card.tone}08` }}>
+                  <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 2, repeat: Infinity }}
+                    style={{ width: 8, height: 8, borderRadius: '50%', background: card.tone, flexShrink: 0 }} />
+                  <span style={{ color: '#334155', fontSize: 12, fontWeight: 600 }}>{card.label}</span>
+                  <span style={{ marginLeft: 'auto', color: '#0f172a', fontSize: 15, fontWeight: 800 }}>{card.value}</span>
                 </Link>
               ))}
             </div>
-          </SectionCard>
-        </div>
+          </GlassCard>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
-          <SectionCard title="Delayed Projects Watchlist" action="View All" actionTo="/projects" delay={0.35} minHeight={240}>
-            {delayedWatchlist.length === 0 ? (
-              <EmptyState text="No delayed projects right now" />
-            ) : (
-              <div style={{ display: 'grid', gap: 7 }}>
+          {/* Delayed projects */}
+          <GlassCard title="Delayed Projects Watchlist" action="View All" actionTo="/projects" delay={0.5}>
+            {delayedWatchlist.length === 0 ? <EmptyState text="No delayed projects" /> : (
+              <div style={{ display: 'grid', gap: 8 }}>
                 {delayedWatchlist.map((project) => {
                   const progress = Math.max(0, Math.min(100, parseFloat(project.progress_pct || 0)));
                   return (
-                    <div key={project.id} style={{ border: '1px solid #fde7c7', borderRadius: 10, padding: '10px 12px', background: '#fff7ed' }}>
+                    <motion.div key={project.id} whileHover={{ x: 3 }}
+                      style={{ border: '1px solid #fde7c7', borderRadius: 10, padding: '10px 12px', background: '#fff7ed' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                         <strong style={{ color: '#0f172a', fontSize: 12 }}>{project.name}</strong>
                         <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 800 }}>{progress}%</span>
                       </div>
                       <div style={{ height: 4, borderRadius: 999, background: '#fde7c7', overflow: 'hidden', marginBottom: 4 }}>
-                        <div style={{ width: `${progress}%`, height: '100%', background: '#f59e0b' }} />
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 1, delay: 0.6 }}
+                          style={{ height: '100%', background: 'linear-gradient(90deg,#f59e0b,#ef4444)' }} />
                       </div>
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{project.city || 'City not set'} · {inr(project.contract_value)}</div>
-                    </div>
+                      <div style={{ fontSize: 10, color: '#64748b' }}>{project.city || 'City not set'} · {inr(project.contract_value)}</div>
+                    </motion.div>
                   );
                 })}
               </div>
             )}
-          </SectionCard>
+          </GlassCard>
 
-          <SectionCard title="Recent RA Bills" action="RA Bills" actionTo="/qs/ra-bills" delay={0.4} minHeight={240}>
-            {recentBills.length === 0 ? (
-              <EmptyState text="No RA bills available" />
-            ) : (
-              <div style={{ display: 'grid', gap: 7 }}>
-                {recentBills.map((bill) => (
-                  <div key={bill.id} style={{ border: '1px solid #e8edf3', borderRadius: 10, padding: '8px 12px', background: '#f8fafc' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{bill.bill_number || `RA-${bill.id}`}</div>
-                        <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{dayjs(bill.bill_date || bill.created_at).format('DD MMM YYYY')}</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a' }}>{inr(bill.net_payable || bill.total_amount)}</div>
-                        <div style={{ fontSize: 10, color: '#6366f1', fontWeight: 800, textTransform: 'uppercase' }}>{bill.status || 'draft'}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </SectionCard>
-
-          <SectionCard title="Recent Payments" action="Payments" actionTo="/finance/payments" delay={0.45} minHeight={240}>
-            {recentPayments.length === 0 ? (
-              <EmptyState text="No payments recorded" />
-            ) : (
-              <div style={{ display: 'grid', gap: 7 }}>
+          {/* Recent Payments */}
+          <GlassCard title="Recent Payments" action="View All" actionTo="/finance/payments" delay={0.55}>
+            {recentPayments.length === 0 ? <EmptyState text="No payments recorded" /> : (
+              <div style={{ display: 'grid', gap: 6 }}>
                 {recentPayments.map((payment) => (
-                  <div key={payment.id} style={{ border: '1px solid #d1fae5', borderRadius: 10, padding: '8px 12px', background: '#ecfdf5' }}>
+                  <motion.div key={payment.id} whileHover={{ x: 3 }}
+                    style={{ border: '1px solid #d1fae5', borderRadius: 10, padding: '8px 12px', background: '#ecfdf5' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{payment.entity_name || payment.project_name || 'Payment Entry'}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payment.entity_name || payment.project_name || 'Payment'}</div>
                         <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{dayjs(payment.payment_date || payment.created_at).format('DD MMM YYYY')}</div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a' }}>{inr(payment.net_amount || payment.amount)}</div>
-                        <div style={{ fontSize: 10, color: '#10b981', fontWeight: 800, textTransform: 'uppercase' }}>{payment.payment_type || 'payment'}</div>
+                        <div style={{ fontSize: 9, color: '#10b981', fontWeight: 800, textTransform: 'uppercase' }}>{payment.payment_type || 'payment'}</div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             )}
-          </SectionCard>
+          </GlassCard>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          <SectionCard title="Procurement & Stores Pulse" action="Inventory" actionTo="/procurement/inventory" delay={0.5} minHeight={220}>
-            <div style={{ display: 'grid', gap: 8 }}>
-              <PulseRow icon={ClipboardList} label="POs Requiring Attention" value={overduePOCount} sub={`${totalPurchaseOrders} total purchase orders`} />
-              <PulseRow icon={Package} label="Low Stock Materials" value={lowStockCount} sub={topLowStock} />
-              <PulseRow icon={Receipt} label="Pending Vendor Bills" value={pendingVendorBills} sub={inr(pendingVendorBillValue)} />
-              <PulseRow icon={Building2} label="Open Documents" value={totalDocuments} sub={`${recentDocuments.length} recently uploaded`} />
-            </div>
-          </SectionCard>
+        {/* Bottom pulse row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
 
-          <SectionCard title="Quality & Safety Pulse" action="HSE" actionTo="/hse" delay={0.55} minHeight={220}>
-            <div style={{ display: 'grid', gap: 8 }}>
-              <PulseRow icon={Shield} label="Safety Score" value={safetyScoreValue != null ? `${Math.round(safetyScoreValue)}` : 'N/A'} sub={`${openIncidents} open incidents`} />
-              <PulseRow icon={AlertTriangle} label="Expiring Permits" value={expiringPermits} sub={`${totalPermits} permits on record`} />
-              <PulseRow icon={FileWarning} label="Open NCRs" value={openNCRs} sub={`${totalNCRCount} total NCR entries`} />
-              <PulseRow icon={CheckCircle2} label="Open RFIs" value={openRFIs} sub={`${totalRFICount} total RFI entries`} />
+          <GlassCard title="Procurement & Stores Pulse" action="Inventory" actionTo="/procurement/inventory" delay={0.6}>
+            <div style={{ display: 'grid', gap: 7 }}>
+              <PulseRow icon={ClipboardList} label="POs Requiring Attention" value={overduePOCount}      sub={`${totalPurchaseOrders} total orders`}     color="#f97316" />
+              <PulseRow icon={Package}       label="Low Stock Materials"      value={lowStockCount}       sub={topLowStock}                                color="#ef4444" />
+              <PulseRow icon={Receipt}       label="Pending Vendor Bills"     value={pendingVendorBills}  sub={inr(pendingVendorBillValue)}                color="#8b5cf6" />
+              <PulseRow icon={Building2}     label="Open Documents"           value={totalDocuments}      sub={`${recentDocuments.length} recent uploads`} color="#06b6d4" />
             </div>
-          </SectionCard>
+          </GlassCard>
 
-          <SectionCard title="Documents & Workforce" action="Documents" actionTo="/documents" delay={0.6} minHeight={220}>
-            {recentDocuments.length === 0 ? (
-              <EmptyState text="No recent documents uploaded" />
-            ) : (
-              <div style={{ display: 'grid', gap: 7 }}>
+          <GlassCard title="Quality & Safety Pulse" action="HSE" actionTo="/hse" delay={0.65}>
+            <div style={{ display: 'grid', gap: 7 }}>
+              <PulseRow icon={Shield}        label="Safety Score"       value={safetyScoreValue != null ? `${Math.round(safetyScoreValue)}` : 'N/A'} sub={`${openIncidents} open incidents`}   color="#10b981" />
+              <PulseRow icon={AlertTriangle} label="Expiring Permits"   value={expiringPermits}  sub={`${totalPermits} permits on record`}           color="#f59e0b" />
+              <PulseRow icon={FileWarning}   label="Open NCRs"          value={openNCRs}         sub={`${totalNCRCount} total NCR entries`}           color="#ef4444" />
+              <PulseRow icon={CheckCircle2}  label="Open RFIs"          value={openRFIs}         sub={`${totalRFICount} total RFI entries`}           color="#6366f1" />
+            </div>
+          </GlassCard>
+
+          <GlassCard title="Documents & Workforce" action="Documents" actionTo="/documents" delay={0.7}>
+            {recentDocuments.length === 0 ? <EmptyState text="No recent documents" /> : (
+              <div style={{ display: 'grid', gap: 6 }}>
                 {recentDocuments.map((doc) => (
-                  <div key={doc.id} style={{ border: '1px solid #e8edf3', borderRadius: 9, padding: '7px 10px', background: '#f8fafc' }}>
+                  <motion.div key={doc.id} whileHover={{ x: 3 }}
+                    style={{ border: '1px solid #e8edf3', borderRadius: 9, padding: '7px 10px', background: '#f8fafc' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <FileText style={{ width: 13, height: 13, color: '#6366f1', flexShrink: 0 }} />
+                      <div style={{ width: 28, height: 28, borderRadius: 7, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <FileText size={13} color="#6366f1" />
+                      </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {doc.file_name}
-                        </div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.file_name}</div>
                         <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{doc.module || 'general'} · {dayjs(doc.created_at).format('DD MMM')}</div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-                <div style={{ marginTop: 4, paddingTop: 8, borderTop: '1px solid #eef2f7', display: 'grid', gap: 8 }}>
-                  <PulseRow compact icon={HardHat} label="Registered Workforce" value={registeredWorkforce} sub="all active worker records" />
-                  <PulseRow compact icon={CalendarRange} label="Completed Projects" value={completedProjectsCount} sub="closed or completed delivery" />
+                <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px solid #f1f5f9', display: 'grid', gap: 6 }}>
+                  <PulseRow icon={HardHat}      label="Registered Workforce"  value={registeredWorkforce}      sub="active worker records" color="#6366f1" />
+                  <PulseRow icon={CalendarRange} label="Completed Projects"    value={completedProjectsCount}   sub="closed deliveries"     color="#10b981" />
                 </div>
               </div>
             )}
-          </SectionCard>
+          </GlassCard>
         </div>
       </div>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
+        select option { background: #1e293b; color: #fff; }
       `}</style>
-    </div>
-  );
-}
-
-function PulseRow({ icon: Icon, label, value, sub, compact = false }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        border: '1px solid #e8edf3',
-        borderRadius: 10,
-        padding: '8px 10px',
-        background: '#f8fafc',
-      }}
-    >
-      <div
-        style={{
-          width: 30,
-          height: 30,
-          borderRadius: 9,
-          background: 'rgba(99,102,241,0.10)',
-          color: '#6366f1',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <Icon style={{ width: 14, height: 14 }} />
-      </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a' }}>{label}</div>
-        <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{sub}</div>
-      </div>
-      <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a' }}>{value}</div>
     </div>
   );
 }
