@@ -11,6 +11,7 @@ import {
   Printer, Download, Eye, Layers
 } from 'lucide-react';
 import { qualityAPI, projectAPI } from '../../api/client';
+import AttachmentPanel from '../../components/quality/AttachmentPanel';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -56,6 +57,11 @@ export default function NCRPage() {
       reset(); setShowForm(false);
       qc.invalidateQueries(['quality-ncr']);
     },
+  });
+
+  const attachMut = useMutation({
+    mutationFn: ({ id, attachments }) => qualityAPI.updateNCRAttachments(id, attachments),
+    onSuccess: () => { qc.invalidateQueries(['quality-ncr']); toast.success('Attachments saved'); },
   });
 
   const rcaMut = useMutation({
@@ -400,6 +406,12 @@ export default function NCRPage() {
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
                   />
                 </div>
+
+                <AttachmentPanel
+                  attachments={selectedNCR?.attachments || []}
+                  onUpdate={(atts) => attachMut.mutate({ id: selectedNCR.id, attachments: atts })}
+                  label="NCR Attachments"
+                />
 
                 <div className="flex gap-3 pt-4 border-t border-[#e2e6ec]">
                   <button

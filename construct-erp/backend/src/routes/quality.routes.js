@@ -89,6 +89,15 @@ router.patch('/rfi/:id/sign', async (req, res) => {
     res.json({ data: r.rows[0] });
 });
 
+router.patch('/rfi/:id/attachments', async (req, res) => {
+    const { attachments } = req.body; // array of { url, name, size }
+    const r = await query(
+        'UPDATE quality_rfis SET attachments=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
+        [JSON.stringify(attachments || []), req.params.id]
+    );
+    res.json({ data: r.rows[0] });
+});
+
 router.patch('/rfi/:id/inspect', authorize('admin', 'quality_manager'), async (req, res) => {
     const { status, remarks } = req.body;
     const r = await query(
@@ -126,6 +135,15 @@ router.post('/ncr', async (req, res) => {
         [project_id, num, rfi_id || null, title, description, req.user.id, assigned_to || null, priority || 'medium', issue_type || 'quality', severity || 'minor']
     );
     res.status(201).json({ data: r.rows[0] });
+});
+
+router.patch('/ncr/:id/attachments', async (req, res) => {
+    const { attachments } = req.body;
+    const r = await query(
+        'UPDATE quality_ncrs SET attachments=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
+        [JSON.stringify(attachments || []), req.params.id]
+    );
+    res.json({ data: r.rows[0] });
 });
 
 router.patch('/ncr/:id/rca', authorize('admin', 'hse_officer'), async (req, res) => {
@@ -177,6 +195,15 @@ router.get('/lab-tests', async (req, res) => {
     sql += ' ORDER BY l.created_at DESC';
     const r = await query(sql, params);
     res.json({ data: r.rows });
+});
+
+router.patch('/lab-tests/:id/attachments', async (req, res) => {
+    const { attachments } = req.body;
+    const r = await query(
+        'UPDATE quality_lab_tests SET attachments=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
+        [JSON.stringify(attachments || []), req.params.id]
+    );
+    res.json({ data: r.rows[0] });
 });
 
 router.post('/lab-tests', async (req, res) => {

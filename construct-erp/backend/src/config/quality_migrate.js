@@ -103,6 +103,11 @@ CREATE TABLE IF NOT EXISTS quality_lab_tests (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add attachments column if tables already exist
+ALTER TABLE quality_rfis ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE quality_ncrs ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE quality_lab_tests ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
+
 CREATE INDEX IF NOT EXISTS idx_quality_rfis_project ON quality_rfis(project_id);
 CREATE INDEX IF NOT EXISTS idx_quality_ncrs_project ON quality_ncrs(project_id);
 CREATE INDEX IF NOT EXISTS idx_quality_lab_project ON quality_lab_tests(project_id);

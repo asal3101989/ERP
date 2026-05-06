@@ -399,16 +399,18 @@ export const qualityAPI = {
   createChecklist: (data)   => api.post('/quality/checklists', data),
   
   // RFI
-  listRFI:    (params) => api.get('/quality/rfi', { params }),
-  createRFI:  (data)   => api.post('/quality/rfi', data),
-  inspectRFI: (id, d)  => api.patch(`/quality/rfi/${id}/inspect`, d),
-  signRFI:    (id, d)  => api.patch(`/quality/rfi/${id}/sign`, d),
-  
+  listRFI:           (params) => api.get('/quality/rfi', { params }),
+  createRFI:         (data)   => api.post('/quality/rfi', data),
+  inspectRFI:        (id, d)  => api.patch(`/quality/rfi/${id}/inspect`, d),
+  signRFI:           (id, d)  => api.patch(`/quality/rfi/${id}/sign`, d),
+  updateRFIAttachments: (id, attachments) => api.patch(`/quality/rfi/${id}/attachments`, { attachments }),
+
   // NCR
-  listNCR:   (params) => api.get('/quality/ncr', { params }),
-  createNCR: (data)   => api.post('/quality/ncr', data),
-  saveRCA:   (id, d)  => api.patch(`/quality/ncr/${id}/rca`, d),
-  verifyNCR: (id, d)  => api.patch(`/quality/ncr/${id}/verify`, d),
+  listNCR:           (params) => api.get('/quality/ncr', { params }),
+  createNCR:         (data)   => api.post('/quality/ncr', data),
+  saveRCA:           (id, d)  => api.patch(`/quality/ncr/${id}/rca`, d),
+  verifyNCR:         (id, d)  => api.patch(`/quality/ncr/${id}/verify`, d),
+  updateNCRAttachments: (id, attachments) => api.patch(`/quality/ncr/${id}/attachments`, { attachments }),
 
   // Drawings
   listDrawings:   (params) => api.get('/quality/drawings', { params }),
@@ -420,6 +422,7 @@ export const qualityAPI = {
   // Lab Tests
   listLabTests:   (params) => api.get('/quality/lab-tests', { params }),
   createLabTest:  (data)   => api.post('/quality/lab-tests', data),
+  updateLabTestAttachments: (id, attachments) => api.patch(`/quality/lab-tests/${id}/attachments`, { attachments }),
 };
 
 export const mrsAPI = {

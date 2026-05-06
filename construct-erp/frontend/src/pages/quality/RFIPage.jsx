@@ -11,6 +11,7 @@ import {
   Camera
 } from 'lucide-react';
 import { qualityAPI, projectAPI } from '../../api/client';
+import AttachmentPanel from '../../components/quality/AttachmentPanel';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -78,6 +79,11 @@ export default function RFIPage() {
       setSelectedRFI(null);
       qc.invalidateQueries(['quality-rfi']);
     },
+  });
+
+  const attachMut = useMutation({
+    mutationFn: ({ id, attachments }) => qualityAPI.updateRFIAttachments(id, attachments),
+    onSuccess: () => { qc.invalidateQueries(['quality-rfi']); toast.success('Attachments saved'); },
   });
 
   return (
@@ -481,6 +487,12 @@ export default function RFIPage() {
                     </div>
                   ))}
                 </div>
+
+                <AttachmentPanel
+                  attachments={selectedRFI?.attachments || []}
+                  onUpdate={(atts) => attachMut.mutate({ id: selectedRFI.id, attachments: atts })}
+                  label="RFI Attachments"
+                />
 
                 <div className="flex gap-3 pt-4 border-t border-[#e2e6ec]">
                   <button
