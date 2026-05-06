@@ -367,6 +367,7 @@ export const itAssetAPI = {
   list:   (params) => api.get('/it-assets', { params }),
   create: (data)   => api.post('/it-assets', data),
   update: (id, d)  => api.put(`/it-assets/${id}`, d),
+  import: (rows)   => api.post('/it-assets/import', { rows }),
 };
 
 export const itTicketAPI = {

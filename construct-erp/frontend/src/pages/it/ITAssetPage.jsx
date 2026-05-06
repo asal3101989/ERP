@@ -6,7 +6,7 @@ import {
   Cpu, Plus, X, AlertTriangle, Monitor, Server, Laptop, Network,
   Printer, ShieldAlert, HelpCircle, Zap, Search, RefreshCw,
   Edit2, Trash2, QrCode, ChevronRight, BarChart2, CheckCircle,
-  Clock, Package, Settings, Eye,
+  Clock, Package, Settings, Eye, Upload, Download, FileSpreadsheet,
 } from 'lucide-react';
 import { itAssetAPI, projectAPI } from '../../api/client';
 import toast from 'react-hot-toast';
@@ -60,8 +60,10 @@ export default function ITAssetPage() {
   const [filterType,    setFilterType]    = useState('all');
   const [filterStatus,  setFilterStatus]  = useState('all');
   const [search,        setSearch]        = useState('');
+  const [importing,     setImporting]     = useState(false);
   const qc = useQueryClient();
   const { register, handleSubmit, reset, setValue } = useForm();
+  const importRef = React.useRef(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['it-assets'],
@@ -99,6 +101,67 @@ export default function ITAssetPage() {
     setShowForm(true);
   };
   const closeForm = () => { reset(); setShowForm(false); setEditAsset(null); };
+
+  /* ── Export CSV ── */
+  const exportCSV = () => {
+    const cols = ['asset_tag','asset_type','brand','model','serial_number','os','status',
+                  'assigned_to_name','location_description','purchase_date','purchase_cost',
+                  'warranty_expiry','project_name','notes'];
+    const header = cols.join(',');
+    const rows = allAssets.map(a =>
+      cols.map(c => {
+        const v = a[c] ?? '';
+        return typeof v === 'string' && v.includes(',') ? `"${v}"` : v;
+      }).join(',')
+    );
+    const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `IT_Assets_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast.success(`Exported ${allAssets.length} assets`);
+  };
+
+  /* ── Download Template ── */
+  const downloadTemplate = () => {
+    const header = 'asset_tag,asset_type,brand,model,serial_number,os,purchase_date,purchase_cost,warranty_expiry,status,location_description,notes';
+    const sample = 'IT-LAP-001,laptop,Dell,Latitude 5540,SN1234567,Windows 11 Pro,2024-01-15,85000,2027-01-15,in_use,HO - Accounts Dept,Assigned to finance team';
+    const types  = '# asset_type: laptop | desktop | server | network | cctv | biometric | printer | ups | other';
+    const status = '# status: in_use | available | under_repair | retired | lost';
+    const blob = new Blob([[header, sample, types, status].join('\n')], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'IT_Assets_Import_Template.csv';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+
+  /* ── Import CSV ── */
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+      if (lines.length < 2) { toast.error('No data rows found in CSV'); return; }
+      const headers = lines[0].split(',').map(h => h.trim());
+      const rows = lines.slice(1).map(line => {
+        const vals = line.split(',').map(v => v.replace(/^"|"$/g, '').trim());
+        return Object.fromEntries(headers.map((h, i) => [h, vals[i] || '']));
+      }).filter(r => r.asset_tag && r.brand && r.model);
+      if (!rows.length) { toast.error('No valid rows — check required columns: asset_tag, brand, model, asset_type'); return; }
+      const res = await itAssetAPI.import(rows);
+      toast.success(res.data?.message || 'Import complete');
+      qc.invalidateQueries({ queryKey: ['it-assets'] });
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Import failed');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   /* KPI Cards */
   const kpis = [
@@ -178,12 +241,37 @@ export default function ITAssetPage() {
             <span className="font-semibold text-gray-800">IT Assets</span>
           </div>
           <div className="flex items-center gap-2">
+            <input ref={importRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
             <button
               type="button"
               onClick={() => refetch()}
               className="flex items-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
             >
               <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </button>
+            <button
+              type="button"
+              onClick={downloadTemplate}
+              title="Download CSV import template"
+              className="flex items-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-green-600" /> Template
+            </button>
+            <button
+              type="button"
+              onClick={() => importRef.current?.click()}
+              disabled={importing}
+              className="flex items-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Upload className="h-3.5 w-3.5 text-blue-500" />
+              {importing ? 'Importing...' : 'Import CSV'}
+            </button>
+            <button
+              type="button"
+              onClick={exportCSV}
+              className="flex items-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              <Download className="h-3.5 w-3.5 text-indigo-500" /> Export CSV
             </button>
             <button
               type="button"
