@@ -2,6 +2,23 @@ import React from 'react';
 import dayjs from 'dayjs';
 import bcimLogo from '../../assets/bcim-logo.png';
 
+const C = {
+  bg: '#0d1117',
+  panel: '#161b22',
+  border: '#21262d',
+  accent: '#f0883e',
+  accentSoft: 'rgba(240,136,62,0.12)',
+  blue: '#58a6ff',
+  green: '#3fb950',
+  red: '#f85149',
+  yellow: '#d29922',
+  text: '#e6edf3',
+  muted: '#8b949e',
+  mutedDark: '#30363d',
+};
+
+const normalize = value => String(value || '').trim();
+
 const fmt = (value, digits = 2) => {
   if (value === '' || value === null || value === undefined) return '';
   const num = Number(value);
@@ -9,46 +26,14 @@ const fmt = (value, digits = 2) => {
   return num.toLocaleString('en-IN', { maximumFractionDigits: digits });
 };
 
+const sum = (rows, key) => (rows || []).reduce((acc, row) => acc + (Number(row?.[key]) || 0), 0);
+
 const pct = (qty, total) => {
   const q = Number(qty) || 0;
   const t = Number(total) || 0;
   if (!q || !t) return '';
-  return `${((q / t) * 100).toFixed(2)}%`;
+  return `${((q / t) * 100).toFixed(1)}%`;
 };
-
-const sum = (rows, key) => (rows || []).reduce((acc, row) => acc + (Number(row?.[key]) || 0), 0);
-
-const cell = {
-  border: '1px solid #8db3cf',
-  padding: '1px 2px',
-  fontSize: '6.2px',
-  lineHeight: 1,
-  verticalAlign: 'middle',
-  boxSizing: 'border-box',
-  overflow: 'hidden',
-  overflowWrap: 'anywhere',
-  wordBreak: 'break-word',
-};
-
-const TH = ({ children, style = {}, ...props }) => (
-  <th {...props} style={{ ...cell, background: '#d9eaf7', color: '#111827', fontWeight: 700, textAlign: 'center', ...style }}>
-    {children}
-  </th>
-);
-
-const TD = ({ children, style = {}, ...props }) => (
-  <td {...props} style={{ ...cell, ...style }}>{children}</td>
-);
-
-const Section = ({ children, style = {} }) => (
-  <tr>
-    <td colSpan={19} style={{ ...cell, background: '#b9d7eb', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.4px', ...style }}>
-      {children}
-    </td>
-  </tr>
-);
-
-const normalize = (value) => String(value || '').trim();
 
 function toView(dpr, project) {
   const staff = dpr?.staff || [];
@@ -56,14 +41,12 @@ function toView(dpr, project) {
   const subcontractors = dpr?.subcontractors || [];
   const plant = dpr?.plant_items || [];
   const steel = dpr?.steel || [];
-
   const start = project?.start_date ? dayjs(project.start_date) : null;
   const finish = project?.end_date ? dayjs(project.end_date) : null;
   const report = dpr?.report_date ? dayjs(dpr.report_date) : dayjs();
-  const totalDuration = start && finish ? Math.max(0, finish.diff(start, 'day') + 1) : '';
-  const elapsed = start ? Math.max(0, report.diff(start, 'day') + 1) : '';
-  const balance = finish ? Math.max(0, finish.diff(report, 'day')) : '';
-
+  const totalDuration = start && finish ? Math.max(0, finish.diff(start, 'day') + 1) : 0;
+  const elapsed = start ? Math.max(0, report.diff(start, 'day') + 1) : 0;
+  const balance = finish ? Math.max(0, finish.diff(report, 'day')) : 0;
   const workRows = (dpr?.work_items || []).filter(row => normalize(row.description));
   const materialRows = steel.filter(row =>
     normalize(row.dia) ||
@@ -78,7 +61,6 @@ function toView(dpr, project) {
     employer: project?.client || project?.customer_name || 'Divyasree Infrastructure Projects Pvt Ltd',
     contractNo: project?.contract_number || project?.code || '',
     mainContractor: project?.contractor || 'BCIM Engineering Pvt Ltd',
-    consultant: project?.consultant || 'Divyasree Infrastructure Projects Pvt Ltd',
     reportDate: report.format('DD-MM-YYYY'),
     projectStart: start ? start.format('DD-MM-YYYY') : '',
     projectFinish: finish ? finish.format('DD-MM-YYYY') : '',
@@ -86,7 +68,7 @@ function toView(dpr, project) {
     elapsed,
     balance,
     rainLog: dpr?.rain_log || dpr?.site_conditions || 'Normal',
-    weather: dpr?.weather || '',
+    weather: dpr?.weather || dpr?.site_conditions || 'Normal',
     workRows,
     staff,
     directWorkers,
@@ -107,327 +89,439 @@ function toView(dpr, project) {
     rfi: dpr?.rfi || '',
     preparedBy: dpr?.prepared_by || dpr?.submitted_by_name || '',
     approvedBy: dpr?.approved_by || '',
-    distribution: [project?.client || 'Divyasree', project?.consultant, 'BCIM'].filter(Boolean),
-    photos: dpr?.site_photos || [],
   };
 }
 
-function PadRows({ count, cols }) {
-  return Array.from({ length: count }).map((_, idx) => (
-    <tr key={`pad-${idx}`}>
-      {Array.from({ length: cols }).map((__, col) => <TD key={col}>&nbsp;</TD>)}
-    </tr>
-  ));
+function Tag({ children, color = C.accent }) {
+  return <span className="dpr-tag" style={{ color, borderColor: `${color}66`, background: `${color}22` }}>{children}</span>;
+}
+
+function KPI({ label, value, unit, color = C.accent, sub }) {
+  return (
+    <div className="dpr-kpi" style={{ borderLeftColor: color }}>
+      <span className="dpr-kpi-label">{label}</span>
+      <span className="dpr-kpi-value" style={{ color }}>
+        {value || 0}<small>{unit}</small>
+      </span>
+      {sub && <span className="dpr-kpi-sub">{sub}</span>}
+    </div>
+  );
+}
+
+function SectionHeader({ title, badge }) {
+  return (
+    <div className="dpr-section-title">
+      <span />
+      <h2>{title}</h2>
+      {badge && <Tag>{badge}</Tag>}
+    </div>
+  );
+}
+
+function DataTable({ columns, rows, emptyText = 'No data' }) {
+  return (
+    <table className="dpr-data-table">
+      <thead>
+        <tr>{columns.map(col => <th key={col.key}>{col.label}</th>)}</tr>
+      </thead>
+      <tbody>
+        {rows.length === 0 && (
+          <tr>
+            <td colSpan={columns.length} className="dpr-empty">{emptyText}</td>
+          </tr>
+        )}
+        {rows.map((row, idx) => (
+          <tr key={row.key || idx}>
+            {columns.map(col => (
+              <td key={col.key} className={col.align === 'right' ? 'right' : ''}>
+                {col.render ? col.render(row, idx) : row[col.key]}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }
 
 export default function DPRPrintTemplate({ dpr, project }) {
   const view = toView(dpr, project);
-  const workRows = view.workRows.slice(0, 10);
-  const staffRows = view.staff.slice(0, 5);
-  const directRows = view.directWorkers.slice(0, 5);
-  const subRows = view.subcontractors.slice(0, 5);
-  const plantRows = view.plant.filter(row => Number(row.nos) || normalize(row.item)).slice(0, 5);
-  const materialRows = view.materialRows.slice(0, 5);
+  const workRows = view.workRows.slice(0, 12);
+  const labourRows = view.directWorkers.slice(0, 8);
+  const subRows = view.subcontractors.slice(0, 6);
+  const plantRows = view.plant.filter(row => Number(row.nos) || normalize(row.item)).slice(0, 7);
+  const materialRows = view.materialRows.slice(0, 7);
+  const totalLabour = view.directDay + view.directNight + view.subDay + view.subNight;
+  const totalAchieved = sum(workRows, 'achieved');
 
   return (
-    <div className="planning-dpr-print-root" style={{ background: '#eef3f8', padding: 16 }}>
+    <div className="planning-dpr-print-root">
       <style>{`
-        .planning-dpr-a4-page {
-          width: 297mm;
-          height: 210mm;
-          margin: 0 auto;
-          padding: 4mm;
-          overflow: hidden;
-          background: #fff;
-          box-shadow: 0 2px 20px rgba(15,23,42,0.14);
-          box-sizing: border-box;
-        }
-        .planning-dpr-scale-box {
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-        }
-        .planning-dpr-sheet {
-          width: 100%;
-          min-width: 0;
-          background: #fff;
-          color: #111827;
+        .planning-dpr-print-root {
+          background: #eef3f8;
+          padding: 16px;
           font-family: Arial, Helvetica, sans-serif;
-          padding: 0;
-          box-sizing: border-box;
         }
-        .planning-dpr-sheet table {
+        .planning-dpr-print-hide {
+          margin-bottom: 12px;
+          text-align: center;
+        }
+        .planning-dpr-print-hide button {
+          background: #0f172a;
+          color: #fff;
+          border: none;
+          padding: 9px 24px;
+          border-radius: 6px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+        .dpr-template-page {
+          width: 297mm;
+          min-height: 210mm;
+          margin: 0 auto;
+          background: ${C.bg};
+          color: ${C.text};
+          box-shadow: 0 2px 20px rgba(15,23,42,0.18);
+          overflow: hidden;
+        }
+        .dpr-topbar {
+          height: 48px;
+          padding: 0 18px;
+          background: ${C.panel};
+          border-bottom: 1px solid ${C.border};
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .dpr-brand {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+        .dpr-brand img {
+          height: 24px;
+          width: auto;
+          object-fit: contain;
+          background: #fff;
+          border-radius: 4px;
+          padding: 2px;
+        }
+        .dpr-brand-title {
+          color: ${C.accent};
+          font-size: 14px;
+          font-weight: 800;
+          letter-spacing: 1.5px;
+          white-space: nowrap;
+        }
+        .dpr-subtitle {
+          color: ${C.muted};
+          font-size: 11px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .dpr-tag {
+          display: inline-block;
+          padding: 2px 8px;
+          border: 1px solid;
+          border-radius: 4px;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: .8px;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .dpr-content {
+          padding: 14px 18px 18px;
+        }
+        .dpr-kpis {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+        .dpr-kpi {
+          background: ${C.panel};
+          border: 1px solid ${C.border};
+          border-left: 3px solid ${C.accent};
+          border-radius: 8px;
+          padding: 10px 12px;
+          min-height: 70px;
+        }
+        .dpr-kpi-label {
+          display: block;
+          color: ${C.muted};
+          font-size: 9px;
+          letter-spacing: .8px;
+          text-transform: uppercase;
+          margin-bottom: 5px;
+        }
+        .dpr-kpi-value {
+          display: block;
+          font-size: 22px;
+          font-weight: 800;
+          line-height: 1;
+        }
+        .dpr-kpi-value small {
+          color: ${C.muted};
+          font-size: 11px;
+          font-weight: 400;
+          margin-left: 4px;
+        }
+        .dpr-kpi-sub {
+          display: block;
+          color: ${C.muted};
+          font-size: 9px;
+          margin-top: 4px;
+        }
+        .dpr-grid {
+          display: grid;
+          grid-template-columns: 1.1fr 1.9fr;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+        .dpr-panel {
+          background: ${C.panel};
+          border: 1px solid ${C.border};
+          border-radius: 9px;
+          padding: 12px;
+          overflow: hidden;
+        }
+        .dpr-section-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 9px;
+        }
+        .dpr-section-title > span {
+          width: 3px;
+          height: 17px;
+          border-radius: 2px;
+          background: ${C.accent};
+        }
+        .dpr-section-title h2 {
+          margin: 0;
+          color: ${C.text};
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: .8px;
+          text-transform: uppercase;
+        }
+        .dpr-info {
+          display: grid;
+          grid-template-columns: 120px 1fr;
+          gap: 6px 10px;
+          font-size: 10px;
+        }
+        .dpr-info dt {
+          color: ${C.muted};
+          text-transform: uppercase;
+          letter-spacing: .5px;
+          font-weight: 700;
+        }
+        .dpr-info dd {
+          margin: 0;
+          color: ${C.text};
+          font-weight: 700;
+          overflow-wrap: anywhere;
+        }
+        .dpr-two-col {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+        .dpr-data-table {
           width: 100%;
           border-collapse: collapse;
           table-layout: fixed;
+          font-size: 9px;
+        }
+        .dpr-data-table th {
+          background: ${C.bg};
+          color: ${C.muted};
+          padding: 5px 6px;
+          border-bottom: 1px solid ${C.border};
+          text-align: left;
+          font-weight: 800;
+          letter-spacing: .35px;
+          text-transform: uppercase;
+          overflow-wrap: anywhere;
+        }
+        .dpr-data-table td {
+          border-bottom: 1px solid ${C.mutedDark};
+          color: ${C.text};
+          padding: 4px 6px;
+          vertical-align: middle;
+          overflow-wrap: anywhere;
+        }
+        .dpr-data-table td.right,
+        .dpr-data-table th.right {
+          text-align: right;
+        }
+        .dpr-empty {
+          color: ${C.muted} !important;
+          text-align: center;
+          padding: 12px !important;
+        }
+        .dpr-footer-notes {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 12px;
+        }
+        .dpr-note-box {
+          min-height: 50px;
+          background: ${C.bg};
+          border: 1px solid ${C.border};
+          border-radius: 8px;
+          padding: 8px;
+          font-size: 10px;
+          color: ${C.text};
+        }
+        .dpr-note-box strong {
+          display: block;
+          color: ${C.accent};
+          font-size: 9px;
+          letter-spacing: .7px;
+          text-transform: uppercase;
+          margin-bottom: 5px;
         }
         @media print {
-          body * { visibility: hidden; }
-          html, body { width: 297mm; height: 210mm; margin: 0 !important; padding: 0 !important; overflow: hidden; }
-          .planning-dpr-print-root, .planning-dpr-print-root * { visibility: visible; }
-          .planning-dpr-print-root { position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; padding: 0 !important; }
-          .planning-dpr-a4-page { width: 297mm; height: 210mm; margin: 0; padding: 4mm; box-shadow: none; overflow: hidden; }
+          body * { visibility: hidden !important; }
+          html, body { width: 297mm; min-height: 210mm; margin: 0 !important; padding: 0 !important; background: ${C.bg} !important; }
+          .planning-dpr-print-root, .planning-dpr-print-root * { visibility: visible !important; }
+          .planning-dpr-print-root { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; background: ${C.bg} !important; }
           .planning-dpr-print-hide { display: none !important; }
+          .dpr-template-page { width: 297mm; min-height: 210mm; margin: 0; box-shadow: none; }
           @page { size: A4 landscape; margin: 0; }
         }
       `}</style>
 
-      <div className="planning-dpr-print-hide" style={{ marginBottom: 12, textAlign: 'center' }}>
-        <button
-          onClick={() => window.print()}
-          style={{ background: '#0f172a', color: '#fff', border: 'none', padding: '9px 24px', borderRadius: 6, fontWeight: 700, cursor: 'pointer' }}
-        >
-          Print / Save as PDF
-        </button>
+      <div className="planning-dpr-print-hide">
+        <button onClick={() => window.print()}>Print / Save as PDF</button>
       </div>
 
-      <div className="planning-dpr-a4-page">
-      <div className="planning-dpr-scale-box">
-      <div className="planning-dpr-sheet">
-        <table>
-          <colgroup>
-            <col style={{ width: '4%' }} />
-            <col style={{ width: '4%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '5%' }} />
-            <col style={{ width: '3%' }} />
-          </colgroup>
-          <tbody>
-            <tr>
-              <TD colSpan={5} style={{ border: 'none', height: 18 }}>
-                <img src={bcimLogo} alt="BCIM" style={{ maxHeight: 16, maxWidth: 96, objectFit: 'contain' }} />
-              </TD>
-              <TD colSpan={9} style={{ border: 'none', fontSize: 11, textAlign: 'center', fontWeight: 800, letterSpacing: '0.6px' }}>
-                DAILY PROGRESS REPORT
-              </TD>
-              <TD colSpan={5} style={{ border: 'none', textAlign: 'right', fontSize: 7, fontWeight: 700 }}>
-                BCIM Engineering Pvt. Ltd.
-              </TD>
-            </tr>
+      <div className="dpr-template-page">
+        <div className="dpr-topbar">
+          <div className="dpr-brand">
+            <img src={bcimLogo} alt="BCIM" />
+            <span className="dpr-brand-title">DPR ERP</span>
+            <span className="dpr-subtitle">Daily Progress Report System</span>
+          </div>
+          <Tag color={C.green}>BCIM Engineering Pvt. Ltd.</Tag>
+        </div>
 
-            <tr>
-              <TD colSpan={5} style={{ border: 'none', fontWeight: 700 }}>{view.employer}</TD>
-              <TD colSpan={9} style={{ border: 'none' }}>&nbsp;</TD>
-              <TD colSpan={5} style={{ border: 'none', textAlign: 'right', fontWeight: 700 }}>{view.mainContractor}</TD>
-            </tr>
+        <div className="dpr-content">
+          <div className="dpr-kpis">
+            <KPI label="Elapsed Days" value={fmt(view.elapsed, 0)} color={C.blue} sub={`of ${fmt(view.totalDuration, 0) || '-'} total`} />
+            <KPI label="Balance Days" value={fmt(view.balance, 0)} color={view.balance < 10 ? C.red : C.green} />
+            <KPI label="Today's Labour" value={fmt(totalLabour, 0)} unit="workers" color={C.accent} />
+            <KPI label="Work Achieved" value={fmt(totalAchieved)} unit="qty" color={C.yellow} />
+            <KPI label="Steel Consumed" value={fmt(view.steelConsumption)} unit="MT" color={C.green} />
+          </div>
 
-            <tr>
-              <TD rowSpan={5} style={{ background: '#d9eaf7', fontWeight: 800, textAlign: 'center' }}>PROJECT</TD>
-              <TD colSpan={3} style={{ fontWeight: 700 }}>Name of Work:</TD>
-              <TD colSpan={8} style={{ fontWeight: 700 }}>{view.projectName}</TD>
-              <TD colSpan={3} style={{ fontWeight: 700 }}>Report for</TD>
-              <TD colSpan={4} style={{ fontWeight: 700 }}>{view.reportDate}</TD>
-            </tr>
-            <tr>
-              <TD colSpan={3} style={{ fontWeight: 700 }}>Employer:</TD>
-              <TD colSpan={8}>{view.employer}</TD>
-              <TD colSpan={3}>&nbsp;</TD>
-              <TD colSpan={4}>&nbsp;</TD>
-            </tr>
-            <tr>
-              <TD colSpan={3} style={{ fontWeight: 700 }}>Contract No.:</TD>
-              <TD colSpan={8}>{view.contractNo}</TD>
-              <TD colSpan={3} style={{ fontWeight: 700 }}>Project Start Date</TD>
-              <TD colSpan={4}>{view.projectStart}</TD>
-            </tr>
-            <tr>
-              <TD colSpan={3} style={{ fontWeight: 700 }}>Main Contractor:</TD>
-              <TD colSpan={8}>{view.mainContractor}</TD>
-              <TD colSpan={3} style={{ fontWeight: 700 }}>Project Finish Date</TD>
-              <TD colSpan={4}>{view.projectFinish}</TD>
-            </tr>
-            <tr>
-              <TD colSpan={3} style={{ fontWeight: 700 }}>Total Duration</TD>
-              <TD colSpan={2} style={{ textAlign: 'center' }}>{fmt(view.totalDuration, 0)} days</TD>
-              <TD colSpan={2} style={{ fontWeight: 700, textAlign: 'right' }}>Elapsed:</TD>
-              <TD colSpan={2} style={{ textAlign: 'center' }}>{fmt(view.elapsed, 0)} Days</TD>
-              <TD colSpan={2} style={{ fontWeight: 700, textAlign: 'right' }}>Balance:</TD>
-              <TD colSpan={2} style={{ textAlign: 'center' }}>{fmt(view.balance, 0)} Days</TD>
-              <TD colSpan={4}>{view.weather}</TD>
-            </tr>
-            <tr>
-              <TD colSpan={19} style={{ fontWeight: 700 }}>Rain Log: {view.rainLog}</TD>
-            </tr>
+          <div className="dpr-grid">
+            <section className="dpr-panel">
+              <SectionHeader title="Project Information" badge="DPR" />
+              <dl className="dpr-info">
+                <dt>Project</dt><dd>{view.projectName || '-'}</dd>
+                <dt>Employer</dt><dd>{view.employer || '-'}</dd>
+                <dt>Contract No.</dt><dd>{view.contractNo || '-'}</dd>
+                <dt>Contractor</dt><dd>{view.mainContractor || '-'}</dd>
+                <dt>Report Date</dt><dd>{view.reportDate}</dd>
+                <dt>Start Date</dt><dd>{view.projectStart || '-'}</dd>
+                <dt>Finish Date</dt><dd>{view.projectFinish || '-'}</dd>
+                <dt>Weather</dt><dd>{view.weather || '-'}</dd>
+                <dt>Rain Log</dt><dd>{view.rainLog || '-'}</dd>
+              </dl>
+            </section>
 
-            <Section>Work Progress</Section>
-            <tr>
-              <TH rowSpan={2}>Work Progress</TH>
-              <TH colSpan={7} rowSpan={2} style={{ textAlign: 'left' }}>Activity Description</TH>
-              <TH rowSpan={2}>Unit</TH>
-              <TH rowSpan={2}>BOQ Qty</TH>
-              <TH colSpan={4}>For the Day</TH>
-              <TH colSpan={5}>Cum. Achieved Till Date</TH>
-            </tr>
-            <tr>
-              <TH colSpan={2}>Planned</TH>
-              <TH colSpan={2}>Achieved</TH>
-              <TH colSpan={3}>Qty</TH>
-              <TH colSpan={2}>%</TH>
-            </tr>
-            {workRows.map((row, i) => (
-              <tr key={`${row.description}-${i}`}>
-                <TD>&nbsp;</TD>
-                <TD colSpan={7} style={{ fontWeight: normalize(row.achieved) ? 700 : 400 }}>{row.description}</TD>
-                <TD style={{ textAlign: 'center' }}>{row.unit}</TD>
-                <TD style={{ textAlign: 'right' }}>{fmt(row.boq_qty)}</TD>
-                <TD colSpan={2} style={{ textAlign: 'center' }}>{fmt(row.planned)}</TD>
-                <TD colSpan={2} style={{ textAlign: 'center', fontWeight: normalize(row.achieved) ? 700 : 400 }}>{fmt(row.achieved)}</TD>
-                <TD colSpan={3} style={{ textAlign: 'right' }}>{fmt(row.cumulative)}</TD>
-                <TD colSpan={2} style={{ textAlign: 'center' }}>{pct(row.cumulative, row.boq_qty)}</TD>
-              </tr>
-            ))}
-            <PadRows count={Math.max(0, 10 - workRows.length)} cols={19} />
+            <section className="dpr-panel">
+              <SectionHeader title="Work Progress" badge="Activities" />
+              <DataTable
+                columns={[
+                  { key: 'idx', label: '#', render: (_, idx) => idx + 1 },
+                  { key: 'description', label: 'Activity Description' },
+                  { key: 'unit', label: 'Unit', render: row => <Tag color={C.blue}>{row.unit || '-'}</Tag> },
+                  { key: 'boq_qty', label: 'BOQ Qty', align: 'right', render: row => fmt(row.boq_qty) },
+                  { key: 'planned', label: 'Planned', align: 'right', render: row => fmt(row.planned) },
+                  { key: 'achieved', label: 'Achieved', align: 'right', render: row => fmt(row.achieved) },
+                  { key: 'cumulative', label: 'Cum Qty', align: 'right', render: row => fmt(row.cumulative) },
+                  { key: 'progress', label: 'Cum %', align: 'right', render: row => pct(row.cumulative, row.boq_qty) },
+                ]}
+                rows={workRows}
+                emptyText="No work progress rows"
+              />
+            </section>
+          </div>
 
-            <Section>Resources</Section>
-            <tr>
-              <TH>Resources</TH>
-              <TH colSpan={4}>Staff</TH>
-              <TH colSpan={7}>Daily Labour Report</TH>
-              <TH colSpan={7}>Subcontractors</TH>
-            </tr>
-            <tr>
-              <TH>&nbsp;</TH>
-              <TH colSpan={3}>Category</TH>
-              <TH>Nos</TH>
-              <TH colSpan={3}>Direct Workers</TH>
-              <TH>Day</TH>
-              <TH>Night</TH>
-              <TH colSpan={2}>Total</TH>
-              <TH colSpan={3}>Name</TH>
-              <TH>Day</TH>
-              <TH>Night</TH>
-              <TH colSpan={2}>Total</TH>
-            </tr>
-            {Array.from({ length: 5 }).map((_, i) => {
-              const st = staffRows[i] || {};
-              const dw = directRows[i] || {};
-              const sc = subRows[i] || {};
-              return (
-                <tr key={`resource-${i}`}>
-                  <TD>&nbsp;</TD>
-                  <TD colSpan={3}>{st.category}</TD>
-                  <TD style={{ textAlign: 'center' }}>{fmt(st.nos, 0)}</TD>
-                  <TD colSpan={3}>{dw.category}</TD>
-                  <TD style={{ textAlign: 'center' }}>{fmt(dw.day, 0)}</TD>
-                  <TD style={{ textAlign: 'center' }}>{fmt(dw.night, 0)}</TD>
-                  <TD colSpan={2} style={{ textAlign: 'center' }}>{fmt((Number(dw.day) || 0) + (Number(dw.night) || 0), 0)}</TD>
-                  <TD colSpan={3}>{sc.name || sc.work}</TD>
-                  <TD style={{ textAlign: 'center' }}>{fmt(sc.day, 0)}</TD>
-                  <TD style={{ textAlign: 'center' }}>{fmt(sc.night, 0)}</TD>
-                  <TD colSpan={2} style={{ textAlign: 'center' }}>{fmt((Number(sc.day) || 0) + (Number(sc.night) || 0), 0)}</TD>
-                </tr>
-              );
-            })}
-            <tr>
-              <TD>&nbsp;</TD>
-              <TD colSpan={3} style={{ fontWeight: 800 }}>Total</TD>
-              <TD style={{ textAlign: 'center', fontWeight: 800 }}>{fmt(view.totalStaff, 0)}</TD>
-              <TD colSpan={3} style={{ fontWeight: 800 }}>Total</TD>
-              <TD style={{ textAlign: 'center', fontWeight: 800 }}>{fmt(view.directDay, 0)}</TD>
-              <TD style={{ textAlign: 'center', fontWeight: 800 }}>{fmt(view.directNight, 0)}</TD>
-              <TD colSpan={2} style={{ textAlign: 'center', fontWeight: 800 }}>{fmt(view.directDay + view.directNight, 0)}</TD>
-              <TD colSpan={3} style={{ fontWeight: 800 }}>Total</TD>
-              <TD style={{ textAlign: 'center', fontWeight: 800 }}>{fmt(view.subDay, 0)}</TD>
-              <TD style={{ textAlign: 'center', fontWeight: 800 }}>{fmt(view.subNight, 0)}</TD>
-              <TD colSpan={2} style={{ textAlign: 'center', fontWeight: 800 }}>{fmt(view.subDay + view.subNight, 0)}</TD>
-            </tr>
+          <div className="dpr-two-col">
+            <section className="dpr-panel">
+              <SectionHeader title="Daily Labour Register" badge="Workforce" />
+              <DataTable
+                columns={[
+                  { key: 'category', label: 'Direct Workers' },
+                  { key: 'day', label: 'Day', align: 'right', render: row => fmt(row.day, 0) },
+                  { key: 'night', label: 'Night', align: 'right', render: row => fmt(row.night, 0) },
+                  { key: 'total', label: 'Total', align: 'right', render: row => fmt((Number(row.day) || 0) + (Number(row.night) || 0), 0) },
+                ]}
+                rows={labourRows}
+                emptyText="No direct labour rows"
+              />
+            </section>
 
-            <tr>
-              <TH colSpan={6}>Plant & Machinery</TH>
-              <TH colSpan={13}>Material</TH>
-            </tr>
-            <tr>
-              <TH colSpan={4}>Equipment</TH>
-              <TH colSpan={2}>Nos</TH>
-              <TH colSpan={3}>Description</TH>
-              <TH>Unit</TH>
-              <TH colSpan={2}>Receipt Day</TH>
-              <TH colSpan={2}>Receipt Till Date</TH>
-              <TH colSpan={2}>Available</TH>
-              <TH colSpan={3}>Consumed Day</TH>
-            </tr>
-            {Array.from({ length: 5 }).map((_, i) => {
-              const pl = plantRows[i] || {};
-              const mt = materialRows[i] || {};
-              return (
-                <tr key={`plant-material-${i}`}>
-                  <TD colSpan={4}>{pl.item}</TD>
-                  <TD colSpan={2} style={{ textAlign: 'center' }}>{fmt(pl.nos, 0)}</TD>
-                  <TD colSpan={3}>{mt.dia}</TD>
-                  <TD style={{ textAlign: 'center' }}>{mt.dia ? 'MT' : ''}</TD>
-                  <TD colSpan={2} style={{ textAlign: 'right' }}>{fmt(mt.receipts_today)}</TD>
-                  <TD colSpan={2} style={{ textAlign: 'right' }}>{fmt(mt.receipts_till_date)}</TD>
-                  <TD colSpan={2} style={{ textAlign: 'right' }}>{fmt(mt.available)}</TD>
-                  <TD colSpan={3} style={{ textAlign: 'right' }}>{fmt(mt.consumption)}</TD>
-                </tr>
-              );
-            })}
-            <tr>
-              <TD colSpan={4} style={{ fontWeight: 800 }}>Total</TD>
-              <TD colSpan={2} style={{ textAlign: 'center', fontWeight: 800 }}>{fmt(view.plantTotal, 0)}</TD>
-              <TD colSpan={3} style={{ fontWeight: 800 }}>Total</TD>
-              <TD style={{ textAlign: 'center', fontWeight: 800 }}>MT</TD>
-              <TD colSpan={2} style={{ textAlign: 'right', fontWeight: 800 }}>{fmt(view.steelReceiptDay)}</TD>
-              <TD colSpan={2} style={{ textAlign: 'right', fontWeight: 800 }}>{fmt(view.steelReceiptTill)}</TD>
-              <TD colSpan={2} style={{ textAlign: 'right', fontWeight: 800 }}>{fmt(view.steelAvailable)}</TD>
-              <TD colSpan={3} style={{ textAlign: 'right', fontWeight: 800 }}>{fmt(view.steelConsumption)}</TD>
-            </tr>
+            <section className="dpr-panel">
+              <SectionHeader title="Subcontractors" badge="SC" />
+              <DataTable
+                columns={[
+                  { key: 'name', label: 'Name / Work', render: row => row.name || row.work || '-' },
+                  { key: 'day', label: 'Day', align: 'right', render: row => fmt(row.day, 0) },
+                  { key: 'night', label: 'Night', align: 'right', render: row => fmt(row.night, 0) },
+                  { key: 'total', label: 'Total', align: 'right', render: row => fmt((Number(row.day) || 0) + (Number(row.night) || 0), 0) },
+                ]}
+                rows={subRows}
+                emptyText="No subcontractor rows"
+              />
+            </section>
+          </div>
 
-            <tr>
-              <TD colSpan={2} style={{ fontWeight: 800 }}>Constraints</TD>
-              <TD colSpan={8}>{view.constraints || '\u00a0'}</TD>
-              <TD colSpan={2} style={{ fontWeight: 800 }}>RFI</TD>
-              <TD colSpan={7}>{view.rfi || '\u00a0'}</TD>
-            </tr>
+          <div className="dpr-two-col">
+            <section className="dpr-panel">
+              <SectionHeader title="Plant & Machinery" badge="Equipment" />
+              <DataTable
+                columns={[
+                  { key: 'item', label: 'Equipment' },
+                  { key: 'nos', label: 'Nos', align: 'right', render: row => fmt(row.nos, 0) },
+                ]}
+                rows={plantRows}
+                emptyText="No plant rows"
+              />
+            </section>
 
-            {view.photos.length > 0 && (
-              <>
-                <Section>Photos</Section>
-                <tr>
-                  {view.photos.slice(0, 3).map((photo, idx) => (
-                    <TD key={idx} colSpan={idx === 2 ? 7 : 6} style={{ textAlign: 'center', height: 58 }}>
-                      <img src={photo} alt={`Site ${idx + 1}`} style={{ maxHeight: 52, maxWidth: '100%', objectFit: 'cover' }} />
-                    </TD>
-                  ))}
-                </tr>
-              </>
-            )}
+            <section className="dpr-panel">
+              <SectionHeader title="Material Reconciliation" badge="Steel" />
+              <DataTable
+                columns={[
+                  { key: 'dia', label: 'Material', render: row => row.dia || '-' },
+                  { key: 'receipts_today', label: 'Receipt', align: 'right', render: row => fmt(row.receipts_today) },
+                  { key: 'receipts_till_date', label: 'Till Date', align: 'right', render: row => fmt(row.receipts_till_date) },
+                  { key: 'available', label: 'Stock', align: 'right', render: row => fmt(row.available) },
+                  { key: 'consumption', label: 'Consumed', align: 'right', render: row => fmt(row.consumption) },
+                ]}
+                rows={materialRows}
+                emptyText="No material rows"
+              />
+            </section>
+          </div>
 
-            <tr>
-              <TD colSpan={10}>&nbsp;</TD>
-              <TD colSpan={3} style={{ fontWeight: 800 }}>Distribution List:</TD>
-              <TD colSpan={3} style={{ fontWeight: 800 }}>Prepared by:</TD>
-              <TD colSpan={3} style={{ fontWeight: 800 }}>Approved by:</TD>
-            </tr>
-            <tr>
-              <TD colSpan={10}>&nbsp;</TD>
-              <TD colSpan={3}>{view.distribution[0] || 'Divyasree'}</TD>
-              <TD colSpan={3} rowSpan={2}>{view.preparedBy}</TD>
-              <TD colSpan={3} rowSpan={2}>{view.approvedBy}</TD>
-            </tr>
-            <tr>
-              <TD colSpan={10}>&nbsp;</TD>
-              <TD colSpan={3}>{view.distribution[1] || 'BCIM'}</TD>
-            </tr>
-          </tbody>
-        </table>
+          <div className="dpr-footer-notes">
+            <div className="dpr-note-box"><strong>Constraints</strong>{view.constraints || '-'}</div>
+            <div className="dpr-note-box"><strong>RFI / Open Items</strong>{view.rfi || '-'}</div>
+            <div className="dpr-note-box"><strong>Prepared / Approved</strong>{view.preparedBy || '-'} / {view.approvedBy || '-'}</div>
+          </div>
+        </div>
       </div>
-    </div>
-    </div>
     </div>
   );
 }
