@@ -261,6 +261,13 @@ export const planningAPI = {
   updateDPR:      (id, d) => api.put(`/planning/dpr/${id}`, d),
   deleteDPR:      (id)    => api.delete(`/planning/dpr/${id}`),
   approveDPR:     (id)    => api.patch(`/planning/dpr/${id}/approve`),
+  importDPR:      (file, projectId, overwrite = true) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('project_id', projectId);
+    fd.append('overwrite', overwrite ? 'true' : 'false');
+    return api.post('/planning/dpr/import', fd, { headers: { 'Content-Type': undefined } });
+  },
 
   // Activities
   listActivities:  (p)     => api.get('/planning/activities', { params: p }),

@@ -8,7 +8,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
   CloudRain, Sun, Cloud, Printer, Eye, Edit2,
   Wrench, BarChart2, ClipboardList, Flag, TrendingUp,
-  Trash2, ChevronDown, ChevronUp,
+  Trash2, ChevronDown, ChevronUp, Upload,
 } from 'lucide-react';
 import { planningAPI, projectAPI, subcontractorAPI, vendorAPI } from '../../api/client';
 import useAuthStore from '../../store/authStore';
@@ -1013,6 +1013,7 @@ export default function DPRPage() {
   const [showModal, setShowModal]   = useState(false);
   const [selected, setSelected]     = useState(null);  // DPR to view
   const [editDPR, setEditDPR]       = useState(null);  // DPR to edit
+  const importInputRef = useRef(null);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -1026,6 +1027,27 @@ export default function DPRPage() {
   });
 
   const selectedProject = projects.find(p => p.id === projectId);
+
+  const importMut = useMutation({
+    mutationFn: file => planningAPI.importDPR(file, projectId),
+    onSuccess: (res) => {
+      const summary = res.data?.summary;
+      const action = summary?.mode === 'updated' ? 'updated' : 'imported';
+      toast.success(`DPR ${action} for ${summary?.report_date || 'selected date'}`);
+      qc.invalidateQueries({ queryKey: ['dpr-list'] });
+      if (importInputRef.current) importInputRef.current.value = '';
+    },
+    onError: e => {
+      toast.error(e?.response?.data?.error || 'DPR import failed');
+      if (importInputRef.current) importInputRef.current.value = '';
+    },
+  });
+
+  const handleImportFile = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    importMut.mutate(file);
+  };
 
   const filtered = useMemo(() => {
     let list = dprs;
@@ -1078,12 +1100,28 @@ export default function DPRPage() {
             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           {projectId && canCreate && (
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-all shadow-sm"
-            >
-              <Plus className="w-4 h-4" /> New DPR
-            </button>
+            <>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleImportFile}
+                className="hidden"
+              />
+              <button
+                onClick={() => importInputRef.current?.click()}
+                disabled={importMut.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-50 transition-all shadow-sm"
+              >
+                <Upload className="w-4 h-4" /> {importMut.isPending ? 'Importing...' : 'Import Excel'}
+              </button>
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-all shadow-sm"
+              >
+                <Plus className="w-4 h-4" /> New DPR
+              </button>
+            </>
           )}
         </div>
       </div>
