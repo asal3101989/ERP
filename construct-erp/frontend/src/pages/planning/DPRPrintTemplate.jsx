@@ -20,13 +20,13 @@ const sum = (rows, key) => (rows || []).reduce((acc, row) => acc + (Number(row?.
 
 const SHEET_WIDTH = 1122;
 const SHEET_INNER_WIDTH = 1102;
-const A4_SCALE = 0.74;
+const A4_SCALE = 0.64;
 
 const cell = {
   border: '1px solid #8db3cf',
-  padding: '2px 4px',
-  fontSize: '7.2px',
-  lineHeight: 1.04,
+  padding: '1px 3px',
+  fontSize: '6.8px',
+  lineHeight: 1,
   verticalAlign: 'middle',
 };
 
@@ -122,19 +122,19 @@ function PadRows({ count, cols }) {
 
 export default function DPRPrintTemplate({ dpr, project }) {
   const view = toView(dpr, project);
-  const workRows = view.workRows.slice(0, 13);
-  const staffRows = view.staff.slice(0, 8);
-  const directRows = view.directWorkers.slice(0, 8);
-  const subRows = view.subcontractors.slice(0, 8);
-  const plantRows = view.plant.filter(row => Number(row.nos) || normalize(row.item)).slice(0, 8);
-  const materialRows = view.materialRows.slice(0, 8);
+  const workRows = view.workRows.slice(0, 11);
+  const staffRows = view.staff.slice(0, 6);
+  const directRows = view.directWorkers.slice(0, 6);
+  const subRows = view.subcontractors.slice(0, 6);
+  const plantRows = view.plant.filter(row => Number(row.nos) || normalize(row.item)).slice(0, 6);
+  const materialRows = view.materialRows.slice(0, 6);
 
   return (
     <div className="planning-dpr-print-root" style={{ background: '#eef3f8', padding: 16 }}>
       <style>{`
         .planning-dpr-a4-page {
-          width: 283mm;
-          min-height: 196mm;
+          width: 297mm;
+          height: 210mm;
           margin: 0 auto;
           overflow: hidden;
           background: #fff;
@@ -152,15 +152,16 @@ export default function DPRPrintTemplate({ dpr, project }) {
           background: #fff;
           color: #111827;
           font-family: Arial, Helvetica, sans-serif;
-          padding: 8px;
+          padding: 6px;
         }
         @media print {
           body * { visibility: hidden; }
+          html, body { width: 297mm; height: 210mm; margin: 0 !important; padding: 0 !important; overflow: hidden; }
           .planning-dpr-print-root, .planning-dpr-print-root * { visibility: visible; }
           .planning-dpr-print-root { position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; padding: 0 !important; }
-          .planning-dpr-a4-page { width: 283mm; height: 196mm; margin: 0; box-shadow: none; overflow: hidden; }
+          .planning-dpr-a4-page { width: 297mm; height: 210mm; margin: 0; box-shadow: none; overflow: hidden; }
           .planning-dpr-print-hide { display: none !important; }
-          @page { size: A4 landscape; margin: 7mm; }
+          @page { size: A4 landscape; margin: 0; }
         }
       `}</style>
 
@@ -200,10 +201,10 @@ export default function DPRPrintTemplate({ dpr, project }) {
           </colgroup>
           <tbody>
             <tr>
-              <TD colSpan={5} style={{ border: 'none', height: 30 }}>
-                <img src={bcimLogo} alt="BCIM" style={{ maxHeight: 22, maxWidth: 128, objectFit: 'contain' }} />
+              <TD colSpan={5} style={{ border: 'none', height: 22 }}>
+                <img src={bcimLogo} alt="BCIM" style={{ maxHeight: 18, maxWidth: 118, objectFit: 'contain' }} />
               </TD>
-              <TD colSpan={9} style={{ border: 'none', fontSize: 14, textAlign: 'center', fontWeight: 800, letterSpacing: '0.6px' }}>
+              <TD colSpan={9} style={{ border: 'none', fontSize: 12, textAlign: 'center', fontWeight: 800, letterSpacing: '0.6px' }}>
                 DAILY PROGRESS REPORT
               </TD>
               <TD colSpan={5} style={{ border: 'none', textAlign: 'right', fontSize: 10, fontWeight: 700 }}>
@@ -282,7 +283,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
                 <TD colSpan={2} style={{ textAlign: 'center' }}>{pct(row.cumulative, row.boq_qty)}</TD>
               </tr>
             ))}
-            <PadRows count={Math.max(0, 13 - workRows.length)} cols={19} />
+            <PadRows count={Math.max(0, 11 - workRows.length)} cols={19} />
 
             <Section>Resources</Section>
             <tr>
@@ -304,7 +305,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
               <TH>Night</TH>
               <TH colSpan={2}>Total</TH>
             </tr>
-            {Array.from({ length: 8 }).map((_, i) => {
+            {Array.from({ length: 6 }).map((_, i) => {
               const st = staffRows[i] || {};
               const dw = directRows[i] || {};
               const sc = subRows[i] || {};
@@ -352,7 +353,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
               <TH colSpan={2}>Available On Site</TH>
               <TH colSpan={3}>Consumption For The Day</TH>
             </tr>
-            {Array.from({ length: 8 }).map((_, i) => {
+            {Array.from({ length: 6 }).map((_, i) => {
               const pl = plantRows[i] || {};
               const mt = materialRows[i] || {};
               return (
@@ -391,8 +392,8 @@ export default function DPRPrintTemplate({ dpr, project }) {
                 <Section>Photos</Section>
                 <tr>
                   {view.photos.slice(0, 3).map((photo, idx) => (
-                    <TD key={idx} colSpan={idx === 2 ? 7 : 6} style={{ textAlign: 'center', height: 90 }}>
-                      <img src={photo} alt={`Site ${idx + 1}`} style={{ maxHeight: 84, maxWidth: '100%', objectFit: 'cover' }} />
+                    <TD key={idx} colSpan={idx === 2 ? 7 : 6} style={{ textAlign: 'center', height: 58 }}>
+                      <img src={photo} alt={`Site ${idx + 1}`} style={{ maxHeight: 52, maxWidth: '100%', objectFit: 'cover' }} />
                     </TD>
                   ))}
                 </tr>
