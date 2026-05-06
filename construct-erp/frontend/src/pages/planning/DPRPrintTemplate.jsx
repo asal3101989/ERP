@@ -26,14 +26,14 @@ const cell = {
   verticalAlign: 'middle',
 };
 
-const TH = ({ children, style = {} }) => (
-  <th style={{ ...cell, background: '#d9eaf7', color: '#111827', fontWeight: 700, textAlign: 'center', ...style }}>
+const TH = ({ children, style = {}, ...props }) => (
+  <th {...props} style={{ ...cell, background: '#d9eaf7', color: '#111827', fontWeight: 700, textAlign: 'center', ...style }}>
     {children}
   </th>
 );
 
-const TD = ({ children, style = {} }) => (
-  <td style={{ ...cell, ...style }}>{children}</td>
+const TD = ({ children, style = {}, ...props }) => (
+  <td {...props} style={{ ...cell, ...style }}>{children}</td>
 );
 
 const Section = ({ children, style = {} }) => (
@@ -146,9 +146,10 @@ export default function DPRPrintTemplate({ dpr, project }) {
         </button>
       </div>
 
+      <div style={{ overflowX: 'auto' }}>
       <div style={{
         width: 1122,
-        maxWidth: '100%',
+        minWidth: 1122,
         margin: '0 auto',
         background: '#fff',
         color: '#111827',
@@ -156,8 +157,28 @@ export default function DPRPrintTemplate({ dpr, project }) {
         boxShadow: '0 2px 20px rgba(15,23,42,0.14)',
         padding: 10,
       }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-          <colgroup>{Array.from({ length: 19 }).map((_, i) => <col key={i} style={{ width: `${100 / 19}%` }} />)}</colgroup>
+        <table style={{ width: 1102, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: 38 }} />
+            <col style={{ width: 38 }} />
+            <col style={{ width: 52 }} />
+            <col style={{ width: 52 }} />
+            <col style={{ width: 52 }} />
+            <col style={{ width: 62 }} />
+            <col style={{ width: 62 }} />
+            <col style={{ width: 62 }} />
+            <col style={{ width: 48 }} />
+            <col style={{ width: 58 }} />
+            <col style={{ width: 46 }} />
+            <col style={{ width: 46 }} />
+            <col style={{ width: 46 }} />
+            <col style={{ width: 46 }} />
+            <col style={{ width: 52 }} />
+            <col style={{ width: 52 }} />
+            <col style={{ width: 52 }} />
+            <col style={{ width: 52 }} />
+            <col style={{ width: 46 }} />
+          </colgroup>
           <tbody>
             <tr>
               <TD colSpan={5} style={{ border: 'none', height: 30 }}>
@@ -378,6 +399,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }
