@@ -18,16 +18,16 @@ const pct = (qty, total) => {
 
 const sum = (rows, key) => (rows || []).reduce((acc, row) => acc + (Number(row?.[key]) || 0), 0);
 
-const SHEET_WIDTH = 1122;
-const SHEET_INNER_WIDTH = 1102;
-const A4_SCALE = 0.64;
-
 const cell = {
   border: '1px solid #8db3cf',
-  padding: '1px 3px',
-  fontSize: '6.8px',
+  padding: '1px 2px',
+  fontSize: '6.2px',
   lineHeight: 1,
   verticalAlign: 'middle',
+  boxSizing: 'border-box',
+  overflow: 'hidden',
+  overflowWrap: 'anywhere',
+  wordBreak: 'break-word',
 };
 
 const TH = ({ children, style = {}, ...props }) => (
@@ -122,12 +122,12 @@ function PadRows({ count, cols }) {
 
 export default function DPRPrintTemplate({ dpr, project }) {
   const view = toView(dpr, project);
-  const workRows = view.workRows.slice(0, 11);
-  const staffRows = view.staff.slice(0, 6);
-  const directRows = view.directWorkers.slice(0, 6);
-  const subRows = view.subcontractors.slice(0, 6);
-  const plantRows = view.plant.filter(row => Number(row.nos) || normalize(row.item)).slice(0, 6);
-  const materialRows = view.materialRows.slice(0, 6);
+  const workRows = view.workRows.slice(0, 10);
+  const staffRows = view.staff.slice(0, 5);
+  const directRows = view.directWorkers.slice(0, 5);
+  const subRows = view.subcontractors.slice(0, 5);
+  const plantRows = view.plant.filter(row => Number(row.nos) || normalize(row.item)).slice(0, 5);
+  const materialRows = view.materialRows.slice(0, 5);
 
   return (
     <div className="planning-dpr-print-root" style={{ background: '#eef3f8', padding: 16 }}>
@@ -136,30 +136,37 @@ export default function DPRPrintTemplate({ dpr, project }) {
           width: 297mm;
           height: 210mm;
           margin: 0 auto;
+          padding: 4mm;
           overflow: hidden;
           background: #fff;
           box-shadow: 0 2px 20px rgba(15,23,42,0.14);
+          box-sizing: border-box;
         }
         .planning-dpr-scale-box {
-          width: ${SHEET_WIDTH * A4_SCALE}px;
-          height: auto;
-          transform: scale(${A4_SCALE});
-          transform-origin: top left;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
         }
         .planning-dpr-sheet {
-          width: ${SHEET_WIDTH}px;
-          min-width: ${SHEET_WIDTH}px;
+          width: 100%;
+          min-width: 0;
           background: #fff;
           color: #111827;
           font-family: Arial, Helvetica, sans-serif;
-          padding: 6px;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        .planning-dpr-sheet table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
         }
         @media print {
           body * { visibility: hidden; }
           html, body { width: 297mm; height: 210mm; margin: 0 !important; padding: 0 !important; overflow: hidden; }
           .planning-dpr-print-root, .planning-dpr-print-root * { visibility: visible; }
           .planning-dpr-print-root { position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; padding: 0 !important; }
-          .planning-dpr-a4-page { width: 297mm; height: 210mm; margin: 0; box-shadow: none; overflow: hidden; }
+          .planning-dpr-a4-page { width: 297mm; height: 210mm; margin: 0; padding: 4mm; box-shadow: none; overflow: hidden; }
           .planning-dpr-print-hide { display: none !important; }
           @page { size: A4 landscape; margin: 0; }
         }
@@ -177,37 +184,37 @@ export default function DPRPrintTemplate({ dpr, project }) {
       <div className="planning-dpr-a4-page">
       <div className="planning-dpr-scale-box">
       <div className="planning-dpr-sheet">
-        <table style={{ width: SHEET_INNER_WIDTH, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+        <table>
           <colgroup>
-            <col style={{ width: 38 }} />
-            <col style={{ width: 38 }} />
-            <col style={{ width: 52 }} />
-            <col style={{ width: 52 }} />
-            <col style={{ width: 52 }} />
-            <col style={{ width: 62 }} />
-            <col style={{ width: 62 }} />
-            <col style={{ width: 62 }} />
-            <col style={{ width: 48 }} />
-            <col style={{ width: 58 }} />
-            <col style={{ width: 46 }} />
-            <col style={{ width: 46 }} />
-            <col style={{ width: 46 }} />
-            <col style={{ width: 46 }} />
-            <col style={{ width: 52 }} />
-            <col style={{ width: 52 }} />
-            <col style={{ width: 52 }} />
-            <col style={{ width: 52 }} />
-            <col style={{ width: 46 }} />
+            <col style={{ width: '4%' }} />
+            <col style={{ width: '4%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '3%' }} />
           </colgroup>
           <tbody>
             <tr>
-              <TD colSpan={5} style={{ border: 'none', height: 22 }}>
-                <img src={bcimLogo} alt="BCIM" style={{ maxHeight: 18, maxWidth: 118, objectFit: 'contain' }} />
+              <TD colSpan={5} style={{ border: 'none', height: 18 }}>
+                <img src={bcimLogo} alt="BCIM" style={{ maxHeight: 16, maxWidth: 96, objectFit: 'contain' }} />
               </TD>
-              <TD colSpan={9} style={{ border: 'none', fontSize: 12, textAlign: 'center', fontWeight: 800, letterSpacing: '0.6px' }}>
+              <TD colSpan={9} style={{ border: 'none', fontSize: 11, textAlign: 'center', fontWeight: 800, letterSpacing: '0.6px' }}>
                 DAILY PROGRESS REPORT
               </TD>
-              <TD colSpan={5} style={{ border: 'none', textAlign: 'right', fontSize: 10, fontWeight: 700 }}>
+              <TD colSpan={5} style={{ border: 'none', textAlign: 'right', fontSize: 7, fontWeight: 700 }}>
                 BCIM Engineering Pvt. Ltd.
               </TD>
             </tr>
@@ -283,7 +290,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
                 <TD colSpan={2} style={{ textAlign: 'center' }}>{pct(row.cumulative, row.boq_qty)}</TD>
               </tr>
             ))}
-            <PadRows count={Math.max(0, 11 - workRows.length)} cols={19} />
+            <PadRows count={Math.max(0, 10 - workRows.length)} cols={19} />
 
             <Section>Resources</Section>
             <tr>
@@ -305,7 +312,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
               <TH>Night</TH>
               <TH colSpan={2}>Total</TH>
             </tr>
-            {Array.from({ length: 6 }).map((_, i) => {
+            {Array.from({ length: 5 }).map((_, i) => {
               const st = staffRows[i] || {};
               const dw = directRows[i] || {};
               const sc = subRows[i] || {};
@@ -348,12 +355,12 @@ export default function DPRPrintTemplate({ dpr, project }) {
               <TH colSpan={2}>Nos</TH>
               <TH colSpan={3}>Description</TH>
               <TH>Unit</TH>
-              <TH colSpan={2}>Receipts For Day</TH>
-              <TH colSpan={2}>Receipts Till Date</TH>
-              <TH colSpan={2}>Available On Site</TH>
-              <TH colSpan={3}>Consumption For The Day</TH>
+              <TH colSpan={2}>Receipt Day</TH>
+              <TH colSpan={2}>Receipt Till Date</TH>
+              <TH colSpan={2}>Available</TH>
+              <TH colSpan={3}>Consumed Day</TH>
             </tr>
-            {Array.from({ length: 6 }).map((_, i) => {
+            {Array.from({ length: 5 }).map((_, i) => {
               const pl = plantRows[i] || {};
               const mt = materialRows[i] || {};
               return (
