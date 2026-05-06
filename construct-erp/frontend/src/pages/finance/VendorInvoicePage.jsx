@@ -1,231 +1,386 @@
-// src/pages/finance/VendorInvoicePage.jsx
-import React, { useState } from 'react';
+// src/pages/finance/VendorInvoicePage.jsx — Zoho Books style
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  FileText, Search,
-  CheckCircle2, Clock, ShieldCheck,
-  ArrowUpRight, DollarSign, Tag, Building2
+import {
+  Search, SlidersHorizontal, Download, RefreshCw,
+  ChevronLeft, ChevronRight, ExternalLink, ArrowUpDown,
 } from 'lucide-react';
-import { clsx } from 'clsx';
 import dayjs from 'dayjs';
 import { tqsBillsAPI, projectAPI } from '../../api/client';
-import { useNavigate } from 'react-router-dom';
-import DataToolbar from '../../components/common/DataToolbar';
+import { Link } from 'react-router-dom';
 
-const STATUS_CONFIG = {
-  pending:             { label: 'Pending',          class: 'bg-amber-50 text-amber-600 border-amber-200 shadow-sm',   icon: Clock },
-  stores:              { label: 'In Stores',         class: 'bg-orange-50 text-orange-600 border-orange-200 shadow-sm', icon: Clock },
-  document_controller: { label: 'Doc Control',      class: 'bg-sky-50 text-sky-600 border-sky-200 shadow-sm',          icon: Clock },
-  qs:                  { label: 'QS Certification',  class: 'bg-violet-50 text-violet-600 border-violet-200 shadow-sm', icon: ShieldCheck },
-  accounts:            { label: 'Accounts',          class: 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm',       icon: ShieldCheck },
-  procurement:         { label: 'Ready for Payment', class: 'bg-emerald-50 text-emerald-600 border-emerald-200 shadow-sm', icon: CheckCircle2 },
-  paid:                { label: 'Paid',              class: 'bg-slate-50 text-slate-500 border-slate-200 shadow-sm',    icon: DollarSign },
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const inr = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(v || 0));
+const dateFmt = (d) => d ? dayjs(d).format('DD MMM YYYY') : '—';
+
+// Map TQS workflow_status → Zoho-style display status
+function mapStatus(bill) {
+  const ws = String(bill.workflow_status || '').toLowerCase();
+  const ps = String(bill.payment_status  || '').toLowerCase();
+  if (ps === 'paid' || ws === 'paid') return 'paid';
+  if (ps === 'partial')               return 'partial';
+  if (ws === 'procurement')           return 'approved';
+  if (ws === 'accounts')              return 'accounts';
+  if (ws === 'qs')                    return 'qs';
+  if (ws === 'document_controller')   return 'doc_ctrl';
+  if (ws === 'stores')                return 'stores';
+  return 'open';
+}
+
+const STATUS = {
+  all:      { label: 'All',              dot: '#94A3B8', pill: 'bg-slate-100 text-slate-600' },
+  open:     { label: 'Open',             dot: '#3B82F6', pill: 'bg-blue-50 text-blue-700'   },
+  stores:   { label: 'Stores',           dot: '#F97316', pill: 'bg-orange-50 text-orange-700'},
+  doc_ctrl: { label: 'Doc Control',      dot: '#06B6D4', pill: 'bg-cyan-50 text-cyan-700'   },
+  qs:       { label: 'QS',               dot: '#8B5CF6', pill: 'bg-violet-50 text-violet-700'},
+  accounts: { label: 'Accounts',         dot: '#1D4ED8', pill: 'bg-indigo-50 text-indigo-700'},
+  approved: { label: 'Ready to Pay',     dot: '#10B981', pill: 'bg-emerald-50 text-emerald-700'},
+  partial:  { label: 'Partial',          dot: '#F59E0B', pill: 'bg-amber-50 text-amber-700' },
+  paid:     { label: 'Paid',             dot: '#10B981', pill: 'bg-green-50 text-green-700' },
 };
 
-export default function VendorInvoicePage() {
-  const navigate = useNavigate();
-  const [filterProject, setFilterProject] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+const TAB_FILTERS = ['all', 'open', 'stores', 'doc_ctrl', 'qs', 'accounts', 'approved', 'partial', 'paid'];
 
-  const [search, setSearch] = useState('');
+const PAGE_SIZE = 20;
 
-  const { data: bills = [], isLoading } = useQuery({
-    queryKey: ['vendor-invoices-tqs'],
-    queryFn: () => tqsBillsAPI.list({ limit: 500 }).then(r => r.data?.data || []).catch(() => []),
-  });
-
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => projectAPI.list().then(r => r.data?.data || []).catch(() => []),
-  });
-
-  // Map TQS bill fields to display fields
-  const invoices = bills.map(b => ({
-    id: b.id,
-    vendor_name: b.vendor_name || '—',
-    invoice_number: b.inv_number || b.sl_number || '—',
-    invoice_date: b.inv_date || b.received_date,
-    po_number: b.po_number,
-    grn_number: b.grn_number,
-    net_amount: Number(b.total_amount || b.basic_amount || 0),
-    basic_amount: Number(b.basic_amount || 0),
-    gst_amount: Number(b.gst_amount || 0),
-    status: b.workflow_status || 'pending',
-    payment_status: b.payment_status,
-    bill_type: b.bill_type,
-    project_id: b.project_id,
-    project_name: b.project_name,
-    sl_number: b.sl_number,
-  }));
-
-  const filtered = invoices.filter(inv => {
-    if (filterProject !== 'all' && inv.project_id !== filterProject) return false;
-    if (filterStatus !== 'all' && inv.status !== filterStatus) return false;
-    if (search) {
-      const s = search.toLowerCase();
-      return [inv.vendor_name, inv.invoice_number, inv.po_number, inv.sl_number]
-        .some(v => String(v || '').toLowerCase().includes(s));
-    }
-    return true;
-  });
-
+// ── Status Pill ───────────────────────────────────────────────────────────────
+function StatusPill({ status }) {
+  const cfg = STATUS[status] || STATUS.open;
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto bg-slate-50 min-h-screen text-[0.94rem]">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-slate-200 shadow-sm">
-          <FileText className="w-5 h-5 text-indigo-600" />
-        </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight italic">Vendor Payables</h1>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Invoicing & Bill Booking • 3-Way Match Verification</p>
-          </div>
-        </div>
-        <DataToolbar 
-          data={filtered} 
-          fileName="Vendor_Invoices_Export" 
-          onAdd={() => navigate('/finance/invoices/booking')} 
-          addLabel="Book Vendor Bill" 
-        />
-      </div>
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${cfg.pill}`}>
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: cfg.dot }} />
+      {cfg.label}
+    </span>
+  );
+}
 
-      {/* Mini KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KpiCard label="Total Bills" value={filtered.length} sub={`${bills.length} in TQS tracker`} color="text-indigo-500" />
-          <KpiCard label="Pending Payment" value={filtered.filter(i => !['paid'].includes(i.status)).length} sub="Awaiting clearance" color="text-amber-500" />
-          <KpiCard label="Paid" value={filtered.filter(i => i.status === 'paid').length} sub="Cleared bills" color="text-emerald-500" />
-          <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm p-8 flex flex-col justify-center relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-4 opacity-[0.03] scale-150 rotate-12 pointer-events-none">
-                <DollarSign size={120} />
-             </div>
-             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 italic relative z-10">Total Value</span>
-             <div className="text-2xl font-black text-indigo-600 font-mono italic tracking-tighter relative z-10">
-                ₹{filtered.reduce((s, i) => s + (i.net_amount || 0), 0).toLocaleString('en-IN')}
-             </div>
-          </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white border border-slate-200 rounded-[1.75rem] p-3.5 flex flex-col md:flex-row items-center gap-3 shadow-sm relative">
-        <div className="relative flex-1 w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} className="w-full bg-slate-50 border border-slate-200 py-2.5 pl-10 pr-4 rounded-xl text-[11px] font-black text-slate-900 uppercase tracking-widest outline-none focus:border-indigo-400 transition-all placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-normal italic shadow-sm" placeholder="Search Invoice No, Vendor, PO No..." />
-         </div>
-         <div className="flex gap-4 w-full md:w-auto">
-           <select className="flex-1 md:w-auto bg-slate-50 border border-slate-200 py-2.5 px-4 rounded-xl text-[9px] font-black text-slate-900 uppercase tracking-widest outline-none focus:border-indigo-400 transition-all shadow-sm appearance-none italic" value={filterProject} onChange={e => setFilterProject(e.target.value)}>
-              <option value="all">All Projects</option>
-              {projects?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-           </select>
-           <select className="flex-1 md:w-auto bg-slate-50 border border-slate-200 py-2.5 px-4 rounded-xl text-[9px] font-black text-slate-900 uppercase tracking-widest outline-none focus:border-indigo-400 transition-all shadow-sm appearance-none italic" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-              <option value="all">All Stages</option>
-              <option value="pending">Pending</option>
-              <option value="stores">Stores</option>
-              <option value="document_controller">Doc Control</option>
-              <option value="qs">QS</option>
-              <option value="accounts">Accounts</option>
-              <option value="procurement">Ready for Payment</option>
-              <option value="paid">Paid</option>
-           </select>
-         </div>
-      </div>
-
-      {/* Data Grid */}
-      <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                {['Vendor & Invoice', 'Match References', 'Net Value', 'Workflow Stage', 'Fiscal Actions', ''].map((h, i) => (
-                  <th key={i} className={clsx("py-5 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic", h === 'Net Value' || h === 'Fiscal Actions' ? 'text-right' : '')}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-               {isLoading ? (
-                 <tr><td colSpan={6} className="py-16 text-center text-slate-400">Loading bills…</td></tr>
-               ) : filtered.map(inv => {
-                 const cfg = STATUS_CONFIG[inv.status] || STATUS_CONFIG.pending;
-                 return (
-                   <tr key={inv.id} className="hover:bg-slate-50/50 transition-all group">
-                     <td className="py-5 px-6">
-                        <div className="flex items-center gap-4">
-                           <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-indigo-500 shadow-sm group-hover:scale-105 group-hover:border-indigo-200 transition-all">
-                              <Building2 className="w-6 h-6" />
-                           </div>
-                           <div>
-                              <div className="text-slate-900 font-black text-xs uppercase tracking-tight italic">{inv.vendor_name}</div>
-                              <div className="flex items-center gap-2 mt-1.5">
-                                 <Tag className="w-3.5 h-3.5 text-slate-400" />
-                                 <span className="text-[10px] font-mono text-indigo-600 font-black uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">{inv.invoice_number}</span>
-                                 <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">• {inv.invoice_date ? dayjs(inv.invoice_date).format('DD MMM YYYY') : '—'}</span>
-                              </div>
-                           </div>
-                        </div>
-                     </td>
-                     <td className="py-5 px-6">
-                        <div className="space-y-2">
-                           <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
-                              <span className="text-slate-400 w-8">PO:</span>
-                              <span className="text-slate-900 font-mono italic font-black shadow-sm px-2 py-0.5 border border-slate-200 rounded-md bg-white">{inv.po_number || '—'}</span>
-                           </div>
-                           <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
-                              <span className="text-slate-400 w-8">SL:</span>
-                              <span className="text-slate-900 font-mono italic font-black shadow-sm px-2 py-0.5 border border-slate-200 rounded-md bg-white">{inv.sl_number || '—'}</span>
-                           </div>
-                        </div>
-                     </td>
-                     <td className="py-5 px-6 text-right">
-                        <div className="text-slate-900 font-black font-mono tracking-tighter text-lg italic">₹{inv.net_amount.toLocaleString('en-IN')}</div>
-                        {inv.gst_amount > 0 && <div className="text-[9px] text-slate-400 font-bold mt-1">GST: ₹{inv.gst_amount.toLocaleString('en-IN')}</div>}
-                     </td>
-                     <td className="py-5 px-6">
-                        <div className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border w-fit italic', cfg.class)}>
-                           <cfg.icon className="w-3.5 h-3.5" /> {cfg.label}
-                        </div>
-                        {inv.project_name && (
-                          <div className="text-[9px] text-slate-400 font-bold mt-2 px-1 truncate max-w-[160px]">{inv.project_name}</div>
-                        )}
-                     </td>
-                     <td className="py-5 px-6 text-right">
-                       <a href="/tqs/bills" className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all italic inline-flex items-center gap-1.5">
-                         <ArrowUpRight className="w-3.5 h-3.5" /> Open in TQS
-                       </a>
-                     </td>
-                     <td className="py-5 px-6">
-                       <span className={clsx('text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg',
-                         inv.payment_status === 'paid' ? 'bg-emerald-50 text-emerald-600' :
-                         inv.payment_status === 'partial' ? 'bg-violet-50 text-violet-600' :
-                         'bg-amber-50 text-amber-600'
-                       )}>{inv.payment_status || 'pending'}</span>
-                     </td>
-                   </tr>
-                 );
-               })}
-               {filtered.length === 0 && (
-                 <tr>
-                   <td colSpan={6} className="py-24 text-center">
-                     <div className="w-20 h-20 bg-slate-50 border border-slate-100 rounded-3xl mx-auto flex items-center justify-center mb-6">
-                       <FileText className="w-10 h-10 text-slate-300" />
-                     </div>
-                     <span className="text-slate-400 font-black uppercase tracking-[0.3em] italic">No Vendor Invoices Found</span>
-                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2 block">Try adjusting filters or book a new inward bill</p>
-                   </td>
-                 </tr>
-               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+// ── Summary Card ─────────────────────────────────────────────────────────────
+function SummaryCard({ label, value, sub, color = '#1D4ED8' }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="text-xs text-gray-500 font-medium">{label}</div>
+      <div className="mt-1 text-xl font-bold" style={{ color }}>{value}</div>
+      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
     </div>
   );
 }
 
-function KpiCard({ label, value, sub, color }) {
+// ═════════════════════════════════════════════════════════════════════════════
+export default function VendorInvoicePage() {
+  const [activeTab, setActiveTab]   = useState('all');
+  const [search, setSearch]         = useState('');
+  const [projectFilter, setProjectFilter] = useState('all');
+  const [sortField, setSortField]   = useState('inv_date');
+  const [sortDir, setSortDir]       = useState('desc');
+  const [page, setPage]             = useState(1);
+
+  // ── Data ──────────────────────────────────────────────────────────────────
+  const { data: rawBills = [], isLoading, refetch } = useQuery({
+    queryKey: ['vendor-payables-tqs'],
+    queryFn: () => tqsBillsAPI.list({ limit: 1000 }).then(r => r.data?.data || []).catch(() => []),
+    staleTime: 30_000,
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects-list'],
+    queryFn: () => projectAPI.list().then(r => r.data?.data || []).catch(() => []),
+    staleTime: 300_000,
+  });
+
+  // ── Normalize bills ────────────────────────────────────────────────────────
+  const bills = useMemo(() => rawBills.map(b => ({
+    id:           b.id,
+    sl_number:    b.sl_number || '—',
+    inv_number:   b.inv_number || b.sl_number || '—',
+    vendor_name:  b.vendor_name || '—',
+    inv_date:     b.inv_date || b.received_date || null,
+    po_number:    b.po_number || '—',
+    bill_type:    (b.bill_type || 'po').toUpperCase(),
+    basic_amount: Number(b.basic_amount || 0),
+    gst_amount:   Number(b.gst_amount || 0),
+    total_amount: Number(b.total_amount || b.basic_amount || 0),
+    paid_amount:  Number(b.paid_amount || 0),
+    balance:      Number(b.total_amount || 0) - Number(b.paid_amount || 0),
+    project_id:   b.project_id,
+    project_name: b.project_name || '—',
+    status:       mapStatus(b),
+  })), [rawBills]);
+
+  // ── Summary stats ──────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const total      = bills.reduce((s, b) => s + b.total_amount, 0);
+    const outstanding= bills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.balance, 0);
+    const paid       = bills.filter(b => b.status === 'paid').reduce((s, b) => s + b.total_amount, 0);
+    const readyToPay = bills.filter(b => b.status === 'approved').length;
+    return { total, outstanding, paid, readyToPay, count: bills.length };
+  }, [bills]);
+
+  // ── Filter + search + sort ─────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    let list = bills;
+    if (activeTab !== 'all') list = list.filter(b => b.status === activeTab);
+    if (projectFilter !== 'all') list = list.filter(b => b.project_id === projectFilter);
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter(b =>
+        [b.vendor_name, b.inv_number, b.po_number, b.sl_number, b.project_name]
+          .some(v => String(v).toLowerCase().includes(s))
+      );
+    }
+    list = [...list].sort((a, b) => {
+      let av = a[sortField], bv = b[sortField];
+      if (typeof av === 'string') av = av.toLowerCase();
+      if (typeof bv === 'string') bv = bv.toLowerCase();
+      return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+    });
+    return list;
+  }, [bills, activeTab, projectFilter, search, sortField, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const toggleSort = (field) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
+    setPage(1);
+  };
+
+  // ── CSV export ─────────────────────────────────────────────────────────────
+  const exportCSV = () => {
+    const headers = ['SL No', 'Invoice No', 'Vendor', 'PO No', 'Type', 'Date', 'Basic', 'GST', 'Total', 'Paid', 'Balance', 'Status', 'Project'];
+    const rows = filtered.map(b => [
+      b.sl_number, b.inv_number, b.vendor_name, b.po_number, b.bill_type,
+      b.inv_date ? dayjs(b.inv_date).format('DD-MM-YYYY') : '',
+      b.basic_amount, b.gst_amount, b.total_amount, b.paid_amount, b.balance,
+      STATUS[b.status]?.label || b.status, b.project_name,
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `Vendor_Bills_${dayjs().format('YYYY-MM-DD')}.csv`;
+    a.click();
+  };
+
+  // ── Tab count helper ───────────────────────────────────────────────────────
+  const tabCount = (key) => key === 'all' ? bills.length : bills.filter(b => b.status === key).length;
+
+  // ────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
-       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 italic">{label}</span>
-       <div className={clsx('text-4xl font-black italic tracking-tighter font-mono', color)}>{value}</div>
-       <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">{sub}</div>
+    <div className="min-h-screen bg-[#F5F7FA] font-sans">
+
+      {/* ── Top bar ── */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-base font-semibold text-gray-800">Vendor Bills</h1>
+          <p className="text-xs text-gray-400">All bills from TQS tracker</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => refetch()} className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-gray-500">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-medium">
+            <Download className="w-3.5 h-3.5" /> Export
+          </button>
+          <Link to="/tqs/bills" className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-[#1D4ED8] hover:bg-blue-700 text-white text-sm font-medium">
+            <ExternalLink className="w-3.5 h-3.5" /> Open TQS Tracker
+          </Link>
+        </div>
+      </div>
+
+      <div className="px-6 py-4 space-y-4">
+
+        {/* ── Summary Cards ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <SummaryCard label="Total Bills"        value={stats.count}            sub="All time"                     color="#1D4ED8" />
+          <SummaryCard label="Total Value"         value={inr(stats.total)}       sub="Gross including GST"          color="#374151" />
+          <SummaryCard label="Outstanding Balance" value={inr(stats.outstanding)} sub="Unpaid / partially paid"      color="#DC2626" />
+          <SummaryCard label="Ready to Pay"        value={`${stats.readyToPay} bills`} sub={`${inr(bills.filter(b=>b.status==='approved').reduce((s,b)=>s+b.balance,0))} pending`} color="#059669" />
+        </div>
+
+        {/* ── Filter row ── */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search */}
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-md px-3 py-1.5 flex-1 min-w-[200px] max-w-sm">
+            <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <input
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search vendor, invoice, PO…"
+              className="text-sm outline-none w-full placeholder:text-gray-400 bg-transparent"
+            />
+          </div>
+
+          {/* Project filter */}
+          <select
+            value={projectFilter}
+            onChange={e => { setProjectFilter(e.target.value); setPage(1); }}
+            className="bg-white border border-gray-200 rounded-md px-3 py-1.5 text-sm text-gray-600 outline-none"
+          >
+            <option value="all">All Projects</option>
+            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+
+          <div className="ml-auto text-xs text-gray-400 font-medium">
+            {filtered.length} bill{filtered.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+
+        {/* ── Status tabs ── */}
+        <div className="flex gap-1 overflow-x-auto border-b border-gray-200">
+          {TAB_FILTERS.map(key => {
+            const count = tabCount(key);
+            if (count === 0 && key !== 'all') return null;
+            return (
+              <button
+                key={key}
+                onClick={() => { setActiveTab(key); setPage(1); }}
+                className={`px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  activeTab === key
+                    ? 'border-[#1D4ED8] text-[#1D4ED8]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {STATUS[key]?.label}
+                <span className={`ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                  activeTab === key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                }`}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Table ── */}
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <button onClick={() => toggleSort('inv_date')} className="flex items-center gap-1 hover:text-gray-700">
+                      Date <ArrowUpDown className="w-3 h-3" />
+                    </button>
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Bill #</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <button onClick={() => toggleSort('vendor_name')} className="flex items-center gap-1 hover:text-gray-700">
+                      Vendor <ArrowUpDown className="w-3 h-3" />
+                    </button>
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">PO / Type</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Project</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <button onClick={() => toggleSort('total_amount')} className="flex items-center gap-1 hover:text-gray-700 ml-auto">
+                      Amount <ArrowUpDown className="w-3 h-3" />
+                    </button>
+                  </th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Balance Due</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {isLoading ? (
+                  <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-sm">Loading bills…</td></tr>
+                ) : paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-16 text-center">
+                      <div className="text-gray-300 text-4xl mb-3">📄</div>
+                      <div className="text-gray-500 font-medium">No bills found</div>
+                      <div className="text-gray-400 text-xs mt-1">Try adjusting your filters</div>
+                    </td>
+                  </tr>
+                ) : paginated.map(bill => (
+                  <tr key={bill.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{dateFmt(bill.inv_date)}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-blue-700 text-xs">{bill.inv_number}</div>
+                      <div className="text-[10px] text-gray-400 mt-0.5">{bill.sl_number}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-800 text-sm max-w-[180px] truncate">{bill.vendor_name}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-xs text-gray-600">{bill.po_number}</div>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 mt-0.5 inline-block">{bill.bill_type}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500 max-w-[140px] truncate">{bill.project_name}</td>
+                    <td className="px-4 py-3"><StatusPill status={bill.status} /></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="font-semibold text-gray-800 text-sm">{inr(bill.total_amount)}</div>
+                      {bill.gst_amount > 0 && <div className="text-[10px] text-gray-400">GST: {inr(bill.gst_amount)}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`font-semibold text-sm ${bill.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {bill.balance > 0 ? inr(bill.balance) : '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link to="/tqs/bills" className="text-xs text-blue-600 hover:underline font-medium whitespace-nowrap">
+                        View →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {/* Footer totals */}
+              {paginated.length > 0 && (
+                <tfoot className="bg-gray-50 border-t border-gray-200">
+                  <tr>
+                    <td colSpan={6} className="px-4 py-3 text-xs font-semibold text-gray-500">
+                      Showing {(page-1)*PAGE_SIZE+1}–{Math.min(page*PAGE_SIZE, filtered.length)} of {filtered.length} bills
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-gray-800 text-sm">
+                      {inr(paginated.reduce((s, b) => s + b.total_amount, 0))}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-red-600 text-sm">
+                      {inr(paginated.reduce((s, b) => s + b.balance, 0))}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+
+        {/* ── Pagination ── */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-white text-sm text-gray-600 disabled:opacity-40 hover:bg-gray-50"
+            >
+              <ChevronLeft className="w-4 h-4" /> Previous
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                const p = i + 1;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`w-8 h-8 rounded-md text-sm font-medium transition-colors ${
+                      page === p ? 'bg-[#1D4ED8] text-white' : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+              {totalPages > 7 && <span className="text-gray-400 text-sm">…{totalPages}</span>}
+            </div>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-white text-sm text-gray-600 disabled:opacity-40 hover:bg-gray-50"
+            >
+              Next <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
