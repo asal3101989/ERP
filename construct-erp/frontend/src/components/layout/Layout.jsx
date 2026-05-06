@@ -18,7 +18,6 @@ import {
   Gavel, Target, Send
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
-import AIAssistant from '../ai/AIAssistant';
 import CommandPalette from './CommandPalette';
 import { clsx } from 'clsx';
 import LoadingScreen from '../common/LoadingScreen';
@@ -984,8 +983,6 @@ export default function Layout() {
           </Suspense>
         </main>
       </div>
-
-      <AIAssistant />
 
       <CommandPalette
         isOpen={paletteOpen}
