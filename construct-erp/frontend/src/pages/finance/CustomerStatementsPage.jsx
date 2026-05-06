@@ -1,175 +1,364 @@
-import React, { useState } from 'react';
+// src/pages/finance/CustomerStatementsPage.jsx
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, BadgeDollarSign, FileSignature, Search, Filter, Receipt, Wallet, Clock3 } from 'lucide-react';
+import { FileSignature, Search, ArrowRight, AlertTriangle, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { projectAPI, raBillAPI } from '../../api/client';
-import FinanceActionBar from '../../components/finance/FinanceActionBar';
 import dayjs from 'dayjs';
 
 const inr = (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`;
-const statusTone = {
-  draft: 'bg-slate-100 text-slate-600 border-slate-200',
-  submitted: 'bg-amber-50 text-amber-600 border-amber-200',
-  verified: 'bg-blue-50 text-blue-600 border-blue-200',
-  certified: 'bg-indigo-50 text-indigo-600 border-indigo-200',
-  paid: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-  rejected: 'bg-red-50 text-red-600 border-red-200',
+const dateFmt = (d) => d ? dayjs(d).format('DD MMM YY') : '—';
+
+const STATUS_META = {
+  draft:      { label: 'Draft',     cls: 'bg-gray-100 text-gray-600' },
+  submitted:  { label: 'Submitted', cls: 'bg-sky-100 text-sky-700' },
+  verified:   { label: 'Verified',  cls: 'bg-blue-100 text-blue-700' },
+  certified:  { label: 'Certified', cls: 'bg-indigo-100 text-indigo-700' },
+  paid:       { label: 'Paid ✓',   cls: 'bg-emerald-100 text-emerald-700' },
+  rejected:   { label: 'Rejected',  cls: 'bg-red-100 text-red-700' },
 };
 
-function Card({ label, value, sub, accent = 'indigo' }) {
-  const colors = {
-    indigo: 'border-indigo-100 bg-indigo-50 text-indigo-700',
-    emerald: 'border-emerald-100 bg-emerald-50 text-emerald-700',
-    amber: 'border-amber-100 bg-amber-50 text-amber-700',
-    rose: 'border-rose-100 bg-rose-50 text-rose-700',
-  };
+const AGING_BUCKETS = [
+  { key: 'current', label: 'Not Yet Due',  color: '#10B981', bg: '#ECFDF5' },
+  { key: 'd30',     label: '1–30 Days',    color: '#F59E0B', bg: '#FFFBEB' },
+  { key: 'd60',     label: '31–60 Days',   color: '#F97316', bg: '#FFF7ED' },
+  { key: 'd90',     label: '61–90 Days',   color: '#EF4444', bg: '#FEF2F2' },
+  { key: 'over90',  label: '90+ Days',     color: '#7C3AED', bg: '#F5F3FF' },
+];
+
+function agingBucket(billDate) {
+  if (!billDate) return 'over90';
+  const days = dayjs().diff(dayjs(billDate), 'day');
+  if (days <= 0)  return 'current';
+  if (days <= 30) return 'd30';
+  if (days <= 60) return 'd60';
+  if (days <= 90) return 'd90';
+  return 'over90';
+}
+
+function StatusBadge({ status }) {
+  const cfg = STATUS_META[String(status || '').toLowerCase()] || { label: status, cls: 'bg-gray-100 text-gray-500' };
+  return <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>;
+}
+
+function KpiCard({ label, value, sub, color = '#1B4FD8', bg = '#EFF6FF' }) {
   return (
-    <div className={`rounded-[1.75rem] border p-5 shadow-sm bg-white ${colors[accent] || colors.indigo}`}>
-      <div className="text-[10px] font-black uppercase tracking-widest opacity-70">{label}</div>
-      <div className="mt-2 text-3xl font-black font-mono tracking-tight">{value}</div>
-      {sub && <div className="mt-1 text-[11px] font-bold uppercase tracking-widest opacity-60">{sub}</div>}
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+      <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</div>
+      <div className="mt-2 text-2xl font-extrabold tracking-tight" style={{ color }}>{value}</div>
+      {sub && <div className="mt-1 text-[11px] text-slate-400 font-medium">{sub}</div>}
     </div>
   );
 }
 
 export default function CustomerStatementsPage() {
+  const [activeTab, setActiveTab]       = useState('bills');
   const [selectedProject, setSelectedProject] = useState('all');
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [search, setSearch]             = useState('');
+  const [status, setStatus]             = useState('all');
 
   const { data: projects = [] } = useQuery({
-    queryKey: ['finance-customer-projects'],
+    queryKey: ['cs-projects'],
     queryFn: () => projectAPI.list().then(r => r.data?.data || []).catch(() => []),
   });
 
-  const { data: bills = [] } = useQuery({
-    queryKey: ['finance-customer-statements'],
+  const { data: bills = [], isLoading } = useQuery({
+    queryKey: ['cs-rabills'],
     queryFn: () => raBillAPI.list().then(r => r.data?.data || []).catch(() => []),
   });
 
-  const filtered = bills.filter(b => {
+  // ── Filtered bills ──────────────────────────────────────────────────────
+  const filtered = useMemo(() => bills.filter(b => {
     if (selectedProject !== 'all' && b.project_id !== selectedProject) return false;
-    if (status !== 'all' && b.status !== status) return false;
-    if (startDate && b.bill_date && dayjs(b.bill_date).isBefore(dayjs(startDate), 'day')) return false;
-    if (endDate && b.bill_date && dayjs(b.bill_date).isAfter(dayjs(endDate), 'day')) return false;
+    if (status !== 'all' && String(b.status).toLowerCase() !== status) return false;
     if (search) {
       const s = search.toLowerCase();
       return [b.bill_number, b.project_name, b.contractor_name, b.work_description]
         .some(v => String(v || '').toLowerCase().includes(s));
     }
     return true;
-  });
+  }), [bills, selectedProject, status, search]);
 
-  const billed = filtered.reduce((s, b) => s + Number(b.net_payable || 0), 0);
-  const received = filtered.reduce((s, b) => s + Number(b.amount_received || 0), 0);
-  const outstanding = billed - received;
-  const paidCount = filtered.filter(b => b.status === 'paid').length;
+  // ── KPIs ────────────────────────────────────────────────────────────────
+  const kpis = useMemo(() => {
+    const total       = filtered.reduce((s, b) => s + Number(b.gross_amount || b.net_payable || 0), 0);
+    const received    = filtered.reduce((s, b) => s + Number(b.amount_received || 0), 0);
+    const outstanding = total - received;
+    const overdue     = filtered.filter(b => {
+      if (['paid'].includes(String(b.status).toLowerCase())) return false;
+      return dayjs().diff(dayjs(b.bill_date), 'day') > 30;
+    });
+    return { total, received, outstanding, overdueCount: overdue.length, overdueAmt: overdue.reduce((s, b) => s + Number(b.gross_amount || b.net_payable || 0) - Number(b.amount_received || 0), 0) };
+  }, [filtered]);
 
+  // ── Aging analysis (unpaid bills only) ──────────────────────────────────
+  const aging = useMemo(() => {
+    const unpaid = bills.filter(b => !['paid', 'rejected'].includes(String(b.status).toLowerCase()));
+    const buckets = { current: 0, d30: 0, d60: 0, d90: 0, over90: 0 };
+    const byProject = {};
+
+    unpaid.forEach(b => {
+      const balance = Number(b.gross_amount || b.net_payable || 0) - Number(b.amount_received || 0);
+      const bkt = agingBucket(b.bill_date);
+      buckets[bkt] += balance;
+
+      const proj = b.project_name || 'Unassigned';
+      if (!byProject[proj]) byProject[proj] = { current: 0, d30: 0, d60: 0, d90: 0, over90: 0, total: 0 };
+      byProject[proj][bkt] += balance;
+      byProject[proj].total += balance;
+    });
+
+    return { buckets, byProject: Object.entries(byProject).sort((a, b) => b[1].total - a[1].total) };
+  }, [bills]);
+
+  const totalAging = Object.values(aging.buckets).reduce((s, v) => s + v, 0);
+
+  // ── CSV export ──────────────────────────────────────────────────────────
+  const exportCSV = () => {
+    const headers = ['Bill Number', 'Project', 'Contractor', 'Bill Date', 'Gross Amount', 'Received', 'Balance', 'Status'];
+    const rows = filtered.map(b => [
+      b.bill_number || '', b.project_name || '', b.contractor_name || '',
+      b.bill_date ? dayjs(b.bill_date).format('DD-MM-YYYY') : '',
+      b.gross_amount || 0, b.amount_received || 0,
+      (Number(b.gross_amount || 0) - Number(b.amount_received || 0)).toFixed(2),
+      b.status || '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `Receivables_${dayjs().format('YYYY-MM-DD')}.csv`; a.click();
+  };
+
+  // ────────────────────────────────────────────────────────────────────────
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1500px] mx-auto bg-slate-50 min-h-screen text-[0.94rem]">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-            <FileSignature className="w-6 h-6 text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-[1.25rem] md:text-[1.5rem] font-black text-slate-900 uppercase tracking-tight italic">Customer Statements</h1>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Project-wise receivables, RA bills and collections</p>
-          </div>
+    <div className="min-h-screen bg-[#F8FAFC] p-5 space-y-5 font-sans">
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Receivables</h1>
+          <p className="text-sm text-slate-400 mt-0.5">RA bills, client collections and AR aging analysis</p>
         </div>
-        <Link to="/qs/ra-bills" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white font-black text-[9px] uppercase tracking-widest shadow-lg">
-          Open RA Bills <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+        <div className="flex gap-2.5 shrink-0">
+          <button onClick={exportCSV}
+            className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5">
+            <Download className="w-3.5 h-3.5" /> Export
+          </button>
+          <Link to="/qs/ra-bills"
+            className="px-4 py-2 rounded-lg bg-[#1B4FD8] text-white text-sm font-semibold hover:bg-blue-700 flex items-center gap-1.5">
+            <FileSignature className="w-3.5 h-3.5" /> Open RA Bills
+          </Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card label="Total Billed" value={inr(billed)} sub={`${filtered.length} bills`} accent="indigo" />
-        <Card label="Total Received" value={inr(received)} sub="Client receipts posted" accent="emerald" />
-        <Card label="Outstanding" value={inr(outstanding)} sub="Open receivable balance" accent="rose" />
-        <Card label="Paid Bills" value={paidCount} sub="Closed / cleared" accent="amber" />
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <KpiCard label="Total Billed"    value={inr(kpis.total)}       sub={`${filtered.length} bills`}             color="#1B4FD8" />
+        <KpiCard label="Amount Received" value={inr(kpis.received)}    sub="Client receipts posted"                  color="#10B981" />
+        <KpiCard label="Outstanding"     value={inr(kpis.outstanding)} sub="Open receivable balance"                 color="#EF4444" />
+        <KpiCard label="Overdue (>30d)"  value={`${kpis.overdueCount} bills`} sub={inr(kpis.overdueAmt) + ' at risk'} color="#F59E0B" />
       </div>
 
-      <FinanceActionBar
-        data={filtered}
-        fileName="Customer_Statements"
-        search={search}
-        onSearchChange={setSearch}
-        projectId={selectedProject}
-        onProjectChange={setSelectedProject}
-        projectOptions={projects}
-        startDate={startDate}
-        onStartDateChange={setStartDate}
-        endDate={endDate}
-        onEndDateChange={setEndDate}
-        searchPlaceholder="Search project, contractor, or bill number"
-        onReset={() => {
-          setSearch('');
-          setSelectedProject('all');
-          setStatus('all');
-          setStartDate('');
-          setEndDate('');
-        }}
-        extraControls={
-          <select
-            value={status}
-            onChange={e => setStatus(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-2xl py-3.5 px-4 text-[10px] font-black uppercase tracking-widest outline-none"
-          >
-            <option value="all">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="submitted">Submitted</option>
-            <option value="verified">Verified</option>
-            <option value="certified">Certified</option>
-            <option value="paid">Paid</option>
-          </select>
-        }
-      />
+      {/* ── Tabs ── */}
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+        {[['bills', 'RA Bills'], ['aging', 'AR Aging']].map(([key, label]) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${activeTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                {['Project / Contractor', 'Bill', 'Bill Date', 'Net Payable', 'Received', 'Balance', 'Status'].map(h => (
-                  <th key={h} className="py-4 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.map(b => {
-                const balance = Number(b.net_payable || 0) - Number(b.amount_received || 0);
-                return (
-                  <tr key={b.id} className="hover:bg-slate-50/50">
-                    <td className="py-4 px-5">
-                      <div className="font-black text-slate-900">{b.project_name || '—'}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">{b.contractor_name || 'Contractor'}</div>
-                    </td>
-                    <td className="py-4 px-5 font-mono text-indigo-600 font-black">{b.bill_number || `RA-${b.id.slice(0, 8)}`}</td>
-                    <td className="py-4 px-5 text-xs font-bold text-slate-500 whitespace-nowrap">{b.bill_date ? dayjs(b.bill_date).format('DD MMM YYYY') : '—'}</td>
-                    <td className="py-4 px-5 font-mono text-slate-700">{inr(b.net_payable)}</td>
-                    <td className="py-4 px-5 font-mono text-emerald-600">{inr(b.amount_received || 0)}</td>
-                    <td className="py-4 px-5 font-mono font-black text-rose-600">{inr(balance)}</td>
-                    <td className="py-4 px-5">
-                      <span className={`px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${statusTone[b.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                        {b.status || 'pending'}
-                      </span>
-                    </td>
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* ── BILLS TAB ── */}
+      {/* ══════════════════════════════════════════════════════ */}
+      {activeTab === 'bills' && (
+        <>
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <div className="flex-1 min-w-[200px] flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50">
+              <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <input
+                value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search project, contractor, bill no…"
+                className="bg-transparent text-sm outline-none w-full placeholder:text-slate-400"
+              />
+            </div>
+            <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)}
+              className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 outline-none">
+              <option value="all">All Projects</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <select value={status} onChange={e => setStatus(e.target.value)}
+              className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 outline-none">
+              <option value="all">All Status</option>
+              {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+            {(search || selectedProject !== 'all' || status !== 'all') && (
+              <button onClick={() => { setSearch(''); setSelectedProject('all'); setStatus('all'); }}
+                className="px-3 py-2 text-sm text-slate-500 hover:text-red-500 font-medium">
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    {['Project / Contractor', 'Bill No.', 'Bill Date', 'Gross Amount', 'Received', 'Balance', 'Status', 'Actions'].map(h => (
+                      <th key={h} className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 px-5 py-3">{h}</th>
+                    ))}
                   </tr>
-                );
-              })}
-              {!filtered.length && (
-                <tr>
-                  <td colSpan={7} className="py-16 text-center text-slate-400 font-bold uppercase tracking-widest text-[11px]">
-                    No statements found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {isLoading ? (
+                    <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400 text-sm">Loading...</td></tr>
+                  ) : filtered.length === 0 ? (
+                    <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400 text-sm">No bills found</td></tr>
+                  ) : filtered.map(b => {
+                    const balance = Number(b.gross_amount || b.net_payable || 0) - Number(b.amount_received || 0);
+                    const pctReceived = Number(b.gross_amount || b.net_payable || 1) > 0
+                      ? (Number(b.amount_received || 0) / Number(b.gross_amount || b.net_payable || 1)) * 100
+                      : 0;
+                    return (
+                      <tr key={b.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <div className="font-semibold text-slate-900 text-[13px]">{b.project_name || '—'}</div>
+                          <div className="text-[11px] text-slate-400 mt-0.5">{b.contractor_name || 'Contractor'}</div>
+                        </td>
+                        <td className="px-5 py-3.5 font-mono text-[12px] font-bold text-blue-700">
+                          {b.bill_number || `RA-${String(b.id || '').slice(0, 8)}`}
+                        </td>
+                        <td className="px-5 py-3.5 text-[12px] text-slate-400 whitespace-nowrap">{dateFmt(b.bill_date)}</td>
+                        <td className="px-5 py-3.5 font-mono text-[13px] font-semibold text-slate-800">{inr(b.gross_amount || b.net_payable)}</td>
+                        <td className="px-5 py-3.5">
+                          <div className="font-mono text-[13px] text-emerald-600 font-semibold">{inr(b.amount_received || 0)}</div>
+                          <div className="w-24 h-1.5 bg-slate-100 rounded-full mt-1.5 overflow-hidden">
+                            <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${Math.min(pctReceived, 100)}%` }} />
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 font-mono text-[13px] font-bold" style={{ color: balance > 0 ? '#EF4444' : '#10B981' }}>
+                          {inr(balance)}
+                        </td>
+                        <td className="px-5 py-3.5"><StatusBadge status={b.status} /></td>
+                        <td className="px-5 py-3.5">
+                          <Link to="/qs/ra-bills" className="text-[11px] font-semibold text-blue-600 hover:underline flex items-center gap-1">
+                            View <ArrowRight className="w-3 h-3" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                {filtered.length > 0 && (
+                  <tfoot className="bg-slate-50 border-t border-slate-200">
+                    <tr>
+                      <td colSpan={3} className="px-5 py-3 text-[11px] font-black text-slate-500 uppercase tracking-wide">Total ({filtered.length} bills)</td>
+                      <td className="px-5 py-3 font-mono text-[13px] font-black text-slate-800">{inr(kpis.total)}</td>
+                      <td className="px-5 py-3 font-mono text-[13px] font-black text-emerald-700">{inr(kpis.received)}</td>
+                      <td className="px-5 py-3 font-mono text-[13px] font-black text-red-700">{inr(kpis.outstanding)}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* ── AR AGING TAB ── */}
+      {/* ══════════════════════════════════════════════════════ */}
+      {activeTab === 'aging' && (
+        <div className="space-y-5">
+
+          {/* Aging bucket summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {AGING_BUCKETS.map(bkt => {
+              const amt = aging.buckets[bkt.key] || 0;
+              const pct = totalAging > 0 ? ((amt / totalAging) * 100).toFixed(0) : 0;
+              return (
+                <div key={bkt.key} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{bkt.label}</div>
+                  <div className="mt-2 text-xl font-extrabold" style={{ color: bkt.color }}>{inr(amt)}</div>
+                  <div className="mt-1 text-[11px] text-slate-400">{pct}% of total</div>
+                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: bkt.color }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Aging by project table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h2 className="text-[15px] font-bold text-slate-800">AR Aging by Project</h2>
+              <span className="text-[11px] text-slate-400 font-medium">Unpaid / outstanding bills only</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    <th className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 px-5 py-3">Project</th>
+                    {AGING_BUCKETS.map(b => (
+                      <th key={b.key} className="text-right text-[10px] font-black uppercase tracking-widest px-4 py-3" style={{ color: b.color }}>{b.label}</th>
+                    ))}
+                    <th className="text-right text-[10px] font-black uppercase tracking-widest text-slate-700 px-5 py-3">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {aging.byProject.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-12 text-center text-slate-400 text-sm">
+                        No outstanding receivables — all clear!
+                      </td>
+                    </tr>
+                  ) : aging.byProject.map(([proj, data]) => (
+                    <tr key={proj} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-5 py-3.5 font-semibold text-slate-800 text-[13px]">{proj}</td>
+                      {AGING_BUCKETS.map(bkt => (
+                        <td key={bkt.key} className="px-4 py-3.5 text-right font-mono text-[12px]"
+                          style={{ color: data[bkt.key] > 0 ? bkt.color : '#CBD5E1', fontWeight: data[bkt.key] > 0 ? 700 : 400 }}>
+                          {data[bkt.key] > 0 ? inr(data[bkt.key]) : '—'}
+                        </td>
+                      ))}
+                      <td className="px-5 py-3.5 text-right font-mono text-[13px] font-black text-slate-900">{inr(data.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                {aging.byProject.length > 0 && (
+                  <tfoot className="bg-slate-50 border-t border-slate-200">
+                    <tr>
+                      <td className="px-5 py-3 text-[11px] font-black text-slate-500 uppercase tracking-wide">Total</td>
+                      {AGING_BUCKETS.map(bkt => (
+                        <td key={bkt.key} className="px-4 py-3 text-right font-mono text-[12px] font-black" style={{ color: bkt.color }}>
+                          {inr(aging.buckets[bkt.key])}
+                        </td>
+                      ))}
+                      <td className="px-5 py-3 text-right font-mono text-[13px] font-black text-slate-900">{inr(totalAging)}</td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+
+          {totalAging > 0 && (
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <div className="text-[12px] text-amber-700 font-medium">
+                <span className="font-bold">{inr(aging.buckets.over90)}</span> is overdue by more than 90 days.
+                Follow up on outstanding RA bills to improve cash flow.
+                <Link to="/qs/ra-bills" className="ml-2 font-bold underline">View RA Bills →</Link>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
