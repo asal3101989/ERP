@@ -91,10 +91,10 @@ export default function MINVerificationPage() {
                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
                   <div className="flex items-center gap-2 mb-2">
                      <HardHat className="w-3 h-3 text-emerald-500" />
-                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Custodian / Contractor</span>
+                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Issued To / Receiver</span>
                   </div>
-                  <p className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-tight truncate">{min.contractor_name || 'Direct Execution'}</p>
-                  <p className="text-[9px] text-slate-600 font-bold mt-1.5 uppercase tracking-widest leading-none">Receiver: {min.issued_to}</p>
+                  <p className="text-sm font-black text-slate-900 uppercase tracking-tighter leading-tight truncate">{min.issued_to || 'Site Team'}</p>
+                  <p className="text-[9px] text-slate-600 font-bold mt-1.5 uppercase tracking-widest leading-none">{min.contractor_name || 'Local / internal work'}</p>
                </div>
             </div>
 

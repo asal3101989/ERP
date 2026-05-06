@@ -194,8 +194,8 @@ export default function IssuePage() {
                       <div className="flex items-center gap-2">
                         <HardHat className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                         <div>
-                          <div className="text-sm text-slate-700 truncate max-w-[180px]">{min.contractor_name || 'Direct Execution'}</div>
-                          <div className="text-xs text-slate-400 mt-0.5">To: {min.issued_to}</div>
+                          <div className="text-sm text-slate-700 truncate max-w-[180px]">{min.issued_to || 'Site Team'}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{min.contractor_name || 'Local / internal work'}</div>
                         </div>
                       </div>
                     </td>
@@ -361,21 +361,21 @@ function MINForm({ onClose, projects, contractors, qc }) {
               </Field>
             </div>
             <div className="space-y-4">
-              <Field label="Subcontractor">
+              <Field label="Subcontractor / Agency (Optional)">
                 <select
                   className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all"
                   value={formData.contractor_id}
                   onChange={e => setFormData(p => ({ ...p, contractor_id: e.target.value }))}
                 >
-                  <option value="">None / Direct Execution</option>
+                  <option value="">None - local / internal work</option>
                   {contractors?.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Issued To">
+                <Field label="Issued To / Receiver">
                   <input
                     className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all"
-                    placeholder="Foreman name"
+                    placeholder="Foreman, engineer, staff name"
                     value={formData.issued_to}
                     onChange={e => setFormData(p => ({ ...p, issued_to: e.target.value }))}
                   />
