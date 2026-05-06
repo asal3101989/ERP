@@ -4,210 +4,287 @@ import { useNavigate } from 'react-router-dom';
 import { tqsBillsAPI, tqsTrackerAPI, projectAPI } from '../../api/client';
 import {
   LayoutDashboard, FileText, Clock, CheckCircle2,
-  AlertTriangle, TrendingUp, Package, ArrowRight,
-  IndianRupee, ClipboardCheck, Warehouse, CreditCard
+  AlertTriangle, Package, ArrowRight,
+  IndianRupee, ClipboardCheck, Warehouse, CreditCard,
+  TrendingUp, ChevronRight, Bell, RefreshCw
 } from 'lucide-react';
 
 const inr = (v) => Math.round(Number(v || 0)).toLocaleString('en-IN');
 
-const STATUS_COLORS = {
-  pending:  { bg: 'bg-amber-50',   text: 'text-amber-700',  border: 'border-amber-200',  dot: 'bg-amber-400' },
-  stores:   { bg: 'bg-blue-50',    text: 'text-blue-700',   border: 'border-blue-200',   dot: 'bg-blue-400' },
-  document_controller: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', dot: 'bg-cyan-400' },
-  qs:       { bg: 'bg-indigo-50',  text: 'text-indigo-700', border: 'border-indigo-200', dot: 'bg-indigo-400' },
-  accounts: { bg: 'bg-purple-50',  text: 'text-purple-700', border: 'border-purple-200', dot: 'bg-purple-400' },
-  procurement: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', dot: 'bg-orange-400' },
-  paid:     { bg: 'bg-emerald-50', text: 'text-emerald-700',border: 'border-emerald-200',dot: 'bg-emerald-400' },
+const STATUS_CONFIG = {
+  pending:             { label: 'Pending',     color: '#F59E0B', bg: '#FFFBEB', icon: Clock },
+  stores:              { label: 'Stores',      color: '#3B82F6', bg: '#EFF6FF', icon: Warehouse },
+  document_controller: { label: 'Doc Control', color: '#06B6D4', bg: '#ECFEFF', icon: FileText },
+  qs:                  { label: 'QS',          color: '#6366F1', bg: '#EEF2FF', icon: ClipboardCheck },
+  accounts:            { label: 'Accounts',    color: '#8B5CF6', bg: '#F5F3FF', icon: CreditCard },
+  procurement:         { label: 'Procurement', color: '#F97316', bg: '#FFF7ED', icon: Package },
+  paid:                { label: 'Paid',        color: '#10B981', bg: '#ECFDF5', icon: CheckCircle2 },
 };
+
+function ZohoKpiCard({ label, value, sub, accent, icon: Icon, trend }) {
+  return (
+    <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #E8ECF0', padding: '20px 20px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, letterSpacing: 0.2 }}>{label}</span>
+        <div style={{ width: 34, height: 34, borderRadius: 8, background: accent + '1A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={17} style={{ color: accent }} />
+        </div>
+      </div>
+      <div>
+        <p style={{ fontSize: 22, fontWeight: 700, color: '#1A202C', margin: 0, lineHeight: 1 }}>{value}</p>
+        {sub && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{sub}</p>}
+      </div>
+      {trend !== undefined && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, borderTop: '1px solid #F3F4F6', paddingTop: 10, marginTop: -2 }}>
+          <TrendingUp size={12} style={{ color: '#10B981' }} />
+          <span style={{ fontSize: 11, color: '#10B981', fontWeight: 500 }}>{trend}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PipelineStage({ label, value, total, color, bg, icon: Icon, status, onClick }) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1, background: bg, border: `1.5px solid ${color}22`,
+        borderRadius: 8, padding: '14px 10px', textAlign: 'center',
+        cursor: 'pointer', transition: 'all 0.15s', outline: 'none',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 4px 16px ${color}33`; e.currentTarget.style.borderColor = color; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = `${color}22`; }}
+    >
+      <div style={{ width: 32, height: 32, borderRadius: 8, background: color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px' }}>
+        <Icon size={16} style={{ color }} />
+      </div>
+      <p style={{ fontSize: 22, fontWeight: 800, color, margin: 0, lineHeight: 1 }}>{value}</p>
+      <p style={{ fontSize: 11, color: '#6B7280', marginTop: 4, fontWeight: 500 }}>{label}</p>
+      <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>{pct}%</p>
+    </button>
+  );
+}
+
+function SectionHeader({ title, action, onAction }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+      <h2 style={{ fontSize: 13, fontWeight: 700, color: '#1A202C', margin: 0, letterSpacing: 0.1 }}>{title}</h2>
+      {action && (
+        <button onClick={onAction} style={{ fontSize: 12, color: '#1A6FCC', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 3 }}>
+          {action} <ChevronRight size={13} />
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function TQSDashboardPage() {
   const navigate = useNavigate();
 
-  const { data: bills = [] } = useQuery({
+  const { data: bills = [], isLoading, refetch } = useQuery({
     queryKey: ['tqs-bills-all'],
     queryFn: () => tqsBillsAPI.list({}).then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])),
   });
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects-list'],
-    queryFn: () => projectAPI.list().then(r => {
-      const d = r.data;
-      return Array.isArray(d) ? d : (d?.projects ?? d?.data ?? []);
-    }),
-  });
-
-  // KPI calculations
-  const totalBills   = bills.length;
-  const pending      = bills.filter(b => b.workflow_status === 'pending').length;
-  const inStores     = bills.filter(b => b.workflow_status === 'stores').length;
-  const inDocControl = bills.filter(b => b.workflow_status === 'document_controller').length;
-  const inQS         = bills.filter(b => b.workflow_status === 'qs').length;
-  const inAccounts   = bills.filter(b => b.workflow_status === 'accounts').length;
-  const inProcurement = bills.filter(b => b.workflow_status === 'procurement').length;
-  const paid         = bills.filter(b => b.workflow_status === 'paid').length;
+  const totalBills      = bills.length;
+  const pending         = bills.filter(b => b.workflow_status === 'pending').length;
+  const inStores        = bills.filter(b => b.workflow_status === 'stores').length;
+  const inDocControl    = bills.filter(b => b.workflow_status === 'document_controller').length;
+  const inQS            = bills.filter(b => b.workflow_status === 'qs').length;
+  const inAccounts      = bills.filter(b => b.workflow_status === 'accounts').length;
+  const inProcurement   = bills.filter(b => b.workflow_status === 'procurement').length;
+  const paid            = bills.filter(b => b.workflow_status === 'paid').length;
 
   const totalInvoiceValue = bills.reduce((s, b) => s + parseFloat(b.total_amount || 0), 0);
   const totalPaid         = bills.reduce((s, b) => s + parseFloat(b.paid_amount || 0), 0);
   const totalCertified    = bills.reduce((s, b) => s + parseFloat(b.certified_net || 0), 0);
   const totalPending      = totalCertified - totalPaid;
 
-  // Overdue: certified but not paid, and older than 30 days
   const today = new Date();
   const overdue = bills.filter(b => {
     if (b.workflow_status === 'paid') return false;
     if (!b.certified_net || parseFloat(b.certified_net) <= 0) return false;
-    const created = new Date(b.created_at);
-    return (today - created) / (1000 * 60 * 60 * 24) > 30;
+    return (today - new Date(b.created_at)) / (1000 * 60 * 60 * 24) > 30;
   });
 
-  // Recent bills (last 10)
-  const recent = [...bills].slice(0, 10);
+  const recent = [...bills].slice(0, 8);
 
-  // Workflow pipeline breakdown
   const pipeline = [
-    { label: 'Pending',   value: pending,    status: 'pending',  icon: Clock },
-    { label: 'Stores',    value: inStores,   status: 'stores',   icon: Warehouse },
-    { label: 'Doc Ctrl',  value: inDocControl, status: 'document_controller', icon: FileText },
-    { label: 'QS',        value: inQS,       status: 'qs',       icon: ClipboardCheck },
-    { label: 'Accounts',  value: inAccounts, status: 'accounts', icon: CreditCard },
-    { label: 'Procure',   value: inProcurement, status: 'procurement', icon: Package },
-    { label: 'Paid',      value: paid,       status: 'paid',     icon: CheckCircle2 },
+    { status: 'pending',             value: pending },
+    { status: 'stores',              value: inStores },
+    { status: 'document_controller', value: inDocControl },
+    { status: 'qs',                  value: inQS },
+    { status: 'accounts',            value: inAccounts },
+    { status: 'procurement',         value: inProcurement },
+    { status: 'paid',                value: paid },
   ];
 
   return (
-    <div className="p-6 space-y-6 bg-[#f4f6f9] min-h-full">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
-          <LayoutDashboard className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-lg font-bold text-slate-800">TQS Dashboard</h1>
-          <p className="text-xs text-slate-500">Invoice tracker overview — all departments</p>
-        </div>
-      </div>
-
-      {/* Top KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Bills',       value: totalBills,   sub: 'All invoices',          color: 'bg-indigo-600', icon: FileText },
-          { label: 'Invoice Value',     value: `₹${inr(totalInvoiceValue)}`, sub: 'Total invoiced', color: 'bg-blue-600', icon: IndianRupee },
-          { label: 'Certified Amount',  value: `₹${inr(totalCertified)}`,    sub: 'QS certified',   color: 'bg-purple-600', icon: ClipboardCheck },
-          { label: 'Balance to Pay',    value: `₹${inr(totalPending)}`,      sub: 'Pending payment', color: 'bg-amber-500', icon: Clock },
-        ].map(k => (
-          <div key={k.label} className="bg-white rounded-xl border border-slate-100 p-4 flex items-center gap-4">
-            <div className={`w-10 h-10 ${k.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
-              <k.icon className="w-5 h-5 text-white" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg font-bold text-slate-800 truncate">{k.value}</p>
-              <p className="text-xs text-slate-500">{k.label}</p>
-            </div>
+    <div style={{ background: '#F0F2F5', minHeight: '100vh', padding: '0' }}>
+      {/* Zoho-style Top Bar */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #E8ECF0', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 6, background: 'linear-gradient(135deg, #1A6FCC, #0D4E99)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <LayoutDashboard size={16} style={{ color: '#fff' }} />
           </div>
-        ))}
-      </div>
-
-      {/* Workflow Pipeline */}
-      <div className="bg-white rounded-xl border border-slate-100 p-5">
-        <h2 className="text-sm font-semibold text-slate-700 mb-4">Workflow Pipeline</h2>
-        <div className="flex gap-2 items-stretch">
-          {pipeline.map((p, i) => {
-            const cfg = STATUS_COLORS[p.status];
-            const pct = totalBills > 0 ? Math.round((p.value / totalBills) * 100) : 0;
-            return (
-              <React.Fragment key={p.status}>
-                <button
-                  onClick={() => navigate(`/tqs/bills?status=${p.status}`)}
-                  className={`flex-1 rounded-xl border ${cfg.border} ${cfg.bg} p-3 text-center hover:shadow-md transition-all group`}
-                >
-                  <p.icon className={`w-5 h-5 mx-auto mb-1.5 ${cfg.text}`} />
-                  <p className={`text-2xl font-bold ${cfg.text}`}>{p.value}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{p.label}</p>
-                  <p className="text-xs text-slate-400">{pct}%</p>
-                </button>
-                {i < pipeline.length - 1 && (
-                  <div className="flex items-center text-slate-300">
-                    <ArrowRight className="w-4 h-4" />
-                  </div>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Overdue Alert */}
-        <div className="md:col-span-1 bg-white rounded-xl border border-slate-100 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-700">Overdue Bills</h2>
-            {overdue.length > 0 && (
-              <span className="text-xs font-bold px-2 py-0.5 bg-red-100 text-red-600 rounded-full">
-                {overdue.length} overdue
-              </span>
-            )}
+          <div>
+            <h1 style={{ fontSize: 15, fontWeight: 700, color: '#1A202C', margin: 0 }}>TQS Dashboard</h1>
+            <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>Invoice tracker · All departments</p>
           </div>
-          {overdue.length === 0 ? (
-            <div className="text-center py-6">
-              <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-1" />
-              <p className="text-xs text-slate-500">No overdue bills</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-52 overflow-y-auto">
-              {overdue.slice(0, 8).map(b => (
-                <button
-                  key={b.id}
-                  onClick={() => navigate(`/tqs/bills/${b.id}`)}
-                  className="w-full text-left flex items-center gap-2.5 p-2.5 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-100"
-                >
-                  <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-slate-700 truncate">{b.vendor_name}</p>
-                    <p className="text-[10px] text-slate-400">{b.inv_number} · ₹{inr(b.certified_net || b.total_amount)}</p>
-                  </div>
-                </button>
-              ))}
-              {overdue.length > 8 && (
-                <button onClick={() => navigate('/tqs/bills?status=accounts')} className="w-full text-center text-xs text-indigo-600 hover:underline pt-1">
-                  View all {overdue.length} overdue →
-                </button>
-              )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {overdue.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, padding: '5px 10px' }}>
+              <Bell size={13} style={{ color: '#EF4444' }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#EF4444' }}>{overdue.length} overdue</span>
             </div>
           )}
+          <button
+            onClick={() => refetch()}
+            style={{ width: 32, height: 32, borderRadius: 6, background: '#F3F4F6', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          >
+            <RefreshCw size={14} style={{ color: '#6B7280' }} />
+          </button>
+        </div>
+      </div>
+
+      <div style={{ padding: '24px 28px', maxWidth: 1400, margin: '0 auto' }}>
+
+        {/* KPI Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          <ZohoKpiCard label="Total Bills"       value={totalBills}              sub="All invoices"       accent="#1A6FCC" icon={FileText}      trend={`${paid} paid this cycle`} />
+          <ZohoKpiCard label="Invoice Value"     value={`₹${inr(totalInvoiceValue)}`} sub="Total invoiced" accent="#0891B2" icon={IndianRupee}   />
+          <ZohoKpiCard label="Certified Amount"  value={`₹${inr(totalCertified)}`}    sub="QS certified"   accent="#7C3AED" icon={ClipboardCheck} />
+          <ZohoKpiCard label="Balance to Pay"    value={`₹${inr(totalPending)}`}      sub="Pending payment" accent="#D97706" icon={Clock}          trend={overdue.length > 0 ? `${overdue.length} overdue` : 'On track'} />
         </div>
 
-        {/* Recent Bills */}
-        <div className="md:col-span-2 bg-white rounded-xl border border-slate-100 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-700">Recent Bills</h2>
-            <button onClick={() => navigate('/tqs/bills')} className="text-xs text-indigo-600 hover:underline">View all →</button>
-          </div>
-          <div className="space-y-1">
-            {recent.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">No bills yet</p>
-            ) : recent.map(b => {
-              const cfg = STATUS_COLORS[b.workflow_status] || STATUS_COLORS.pending;
+        {/* Workflow Pipeline */}
+        <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #E8ECF0', padding: '20px 20px 18px', marginBottom: 24 }}>
+          <SectionHeader title="Workflow Pipeline" action="View Bills" onAction={() => navigate('/tqs/bills')} />
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
+            {pipeline.map((p, i) => {
+              const cfg = STATUS_CONFIG[p.status];
               return (
-                <button
-                  key={b.id}
-                  onClick={() => navigate(`/tqs/bills/${b.id}`)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors text-left"
-                >
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-700 truncate">{b.vendor_name}</p>
-                    <p className="text-[10px] text-slate-400 truncate">{b.sl_number} · {b.inv_number}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs font-bold text-slate-700">₹{inr(b.total_amount)}</p>
-                    <span className={`text-[10px] font-semibold ${cfg.text}`}>
-                      {b.workflow_status?.charAt(0).toUpperCase() + b.workflow_status?.slice(1)}
-                    </span>
-                  </div>
-                </button>
+                <React.Fragment key={p.status}>
+                  <PipelineStage
+                    label={cfg.label}
+                    value={p.value}
+                    total={totalBills}
+                    color={cfg.color}
+                    bg={cfg.bg}
+                    icon={cfg.icon}
+                    status={p.status}
+                    onClick={() => navigate(`/tqs/bills?status=${p.status}`)}
+                  />
+                  {i < pipeline.length - 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', color: '#D1D5DB' }}>
+                      <ArrowRight size={14} />
+                    </div>
+                  )}
+                </React.Fragment>
               );
             })}
           </div>
+        </div>
+
+        {/* Bottom Row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+
+          {/* Overdue Bills */}
+          <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #E8ECF0', padding: '20px' }}>
+            <SectionHeader
+              title="Overdue Bills"
+              action={overdue.length > 4 ? `View all ${overdue.length}` : undefined}
+              onAction={() => navigate('/tqs/bills?status=accounts')}
+            />
+            {overdue.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '28px 0' }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+                  <CheckCircle2 size={22} style={{ color: '#10B981' }} />
+                </div>
+                <p style={{ fontSize: 13, color: '#6B7280', margin: 0, fontWeight: 500 }}>All bills on track</p>
+                <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>No overdue payments</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto' }}>
+                {overdue.slice(0, 6).map(b => (
+                  <button
+                    key={b.id}
+                    onClick={() => navigate(`/tqs/bills/${b.id}`)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 10px', borderRadius: 6,
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      transition: 'background 0.12s', textAlign: 'left', width: '100%',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div style={{ width: 30, height: 30, borderRadius: 6, background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <AlertTriangle size={14} style={{ color: '#EF4444' }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: '#1A202C', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.vendor_name}</p>
+                      <p style={{ fontSize: 10, color: '#9CA3AF', margin: '2px 0 0' }}>{b.inv_number} · ₹{inr(b.certified_net || b.total_amount)}</p>
+                    </div>
+                    <ChevronRight size={13} style={{ color: '#D1D5DB', flexShrink: 0 }} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Bills */}
+          <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #E8ECF0', padding: '20px' }}>
+            <SectionHeader title="Recent Bills" action="View all" onAction={() => navigate('/tqs/bills')} />
+            {recent.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 0' }}>
+                <p style={{ fontSize: 13, color: '#9CA3AF' }}>No bills yet</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Table Header */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px 90px', gap: 8, padding: '4px 10px 8px', borderBottom: '1px solid #F3F4F6' }}>
+                  {['Vendor', 'Invoice No.', 'Amount', 'Status'].map(h => (
+                    <span key={h} style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</span>
+                  ))}
+                </div>
+                {recent.map(b => {
+                  const cfg = STATUS_CONFIG[b.workflow_status] || STATUS_CONFIG.pending;
+                  return (
+                    <button
+                      key={b.id}
+                      onClick={() => navigate(`/tqs/bills/${b.id}`)}
+                      style={{
+                        display: 'grid', gridTemplateColumns: '1fr 1fr 100px 90px', gap: 8,
+                        padding: '9px 10px', borderRadius: 6,
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        transition: 'background 0.12s', textAlign: 'left', alignItems: 'center',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#1A202C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.vendor_name}</span>
+                      <span style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.inv_number || b.sl_number}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#1A202C' }}>₹{inr(b.total_amount)}</span>
+                      <span style={{
+                        fontSize: 10, fontWeight: 600,
+                        color: cfg.color,
+                        background: cfg.bg,
+                        padding: '3px 8px', borderRadius: 20,
+                        display: 'inline-block', whiteSpace: 'nowrap',
+                      }}>
+                        {cfg.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>
