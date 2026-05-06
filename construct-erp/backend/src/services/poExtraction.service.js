@@ -1,5 +1,12 @@
 // PDF extraction service for Purchase Orders
 const pdfParse = require('pdf-parse');
+const fs = require('fs/promises');
+const os = require('os');
+const path = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+
+const execFileAsync = promisify(execFile);
 
 const UNIT_RE = /\b(MT|Bags?|CUM|Cu\.?\s?M|SQM|SQFT|SFT|Nos?\.?|PCS|PC|Each|EA|RMT|RM|KG|Kgs?|Litre|Ltrs?|LS|Lot|Month|Set|Pairs?|Ton|Tonne|KN|M3|M2)\b/i;
 const UNIT_NORMALIZE = {
@@ -175,16 +182,64 @@ function extractItemsFromText(text) {
   return items;
 }
 
+async function extractTextWithOcr(buffer) {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'po-ocr-'));
+  const pdfPath = path.join(tmpDir, 'input.pdf');
+  const imagePrefix = path.join(tmpDir, 'page');
+
+  try {
+    await fs.writeFile(pdfPath, buffer);
+
+    await execFileAsync('pdftoppm', ['-png', '-r', '220', '-f', '1', '-l', '3', pdfPath, imagePrefix], {
+      timeout: 45000,
+      windowsHide: true,
+    });
+
+    const files = (await fs.readdir(tmpDir))
+      .filter(file => /^page-\d+\.png$/i.test(file))
+      .sort();
+
+    const pages = [];
+    for (const file of files) {
+      const imagePath = path.join(tmpDir, file);
+      const { stdout } = await execFileAsync('tesseract', [imagePath, 'stdout', '-l', 'eng', '--psm', '6'], {
+        timeout: 45000,
+        windowsHide: true,
+      });
+      if (stdout) pages.push(stdout);
+    }
+
+    return pages.join('\n');
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function extractPO(buffer) {
   const data = await pdfParse(buffer);
-  const text = data.text || '';
+  let text = data.text || '';
+  const warnings = [];
+
+  if (clean(text).length < 80) {
+    try {
+      const ocrText = await extractTextWithOcr(buffer);
+      if (clean(ocrText).length > clean(text).length) {
+        text = ocrText;
+        warnings.push('OCR was used because this PDF is scanned/image-based. Please review the extracted data carefully.');
+      }
+    } catch (err) {
+      warnings.push(
+        'This PDF is scanned/image-based. Install OCR tools on the server with: sudo apt install poppler-utils tesseract-ocr'
+      );
+    }
+  }
+
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
   const header = extractHeader(text);
   let items = extractItems(lines);
   if (!items.length) items = extractItemsFromText(text);
 
-  const warnings = [];
   if (clean(text).length < 80) {
     warnings.push('This PDF appears to be scanned or image-based, so text extraction is limited.');
   }
