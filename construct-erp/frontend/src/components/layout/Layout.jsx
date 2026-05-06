@@ -108,29 +108,6 @@ const navGroups = [
     ]
   },
 
-  // ── 8. FINANCE ──────────────────────────────────────────────────────────────
-  {
-    label: 'Finance',
-    items: [
-      { to: '/finance',                icon: BookOpen,   label: 'Finance Home' },
-      { to: '/finance/accounts-dashboard', icon: LayoutDashboard, label: 'Accounts Dashboard' },
-      { to: '/finance/customer-statements', icon: FileSignature, label: 'Customer Statements' },
-      { to: '/finance/bank-reconciliation', icon: Landmark, label: 'Bank Reconciliation' },
-      { to: '/finance/payment-run',       icon: Clock3,    label: 'Payment Run' },
-      { to: '/finance/cheque-tracker',     icon: CircleSlash, label: 'Cheque Tracker' },
-      { to: '/finance/control-dashboard',  icon: ShieldCheck, label: 'Control Dashboard' },
-      { to: '/finance/management-mis',     icon: FolderSearch, label: 'Management MIS' },
-      { to: '/finance/gst',             icon: DollarSign, label: 'GST Billing' },
-      { to: '/finance/tds',             icon: CreditCard, label: 'TDS Register' },
-      { to: '/finance/invoices',        icon: FileText,   label: 'Vendor Payables' },
-      { to: '/finance/invoices/booking', icon: FileText,  label: 'Bill Booking' },
-      { to: '/finance/budget',          icon: TrendingUp, label: 'Budget vs Actual' },
-      { to: '/finance/payments',        icon: Wallet,     label: 'Payments' },
-      { to: '/finance/billing-reports', icon: BarChart3,  label: 'Billing Reports' },
-      { to: '/finance/intelligence',    icon: TrendingUp, label: 'Finance Intelligence' },
-    ]
-  },
-
   // ── 9. TQS TRACKER (bill approval workflow) ──────────────────────────────────
   {
     label: 'TQS Tracker',
@@ -225,7 +202,6 @@ const GROUP_COLORS = {
   'Stores':            '#14B8A6',
   'Subcontractors':    '#F97316',
   'QS & Billing':      '#10B981',
-  'Finance':           '#22C55E',
   'TQS Tracker':       '#6366F1',
   'Quality (QA/QC)':   '#3B82F6',
   'HSE & Safety':      '#EF4444',
