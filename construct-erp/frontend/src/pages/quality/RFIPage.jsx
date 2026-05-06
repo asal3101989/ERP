@@ -34,9 +34,9 @@ export default function RFIPage() {
     onAfterPrint: () => setPrintData(null),
   });
 
-  const { data: rfis, isLoading } = useQuery({
+  const { data: rfis = [], isLoading } = useQuery({
     queryKey: ['quality-rfi'],
-    queryFn: () => qualityAPI.listRFI().then(r => r.data.data),
+    queryFn: () => qualityAPI.listRFI().then(r => r.data?.data ?? r.data ?? []).catch(() => []),
   });
 
   const { data: projects } = useQuery({
@@ -46,12 +46,12 @@ export default function RFIPage() {
 
   const { data: checklists } = useQuery({
     queryKey: ['quality-checklists'],
-    queryFn: () => qualityAPI.listChecklists().then(r => r.data.data),
+    queryFn: () => qualityAPI.listChecklists().then(r => r.data?.data ?? r.data ?? []).catch(() => []),
   });
 
   const { data: drawings } = useQuery({
     queryKey: ['quality-drawings'],
-    queryFn: () => qualityAPI.listDrawings().then(r => r.data.data),
+    queryFn: () => qualityAPI.listDrawings().then(r => r.data?.data ?? r.data ?? []).catch(() => []),
   });
 
   const createMut = useMutation({

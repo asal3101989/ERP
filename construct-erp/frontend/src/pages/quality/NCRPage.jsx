@@ -39,9 +39,9 @@ export default function NCRPage() {
     onAfterPrint: () => setPrintData(null),
   });
 
-  const { data: ncrs, isLoading } = useQuery({
+  const { data: ncrs = [], isLoading } = useQuery({
     queryKey: ['quality-ncr'],
-    queryFn: () => qualityAPI.listNCR().then(r => r.data.data),
+    queryFn: () => qualityAPI.listNCR().then(r => r.data?.data ?? r.data ?? []).catch(() => []),
   });
 
   const { data: projects } = useQuery({

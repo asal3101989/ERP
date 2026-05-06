@@ -37,12 +37,12 @@ export default function DocumentControlPage() {
 
   const { data: drawings, isLoading: isDrawingsLoading } = useQuery({
     queryKey: ['quality-drawings'],
-    queryFn: () => qualityAPI.listDrawings().then(r => r.data.data),
+    queryFn: () => qualityAPI.listDrawings().then(r => r.data?.data ?? r.data ?? []).catch(() => []),
   });
 
   const { data: submittals, isLoading: isSubmittalsLoading } = useQuery({
     queryKey: ['quality-submittals'],
-    queryFn: () => qualityAPI.listSubmittals().then(r => r.data.data),
+    queryFn: () => qualityAPI.listSubmittals().then(r => r.data?.data ?? r.data ?? []).catch(() => []),
   });
 
   const { data: projects } = useQuery({
