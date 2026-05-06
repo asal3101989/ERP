@@ -1,27 +1,29 @@
-// src/pages/finance/GSTPage.jsx
-import React, { useState } from 'react';
+// src/pages/finance/GSTPage.jsx — Zoho Books style
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { DollarSign, Plus, X, FileText, TrendingUp, Landmark, Calculator } from 'lucide-react';
-import api, { invoiceAPI, projectAPI } from '../../api/client';
+import { Calculator, Plus, X, FileText, TrendingUp, Landmark, ChevronDown, Download, RefreshCw } from 'lucide-react';
+import api, { invoiceAPI, projectAPI, raBillAPI, tqsBillsAPI } from '../../api/client';
 import toast from 'react-hot-toast';
-import { clsx } from 'clsx';
 import dayjs from 'dayjs';
-import DataToolbar from '../../components/common/DataToolbar';
-import TableActions from '../../components/common/TableActions';
 
-const inr = (v) => `₹${parseFloat(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const inr = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(v || 0));
+const pct = (num, den) => den ? ((num / den) * 100).toFixed(1) + '%' : '0%';
 
-const GST_RATES = {
-  residential_affordable: { rate: 1, label: 'Affordable Housing (CLSS) — 1%' },
-  residential_other:      { rate: 5, label: 'Residential (Under Construction) — 5%' },
-  commercial:             { rate: 12, label: 'Commercial Construction — 12%' },
-  govt_works:             { rate: 12, label: 'Works Contract (Govt) — 12%' },
-  other_works:            { rate: 18, label: 'Works Contract (Other) — 18%' },
-  materials_cement:       { rate: 28, label: 'Cement (GST 28%)' },
-  materials_steel:        { rate: 18, label: 'Steel / TMT — 18%' },
-};
+const GST_RATES = [
+  { label: 'Affordable Housing (CLSS)', rate: 1, category: 'Residential', note: 'u/s 80-IBA' },
+  { label: 'Residential (Under Construction)', rate: 5, category: 'Residential', note: 'No ITC available' },
+  { label: 'Commercial Construction', rate: 12, category: 'Commercial', note: 'Works Contract' },
+  { label: 'Works Contract (Govt)', rate: 12, category: 'Government', note: 'HSN 9954' },
+  { label: 'Works Contract (Other)', rate: 18, category: 'Other', note: 'HSN 9954' },
+  { label: 'Cement', rate: 28, category: 'Materials', note: 'HSN 2523' },
+  { label: 'Steel / TMT Bars', rate: 18, category: 'Materials', note: 'HSN 7214' },
+  { label: 'Sand & Aggregates', rate: 5, category: 'Materials', note: 'HSN 2505' },
+  { label: 'Electrical Fittings', rate: 18, category: 'Materials', note: 'HSN 8536' },
+];
 
+// ── GST Calculator Modal ───────────────────────────────────────────────────────
 function GSTCalculator({ onClose }) {
   const [taxable, setTaxable] = useState(1000000);
   const [gstType, setGstType] = useState('cgst_sgst');
@@ -36,345 +38,667 @@ function GSTCalculator({ onClose }) {
   const netAfterTDS = total - tds;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-[3.5rem] w-full max-w-lg shadow-2xl animate-in zoom-in duration-300 overflow-hidden">
-        <div className="flex items-center justify-between p-8 border-b border-slate-100 bg-slate-50">
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight italic flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-indigo-600"><Calculator size={20} /></div>
-             GST Calculator
-          </h2>
-          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all shadow-sm"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="p-8 space-y-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Taxable Amount (₹)</label>
-            <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-mono font-black text-indigo-600 outline-none focus:border-indigo-400 shadow-sm transition-all" value={taxable} onChange={e => setTaxable(parseFloat(e.target.value)||0)} />
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <Calculator className="h-5 w-5 text-blue-600" />
+            <h2 className="text-lg font-semibold text-gray-900">GST Calculator</h2>
           </div>
-          <div className="grid grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">GST Type</label>
-              <select className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black text-slate-900 uppercase tracking-widest outline-none focus:border-indigo-400 shadow-sm transition-all appearance-none italic" value={gstType} onChange={e => setGstType(e.target.value)}>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Taxable Amount (₹)</label>
+            <input
+              type="number"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+              value={taxable}
+              onChange={e => setTaxable(parseFloat(e.target.value) || 0)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">GST Type</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={gstType}
+                onChange={e => setGstType(e.target.value)}
+              >
                 <option value="cgst_sgst">Intra-state (CGST + SGST)</option>
                 <option value="igst">Inter-state (IGST)</option>
                 <option value="exempt">Exempt</option>
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">GST Rate (%)</label>
-              <select className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black text-slate-900 uppercase tracking-widest outline-none focus:border-indigo-400 shadow-sm transition-all appearance-none italic" value={rate} onChange={e => setRate(parseInt(e.target.value))}>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">GST Rate (%)</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={rate}
+                onChange={e => setRate(parseInt(e.target.value))}
+              >
                 <option value={1}>1% — Affordable</option>
                 <option value={5}>5% — Residential</option>
-                <option value={12}>12% — Govt/Com</option>
-                <option value={18}>18% — General</option>
+                <option value={12}>12% — Govt / Commercial</option>
+                <option value={18}>18% — Works Contract</option>
                 <option value={28}>28% — Cement</option>
               </select>
             </div>
           </div>
-          <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-6 space-y-3 font-mono text-sm shadow-inner">
-            <div className="flex justify-between text-slate-500 font-bold"><span>Taxable Amount</span><span className="text-slate-900">{inr(taxable)}</span></div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2 text-sm font-mono">
+            <div className="flex justify-between text-gray-600">
+              <span>Taxable Amount</span>
+              <span className="font-semibold text-gray-900">{inr(taxable)}</span>
+            </div>
             {gstType === 'cgst_sgst' && <>
-              <div className="flex justify-between text-blue-500 font-bold"><span>CGST @ {rate/2}%</span><span>+ {inr(cgst)}</span></div>
-              <div className="flex justify-between text-emerald-500 font-bold"><span>SGST @ {rate/2}%</span><span>+ {inr(sgst)}</span></div>
+              <div className="flex justify-between text-blue-600">
+                <span>CGST @ {rate / 2}%</span>
+                <span>+ {inr(cgst)}</span>
+              </div>
+              <div className="flex justify-between text-green-600">
+                <span>SGST @ {rate / 2}%</span>
+                <span>+ {inr(sgst)}</span>
+              </div>
             </>}
-            {gstType === 'igst' && <div className="flex justify-between text-purple-500 font-bold"><span>IGST @ {rate}%</span><span>+ {inr(igst)}</span></div>}
-            <div className="flex justify-between text-slate-900 font-black border-t border-slate-200 pt-3 text-lg italic tracking-tighter"><span>Invoice Total</span><span>{inr(total)}</span></div>
-            <div className="flex justify-between text-red-500 text-xs font-bold pt-1"><span>Less: TDS u/s 194C (2%)</span><span>− {inr(tds)}</span></div>
-            <div className="flex justify-between text-indigo-600 font-black border-t border-slate-200 pt-3 text-2xl italic tracking-tighter"><span>Net Receivable</span><span>{inr(netAfterTDS)}</span></div>
+            {gstType === 'igst' && (
+              <div className="flex justify-between text-purple-600">
+                <span>IGST @ {rate}%</span>
+                <span>+ {inr(igst)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-bold text-gray-900 border-t border-gray-200 pt-2">
+              <span>Invoice Total</span>
+              <span>{inr(total)}</span>
+            </div>
+            <div className="flex justify-between text-red-500 text-xs">
+              <span>Less: TDS u/s 194C (2%)</span>
+              <span>− {inr(tds)}</span>
+            </div>
+            <div className="flex justify-between text-blue-700 font-bold border-t border-gray-200 pt-2 text-base">
+              <span>Net Receivable</span>
+              <span>{inr(netAfterTDS)}</span>
+            </div>
           </div>
-          <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-[10px] text-indigo-600 font-bold uppercase tracking-widest italic text-center">
-            HSN: 9954 (Construction Services) • Valid for 30 days
-          </div>
+
+          <p className="text-xs text-gray-500 text-center">HSN: 9954 (Construction Services) • For reference only</p>
         </div>
       </div>
     </div>
   );
 }
 
-export default function GSTPage() {
-  const [showCalc, setShowCalc] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [tab, setTab] = useState('invoices');
-  const qc = useQueryClient();
-  const { register, handleSubmit, watch, reset } = useForm({ defaultValues: { gst_type: 'cgst_sgst', gst_rate: 18 } });
+// ── Create Invoice Modal ───────────────────────────────────────────────────────
+function CreateInvoiceModal({ projects, onClose, onCreate }) {
+  const { register, handleSubmit, watch } = useForm({ defaultValues: { gst_type: 'cgst_sgst', gst_rate: 18 } });
 
-  const { data } = useQuery({
-    queryKey: ['invoices'],
-    queryFn: () => invoiceAPI.list().then(r => r.data.data).catch(() => []),
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Issue Tax Invoice</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit(onCreate)} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number *</label>
+              <input
+                {...register('invoice_number', { required: true })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono uppercase"
+                placeholder="INV/2425/090"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date *</label>
+              <input
+                {...register('invoice_date', { required: true })}
+                type="date"
+                defaultValue={dayjs().format('YYYY-MM-DD')}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Project *</label>
+            <select
+              {...register('project_id', { required: true })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— Select Project —</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Client Name *</label>
+              <input
+                {...register('client_name', { required: true })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="M/S ABC Limited"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Client GSTIN</label>
+              <input
+                {...register('client_gstin')}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono uppercase"
+                placeholder="27AABCS1234C1Z5"
+                maxLength={15}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">HSN Code</label>
+              <input
+                {...register('hsn_code')}
+                defaultValue="9954"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Taxable Amount (₹) *</label>
+              <input
+                {...register('taxable_amount', { required: true })}
+                type="number"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                placeholder="1000000"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">GST Type *</label>
+              <select
+                {...register('gst_type')}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="cgst_sgst">Intra-state (CGST + SGST)</option>
+                <option value="igst">Inter-state (IGST)</option>
+                <option value="exempt">Exempt</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">GST Rate (%) *</label>
+              <select
+                {...register('gst_rate')}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value={1}>1% — Affordable Housing</option>
+                <option value={5}>5% — Residential</option>
+                <option value={12}>12% — Commercial / Govt</option>
+                <option value={18}>18% — Works Contract</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              Issue Invoice
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+const TABS = ['GST Summary', 'ITC (Purchases)', 'GST Rates'];
+
+export default function GSTPage() {
+  const [showCalc, setShowCalc]   = useState(false);
+  const [showForm, setShowForm]   = useState(false);
+  const [tab, setTab]             = useState('GST Summary');
+  const qc = useQueryClient();
+
+  // Outgoing invoices (issued to clients)
+  const { data: invoices = [], refetch: refetchInv, isFetching: fetchingInv } = useQuery({
+    queryKey: ['gst-invoices'],
+    queryFn: () => invoiceAPI.list().then(r => r.data?.data || []).catch(() => []),
   });
 
+  // TQS bills — input tax (ITC)
+  const { data: tqsRes, refetch: refetchTqs, isFetching: fetchingTqs } = useQuery({
+    queryKey: ['tqs-bills-gst'],
+    queryFn: () => tqsBillsAPI.list({ limit: 1000 }).then(r => {
+      const d = r.data;
+      return Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []);
+    }).catch(() => []),
+  });
+  const tqsBills = tqsRes || [];
+
+  // Projects
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => projectAPI.list().then(r => { const d = r?.data; return Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []); }).catch(() => []),
-  });
-
-  const { data: gstSummary } = useQuery({
-    queryKey: ['gst-summary'],
-    queryFn: () => invoiceAPI.gstSummary({ year: new Date().getFullYear() }).then(r => r.data).catch(() => null),
+    queryFn: () => projectAPI.list().then(r => { const d = r?.data; return Array.isArray(d) ? d : (d?.data || []); }).catch(() => []),
   });
 
   const createMutation = useMutation({
     mutationFn: (d) => invoiceAPI.create({ ...d, taxable_amount: parseFloat(d.taxable_amount) }),
-    onSuccess: () => { toast.success('Invoice created!'); reset(); setShowForm(false); qc.invalidateQueries(['invoices']); },
-    onError: (e) => toast.error(e.response?.data?.error || 'Failed'),
+    onSuccess: () => { toast.success('Invoice created'); setShowForm(false); qc.invalidateQueries(['gst-invoices']); },
+    onError: (e) => toast.error(e.response?.data?.error || 'Failed to create invoice'),
   });
 
-  const deleteMut = useMutation({
-    mutationFn: (id) => api.delete(`/invoices/${id}`),
-    onSuccess: () => {
-      toast.success('Invoice deleted');
-      qc.invalidateQueries(['invoices']);
-    },
-    onError: () => toast.error('Failed to delete invoice'),
-  });
+  // ── Computed KPIs ────────────────────────────────────────────────────────
+  const outputGST = useMemo(() => {
+    const cgst = invoices.reduce((s, i) => s + parseFloat(i.cgst_amount || 0), 0);
+    const sgst = invoices.reduce((s, i) => s + parseFloat(i.sgst_amount || 0), 0);
+    const igst = invoices.reduce((s, i) => s + parseFloat(i.igst_amount || 0), 0);
+    return { cgst, sgst, igst, total: cgst + sgst + igst };
+  }, [invoices]);
 
-  const invoices = data || [];
-  const totalCollected = invoices.filter(i => i.payment_status === 'paid').reduce((s, i) => s + parseFloat(i.total_amount || 0), 0);
-  const totalGST = invoices.reduce((s, i) => s + parseFloat(i.cgst_amount || 0) + parseFloat(i.sgst_amount || 0) + parseFloat(i.igst_amount || 0), 0);
-  const totalPending = invoices.filter(i => i.payment_status === 'unpaid').reduce((s, i) => s + parseFloat(i.total_amount || 0), 0);
+  const inputITC = useMemo(() => {
+    const bills = tqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0);
+    const total = bills.reduce((s, b) => s + parseFloat(b.gst_amount || 0), 0);
+    const cgst = bills.reduce((s, b) => s + parseFloat(b.cgst_amount || b.gst_amount / 2 || 0), 0);
+    const sgst = bills.reduce((s, b) => s + parseFloat(b.sgst_amount || b.gst_amount / 2 || 0), 0);
+    return { total, cgst, sgst, count: bills.length };
+  }, [tqsBills]);
+
+  const netGSTPayable = Math.max(0, outputGST.total - inputITC.total);
+
+  // ── CSV Export ───────────────────────────────────────────────────────────
+  const exportCSV = () => {
+    const rows = [
+      ['Invoice No', 'Date', 'Client', 'Taxable', 'CGST', 'SGST', 'IGST', 'Total', 'Status'],
+      ...invoices.map(i => [
+        i.invoice_number, dayjs(i.invoice_date).format('DD-MM-YYYY'),
+        i.client_name, i.taxable_amount,
+        i.cgst_amount, i.sgst_amount, i.igst_amount, i.total_amount,
+        i.payment_status,
+      ]),
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `GST_Invoices_${dayjs().format('YYYYMMDD')}.csv`;
+    a.click();
+  };
+
+  const isFetching = fetchingInv || fetchingTqs;
 
   return (
-    <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto bg-slate-50 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-           <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-             <Landmark className="w-6 h-6 text-indigo-600" />
-           </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight italic">GST & Static Taxation</h1>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">CGST / SGST / IGST — Works Contract (HSN 9954)</p>
+    <div className="min-h-screen bg-[#F5F7FA] p-6 space-y-6">
+
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">GST &amp; Tax Compliance</h1>
+          <p className="text-sm text-gray-500 mt-0.5">CGST / SGST / IGST — Works Contract (HSN 9954)</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { refetchInv(); refetchTqs(); }}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export
+          </button>
+          <button
+            onClick={() => setShowCalc(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors font-medium"
+          >
+            <Calculator className="h-4 w-4" />
+            Calculator
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Issue Invoice
+          </button>
+        </div>
+      </div>
+
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Output GST (Collected)', value: inr(outputGST.total), sub: `${invoices.length} invoices`, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+          { label: 'Input Tax Credit (ITC)', value: inr(inputITC.total), sub: `${inputITC.count} vendor bills`, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100' },
+          { label: 'Net GST Payable', value: inr(netGSTPayable), sub: 'Output − ITC', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+          { label: 'Total Invoiced (Excl. GST)', value: inr(invoices.reduce((s, i) => s + parseFloat(i.taxable_amount || 0), 0)), sub: 'Taxable value', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
+        ].map((kpi, i) => (
+          <div key={i} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+            <p className="text-xs font-medium text-gray-500 mb-2">{kpi.label}</p>
+            <p className={`text-xl font-bold ${kpi.color} font-mono`}>{kpi.value}</p>
+            <p className="text-xs text-gray-400 mt-1">{kpi.sub}</p>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="px-5 py-3 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-sm flex items-center gap-2 italic" onClick={() => setShowCalc(true)}><Calculator className="w-4 h-4" /> Calculator</button>
-          <button className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-2 italic" onClick={() => setShowForm(true)}><Plus className="w-4 h-4" /> Issue Tax Invoice</button>
-        </div>
-      </div>
-
-      {/* Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-[2rem] p-6 text-center shadow-sm">
-           <div className="text-3xl font-black text-emerald-600 font-mono tracking-tighter italic">₹{(totalCollected / 1e5).toFixed(1)}L</div>
-           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Total Collected</div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-[2rem] p-6 text-center shadow-sm">
-           <div className="text-3xl font-black text-indigo-600 font-mono tracking-tighter italic">₹{(totalGST / 1e5).toFixed(1)}L</div>
-           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">GST Collected</div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-[2rem] p-6 text-center shadow-sm">
-           <div className="text-3xl font-black text-amber-500 font-mono tracking-tighter italic">₹{(totalPending / 1e5).toFixed(1)}L</div>
-           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Pending Collection</div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 text-center shadow-md">
-           <div className="text-3xl font-black text-red-400 font-mono tracking-tighter italic">₹1.40L</div>
-           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Net GST Payable</div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 bg-white p-2 rounded-2xl w-fit border border-slate-200 shadow-sm">
-        {['invoices', 'gst_rates', 'itc'].map(t => (
-          <button key={t} onClick={() => setTab(t)}
-             className={clsx('px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all italic',
-              tab === t ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-            )}>{t.replace('_', ' ')}</button>
         ))}
       </div>
 
-      {tab === 'invoices' && (
-        <div className="space-y-6">
-          <DataToolbar 
-            data={invoices} 
-            fileName="GST_Invoices_Export" 
-            onAdd={() => setShowForm(true)} 
-            addLabel="Create Invoice"
-          />
-          <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm">
+      {/* ── Tabs ── */}
+      <div className="border-b border-gray-200 bg-white rounded-t-lg">
+        <nav className="flex">
+          {TABS.map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                tab === t
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* ── Tab: GST Summary ── */}
+      {tab === 'GST Summary' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Output GST breakdown */}
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-blue-600" />
+                Output GST — Collected from Clients
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">CGST (Intra-state)</span>
+                  <span className="font-semibold text-gray-900 font-mono">{inr(outputGST.cgst)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">SGST (Intra-state)</span>
+                  <span className="font-semibold text-gray-900 font-mono">{inr(outputGST.sgst)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">IGST (Inter-state)</span>
+                  <span className="font-semibold text-gray-900 font-mono">{inr(outputGST.igst)}</span>
+                </div>
+                <div className="flex justify-between py-2 font-bold">
+                  <span className="text-gray-900">Total Output GST</span>
+                  <span className="text-blue-600 font-mono">{inr(outputGST.total)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ITC Summary */}
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <Landmark className="h-4 w-4 text-green-600" />
+                Input Tax Credit (ITC) — Available
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">CGST on Purchases</span>
+                  <span className="font-semibold text-gray-900 font-mono">{inr(inputITC.cgst)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">SGST on Purchases</span>
+                  <span className="font-semibold text-gray-900 font-mono">{inr(inputITC.sgst)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">Total GST Paid on Inputs</span>
+                  <span className="font-semibold text-gray-900 font-mono">{inr(inputITC.total)}</span>
+                </div>
+                <div className="flex justify-between py-2 font-bold">
+                  <span className="text-gray-900">ITC Available</span>
+                  <span className="text-green-600 font-mono">{inr(inputITC.total)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Net payable box */}
+          <div className="bg-white border border-orange-200 rounded-lg shadow-sm p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Net GST Payable</p>
+                <p className="text-xs text-gray-500 mt-0.5">Output GST − ITC = Amount payable to government via GSTR-3B</p>
+              </div>
+              <div className="text-3xl font-bold text-orange-600 font-mono">{inr(netGSTPayable)}</div>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-3 text-xs text-center">
+              {[
+                { label: 'GSTR-1 Due', value: '11th of next month', color: 'bg-blue-50 text-blue-700' },
+                { label: 'GSTR-3B Due', value: '20th of next month', color: 'bg-purple-50 text-purple-700' },
+                { label: 'Annual Return', value: 'GSTR-9 — by Dec 31', color: 'bg-gray-50 text-gray-700' },
+              ].map((d, i) => (
+                <div key={i} className={`rounded-lg p-2 ${d.color}`}>
+                  <div className="font-semibold">{d.label}</div>
+                  <div className="mt-0.5">{d.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Invoice table */}
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">Tax Invoices Issued</h3>
+              <span className="text-xs text-gray-500">{invoices.length} invoices</span>
+            </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr>
-                   {['Invoice No.', 'Date', 'Client / GSTIN', 'Taxable', 'GST Details', 'Total', 'TDS', 'Type', 'Status', ''].map((h, i) => (
-                      <th key={i} className={clsx("py-5 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest italic", h === 'Taxable' || h === 'Total' || h === 'TDS' ? 'text-right' : '')}>{h}</th>
-                   ))}
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    {['Invoice No.', 'Date', 'Client', 'Project', 'Taxable', 'GST', 'Total', 'Type', 'Status'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {invoices.map(inv => (
+                    <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 font-mono text-blue-600 font-medium">{inv.invoice_number}</td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{dayjs(inv.invoice_date).format('DD MMM YYYY')}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900">{inv.client_name}</div>
+                        {inv.client_gstin && <div className="text-xs text-gray-500 font-mono">{inv.client_gstin}</div>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 text-xs max-w-[140px] truncate">{inv.project_name || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-gray-700">{inr(inv.taxable_amount)}</td>
+                      <td className="px-4 py-3">
+                        {inv.gst_type === 'cgst_sgst' ? (
+                          <div className="text-xs space-y-0.5 font-mono">
+                            <div className="text-blue-600">C: {inr(inv.cgst_amount)}</div>
+                            <div className="text-green-600">S: {inr(inv.sgst_amount)}</div>
+                          </div>
+                        ) : (
+                          <div className="text-xs font-mono text-purple-600">I: {inr(inv.igst_amount)}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-semibold text-gray-900">{inr(inv.total_amount)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${inv.gst_type === 'igst' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'}`}>
+                          {inv.gst_type === 'igst' ? 'Inter-state' : 'Intra-state'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${inv.payment_status === 'paid' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                          {inv.payment_status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {invoices.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-12 text-center">
+                        <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                        <p className="text-gray-400 text-sm">No tax invoices issued yet</p>
+                        <button onClick={() => setShowForm(true)} className="mt-2 text-blue-600 text-sm font-medium hover:underline">
+                          Issue first invoice
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: ITC (Purchases) ── */}
+      {tab === 'ITC (Purchases)' && (
+        <div className="space-y-4">
+          {/* ITC Summary cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <p className="text-xs text-gray-500 mb-1">Total ITC Available</p>
+              <p className="text-xl font-bold text-green-600 font-mono">{inr(inputITC.total)}</p>
+              <p className="text-xs text-gray-400 mt-1">From {inputITC.count} vendor bills</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <p className="text-xs text-gray-500 mb-1">CGST Credit</p>
+              <p className="text-xl font-bold text-blue-600 font-mono">{inr(inputITC.cgst)}</p>
+              <p className="text-xs text-gray-400 mt-1">Intra-state component</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <p className="text-xs text-gray-500 mb-1">SGST Credit</p>
+              <p className="text-xl font-bold text-blue-600 font-mono">{inr(inputITC.sgst)}</p>
+              <p className="text-xs text-gray-400 mt-1">Intra-state component</p>
+            </div>
+          </div>
+
+          {/* ITC bill table */}
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">Vendor Bills with GST (Input Tax)</h3>
+              <span className="text-xs text-gray-500">{tqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length} bills</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    {['Invoice No.', 'Vendor', 'Date', 'Basic Amount', 'GST Amount', 'CGST', 'SGST', 'Total', 'Type'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {tqsBills
+                    .filter(b => parseFloat(b.gst_amount || 0) > 0)
+                    .slice(0, 100)
+                    .map(b => (
+                      <tr key={b.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 font-mono text-blue-600 font-medium text-xs">{b.inv_number || '—'}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-gray-900">{b.vendor_name || '—'}</div>
+                          {b.vendor_gstin && <div className="text-xs text-gray-500 font-mono">{b.vendor_gstin}</div>}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
+                          {b.inv_date ? dayjs(b.inv_date).format('DD MMM YYYY') : '—'}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-gray-700">{inr(b.basic_amount)}</td>
+                        <td className="px-4 py-3 font-mono font-semibold text-green-600">{inr(b.gst_amount)}</td>
+                        <td className="px-4 py-3 font-mono text-blue-600 text-xs">{inr(b.cgst_amount || b.gst_amount / 2)}</td>
+                        <td className="px-4 py-3 font-mono text-blue-600 text-xs">{inr(b.sgst_amount || b.gst_amount / 2)}</td>
+                        <td className="px-4 py-3 font-mono font-semibold text-gray-900">{inr(b.total_amount)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${b.bill_type === 'wo' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'}`}>
+                            {b.bill_type === 'wo' ? 'Work Order' : 'PO'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  {tqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-sm">
+                        No vendor bills with GST found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {tqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length > 100 && (
+              <div className="px-5 py-3 border-t border-gray-100 text-xs text-gray-500">
+                Showing first 100 of {tqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length} bills
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: GST Rates ── */}
+      {tab === 'GST Rates' && (
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700">GST Rate Reference — Construction Industry</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Applicable rates as per GST Act for works contract and building materials</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  {['Category', 'Description', 'GST Rate', 'Note'].map(h => (
+                    <th key={h} className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {invoices.map(inv => (
-                  <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="py-5 px-6">
-                       <div className="font-mono text-indigo-600 font-black text-sm tracking-tight italic">{inv.invoice_number}</div>
-                       <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{inv.project_name}</div>
+              <tbody className="divide-y divide-gray-100">
+                {GST_RATES.map((r, i) => (
+                  <tr key={i} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        r.category === 'Residential' ? 'bg-blue-50 text-blue-700' :
+                        r.category === 'Government' ? 'bg-purple-50 text-purple-700' :
+                        r.category === 'Materials' ? 'bg-orange-50 text-orange-700' :
+                        'bg-gray-50 text-gray-700'
+                      }`}>
+                        {r.category}
+                      </span>
                     </td>
-                    <td className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">{dayjs(inv.invoice_date).format('D MMM YYYY')}</td>
-                    <td className="py-5 px-6">
-                      <div className="text-xs font-black text-slate-900 uppercase italic">{inv.client_name}</div>
-                      <div className="text-[10px] text-slate-400 font-mono font-bold mt-1 uppercase tracking-widest">GSTIN: {inv.client_gstin}</div>
+                    <td className="px-5 py-3 font-medium text-gray-900">{r.label}</td>
+                    <td className="px-5 py-3">
+                      <span className={`text-lg font-bold font-mono ${
+                        r.rate <= 5 ? 'text-green-600' :
+                        r.rate <= 12 ? 'text-blue-600' :
+                        r.rate <= 18 ? 'text-orange-600' : 'text-red-600'
+                      }`}>
+                        {r.rate}%
+                      </span>
                     </td>
-                    <td className="py-5 px-6 text-right font-mono font-bold text-slate-500">{inr(inv.taxable_amount)}</td>
-                    <td className="py-5 px-6">
-                      {inv.gst_type === 'cgst_sgst' ? (
-                        <div className="text-[10px] font-mono font-bold uppercase space-y-1 tracking-widest">
-                          <div><span className="text-blue-500">CGST:</span> <span className="text-slate-600">{inr(inv.cgst_amount)}</span></div>
-                          <div><span className="text-emerald-500">SGST:</span> <span className="text-slate-600">{inr(inv.sgst_amount)}</span></div>
-                        </div>
-                      ) : (
-                        <div className="text-[10px] font-mono font-bold uppercase tracking-widest"><span className="text-purple-500">IGST:</span> <span className="text-slate-600">{inr(inv.igst_amount)}</span></div>
-                      )}
-                    </td>
-                    <td className="py-5 px-6 text-right font-mono font-black text-slate-900 text-base italic tracking-tighter">{inr(inv.total_amount)}</td>
-                    <td className="py-5 px-6 text-right font-mono text-red-500 text-xs font-bold">{inr(inv.tds_amount)}</td>
-                    <td className="py-5 px-6 whitespace-nowrap">
-                       <span className={clsx("px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest italic shadow-sm", inv.gst_type === 'igst' ? 'bg-purple-50 text-purple-600 border border-purple-200' : 'bg-blue-50 text-blue-600 border border-blue-200')}>{inv.gst_type === 'igst' ? 'Inter-state' : 'Intra-state'}</span>
-                    </td>
-                    <td className="py-5 px-6 whitespace-nowrap">
-                       <span className={clsx("px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest italic shadow-sm", inv.payment_status === 'paid' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-amber-50 text-amber-600 border border-amber-200')}>{inv.payment_status}</span>
-                    </td>
-                    <td className="py-5 px-6 text-right" onClick={e => e.stopPropagation()}>
-                      <TableActions disableEdit onDelete={() => deleteMut.mutate(inv.id)} />
-                    </td>
+                    <td className="px-5 py-3 text-xs text-gray-500">{r.note}</td>
                   </tr>
                 ))}
-                {invoices.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="py-24 text-center">
-                       <div className="w-20 h-20 bg-slate-50 border border-slate-100 rounded-3xl mx-auto flex items-center justify-center mb-6"><FileText className="w-10 h-10 text-slate-300" /></div>
-                       <div className="text-slate-400 font-black uppercase tracking-[0.3em] italic">No GST Invoices issued yet.</div>
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
-            </div>
+          </div>
+          <div className="px-5 py-4 bg-blue-50 border-t border-blue-100">
+            <p className="text-xs text-blue-700 font-medium">Important: ITC is not available on residential construction projects. Claim ITC only on commercial/works contract projects.</p>
           </div>
         </div>
       )}
 
-      {tab === 'gst_rates' && (
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic border-b border-slate-100 pb-4 mb-6">GST Rate Applicability — Construction</div>
-          <div className="space-y-4">
-            {Object.entries(GST_RATES).map(([key, val]) => (
-              <div key={key} className="flex items-center justify-between p-5 bg-slate-50 border border-slate-100 rounded-2xl hover:border-indigo-200 hover:shadow-sm transition-all group">
-                <span className="text-sm font-bold text-slate-600 uppercase tracking-tight italic">{val.label}</span>
-                <span className={clsx('font-black text-2xl font-mono tracking-tighter italic', val.rate <= 5 ? 'text-emerald-500' : val.rate <= 12 ? 'text-blue-500' : val.rate <= 18 ? 'text-indigo-500' : 'text-purple-600')}>{val.rate}%</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-8 p-6 bg-indigo-50 border border-indigo-100 rounded-[2rem] text-xs font-bold text-indigo-700 space-y-3 leading-relaxed tracking-wide shadow-sm">
-            <div className="flex items-center gap-3"><span className="w-2 h-2 rounded-full bg-indigo-400" /> <strong className="text-indigo-900 border-b border-indigo-200 pb-0.5">GSTR-1</strong>: Due 11th of following month (outward supplies)</div>
-            <div className="flex items-center gap-3"><span className="w-2 h-2 rounded-full bg-indigo-400" /> <strong className="text-indigo-900 border-b border-indigo-200 pb-0.5">GSTR-3B</strong>: Due 20th of following month (net tax payment)</div>
-            <div className="flex items-center gap-3"><span className="w-2 h-2 rounded-full bg-indigo-400" /> <strong className="text-indigo-900 border-b border-indigo-200 pb-0.5">ITC</strong> can be claimed on eligible purchases (materials, services)</div>
-            <div className="flex items-center gap-3"><span className="w-2 h-2 rounded-full bg-indigo-400" /> <strong className="text-indigo-900 border-b border-indigo-200 pb-0.5">Reverse Charge</strong> applies on GTA services if unregistered</div>
-          </div>
-        </div>
-      )}
-
-      {tab === 'itc' && (
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic border-b border-slate-100 pb-4 mb-6">Input Tax Credit (ITC) Summary — FY 2024-25</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <div className="bg-slate-50 border border-slate-200 rounded-[2rem] p-8 shadow-inner">
-              <div className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-6 italic">Output Tax (GST Collected)</div>
-              <div className="space-y-4 font-mono text-sm font-bold">
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">CGST Collected</span><span className="text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">₹1,33,425</span></div>
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">SGST Collected</span><span className="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">₹1,33,425</span></div>
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">IGST Collected</span><span className="text-purple-600 bg-purple-50 px-3 py-1 rounded-lg border border-purple-100">₹4,03,200</span></div>
-                <div className="flex justify-between items-center border-t border-slate-200 pt-4 font-black text-slate-900 text-lg tracking-tighter italic"><span className="text-[11px] uppercase tracking-widest text-slate-900">Total Output</span><span>₹6,70,050</span></div>
-              </div>
-            </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-[2rem] p-8 shadow-inner">
-              <div className="text-[11px] font-black text-slate-900 uppercase tracking-widest mb-6 italic">Input Tax Credit Available</div>
-              <div className="space-y-4 font-mono text-sm font-bold">
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">ITC on Cement (28%)</span><span className="text-emerald-600">₹2,12,800</span></div>
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">ITC on Steel (18%)</span><span className="text-emerald-600">₹98,600</span></div>
-                <div className="flex justify-between items-center"><span className="text-[10px] uppercase text-slate-500 tracking-widest">ITC on Services</span><span className="text-emerald-600">₹42,000</span></div>
-                <div className="flex justify-between items-center border-t border-slate-200 pt-4 font-black text-emerald-600 text-lg tracking-tighter italic"><span className="text-[11px] uppercase tracking-widest text-emerald-600">Total ITC</span><span>₹3,53,400</span></div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-8 p-8 bg-amber-50 border border-amber-200 rounded-[2.5rem] font-mono shadow-sm">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <span className="text-sm font-black text-amber-700 uppercase tracking-widest italic">Net GST Payable (Output − ITC)</span>
-              <span className="text-4xl text-amber-600 font-black tracking-tighter italic bg-white px-5 py-2 rounded-2xl shadow-sm border border-amber-100">₹3,16,650</span>
-            </div>
-            <div className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mt-4 text-center border-t border-amber-200 pt-3">Due by 20th of next month via GSTR-3B</div>
-          </div>
-        </div>
-      )}
-
+      {/* ── Modals ── */}
       {showCalc && <GSTCalculator onClose={() => setShowCalc(false)} />}
-
-      {/* Create Invoice Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-[3.5rem] w-full max-w-2xl shadow-2xl my-4 overflow-hidden animate-in zoom-in duration-300">
-            <div className="flex items-center justify-between p-8 border-b border-slate-100 bg-slate-50">
-              <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight italic flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-indigo-600"><FileText size={20} /></div>
-                 Create GST Invoice
-              </h2>
-              <button onClick={() => setShowForm(false)} className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all shadow-sm"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleSubmit(createMutation.mutate)} className="p-8 space-y-6">
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-2">
-                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Invoice Number *</label>
-                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Project *</label>
-                   <select {...register('project_id', {required:true})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black text-slate-900 outline-none focus:border-indigo-400 shadow-sm transition-all">
-                     <option value="">— Select Project —</option>
-                     {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                   </select>
-                   <input {...register('invoice_number', {required:true})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-mono font-black text-indigo-600 outline-none focus:border-indigo-400 shadow-sm transition-all uppercase" placeholder="INV/2425/090" />
-                </div>
-                <div className="space-y-2">
-                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Invoice Date *</label>
-                   <input {...register('invoice_date', {required:true})} type="date" defaultValue={dayjs().format('YYYY-MM-DD')} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold text-slate-900 outline-none focus:border-indigo-400 shadow-sm transition-all" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Client Name *</label>
-                 <input {...register('client_name', {required:true})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black text-slate-900 uppercase tracking-widest outline-none focus:border-indigo-400 shadow-sm transition-all italic" placeholder="M/S ABC Limited" />
-              </div>
-              <div className="grid grid-cols-2 gap-5">
-                 <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Client GSTIN</label>
-                    <input {...register('client_gstin')} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-mono font-black text-slate-900 uppercase outline-none focus:border-indigo-400 shadow-sm transition-all text-center" placeholder="27AABCS1234C1Z5" maxLength={15} />
-                 </div>
-                 <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">HSN Code</label>
-                    <input {...register('hsn_code')} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-mono font-black text-slate-900 uppercase outline-none focus:border-indigo-400 shadow-sm transition-all text-center" defaultValue="9954" />
-                 </div>
-              </div>
-              <div className="space-y-2">
-                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Taxable Amount (₹) *</label>
-                 <input {...register('taxable_amount', {required:true})} type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 text-base font-mono font-black text-indigo-600 outline-none focus:border-indigo-400 shadow-sm transition-all" placeholder="1000000" />
-              </div>
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">GST Type *</label>
-                  <select {...register('gst_type')} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black text-slate-900 uppercase tracking-widest outline-none focus:border-indigo-400 shadow-sm transition-all appearance-none italic">
-                    <option value="cgst_sgst">Intra-state (CGST+SGST)</option>
-                    <option value="igst">Inter-state (IGST)</option>
-                    <option value="exempt">Exempt</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">GST Rate (%) *</label>
-                  <select {...register('gst_rate')} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black text-slate-900 uppercase tracking-widest outline-none focus:border-indigo-400 shadow-sm transition-all appearance-none italic">
-                    <option value={1}>1% — Affordable</option>
-                    <option value={5}>5% — Residential</option>
-                    <option value={12}>12% — Commercial</option>
-                    <option value={18}>18% — Works Contract</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex gap-4 pt-6 border-t border-slate-100">
-                <button type="button" className="flex-1 py-5 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 font-black text-[11px] uppercase tracking-[0.2em] rounded-2xl transition-all shadow-sm italic" onClick={() => setShowForm(false)}>Discard</button>
-                <button type="submit" disabled={createMutation.isPending} className="flex-[2] py-5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black text-[11px] uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-indigo-600/30 italic">{createMutation.isPending ? 'Generating...' : 'Issue Final Invoice'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CreateInvoiceModal
+          projects={projects}
+          onClose={() => setShowForm(false)}
+          onCreate={createMutation.mutate}
+        />
       )}
     </div>
   );
