@@ -569,6 +569,7 @@ function POImportModal({ onClose, vendors, projects, onImported }) {
       setExtracted(data);
       setHeader(data.header || {});
       setItems((data.items || []).map(it => ({ ...it })));
+      if (data.warnings?.length) toast.error(data.warnings[0]);
       // Auto-match vendor by name
       const vName = (data.header?.vendor_name || '').toLowerCase();
       const matched = vendors.find(v => v.name?.toLowerCase().includes(vName) || vName.includes(v.name?.toLowerCase()));
@@ -584,6 +585,7 @@ function POImportModal({ onClose, vendors, projects, onImported }) {
   const handleConfirm = async () => {
     if (!projectId) return toast.error('Please select a project');
     if (!vendorId)  return toast.error('Please select a vendor');
+    if (!items.length) return toast.error('Please add at least one line item');
     setLoading(true);
     try {
       const res = await poAPI.importConfirm({ project_id: projectId, vendor_id: vendorId, header, items });
@@ -659,6 +661,15 @@ function POImportModal({ onClose, vendors, projects, onImported }) {
           {/* Step 2: Review */}
           {step === 2 && (
             <div className="space-y-5">
+              {extracted?.warnings?.length > 0 && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold">Only partial data was extracted from this PDF.</p>
+                    <p className="mt-0.5">{extracted.warnings[0]}</p>
+                  </div>
+                </div>
+              )}
               {/* Header fields */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -719,7 +730,7 @@ function POImportModal({ onClose, vendors, projects, onImported }) {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {items.length === 0 && (
-                        <tr><td colSpan={7} className="px-3 py-4 text-center text-slate-400">No items extracted — add manually</td></tr>
+                        <tr><td colSpan={7} className="px-3 py-4 text-center text-slate-400">No items extracted - add manually or upload a text-based PO PDF</td></tr>
                       )}
                       {items.map((it, i) => (
                         <tr key={i}>

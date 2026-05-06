@@ -1,7 +1,24 @@
 // PDF extraction service for Purchase Orders
 const pdfParse = require('pdf-parse');
 
-const UNIT_RE = /\b(MT|Bags?|CUM|SQM|SQFT|Nos?|RMT|KG|Kg|Litre|Ltrs?|LS|Month|Set|Pairs?|Ton|KN|M3|M2)\b/i;
+const UNIT_RE = /\b(MT|Bags?|CUM|Cu\.?\s?M|SQM|SQFT|SFT|Nos?\.?|PCS|PC|Each|EA|RMT|RM|KG|Kgs?|Litre|Ltrs?|LS|Lot|Month|Set|Pairs?|Ton|Tonne|KN|M3|M2)\b/i;
+const UNIT_NORMALIZE = {
+  BAG: 'BAGS',
+  BAGS: 'BAGS',
+  'CU M': 'CUM',
+  'CU.M': 'CUM',
+  CUM: 'CUM',
+  EA: 'NOS',
+  EACH: 'NOS',
+  M2: 'SQM',
+  M3: 'CUM',
+  NOS: 'NOS',
+  'NOS.': 'NOS',
+  PC: 'NOS',
+  PCS: 'NOS',
+  RM: 'RMT',
+  SFT: 'SQFT',
+};
 
 function clean(str) {
   return (str || '').replace(/\s+/g, ' ').trim();
@@ -28,7 +45,21 @@ function parseDate(str) {
 
 function parseAmount(str) {
   if (!str) return 0;
-  return parseFloat(str.replace(/[,\s₹]/g, '')) || 0;
+  const cleaned = String(str).replace(/,/g, '').replace(/[^\d.-]/g, '');
+  return parseFloat(cleaned) || 0;
+}
+
+function normalizeUnit(unit) {
+  const key = clean(unit).replace(/\s+/g, ' ').toUpperCase();
+  return UNIT_NORMALIZE[key] || key;
+}
+
+function stripItemNoise(str) {
+  return clean(str)
+    .replace(/^(?:sl|sr|s\.?no\.?|no\.?)\s*/i, '')
+    .replace(/^\d+[.):\-\s]+/, '')
+    .replace(/\bhsn\s*(?:code)?\s*[:\-]?\s*\d{4,8}\b/ig, '')
+    .trim();
 }
 
 function extractHeader(text) {
@@ -88,8 +119,7 @@ function extractItems(lines) {
     const before = line.slice(0, unitIdx).trim();
     const after = line.slice(unitIdx + unitMatch[0].length).trim();
 
-    // Strip leading serial number
-    const desc = before.replace(/^\d+[.):\s]+/, '').trim();
+    const desc = stripItemNoise(before);
     if (!desc || desc.length < 3) continue;
 
     // Extract numbers from the "after" portion
@@ -107,11 +137,38 @@ function extractItems(lines) {
 
     items.push({
       material_name: desc,
-      unit: unitMatch[0].toUpperCase(),
+      unit: normalizeUnit(unitMatch[0]),
       quantity,
       rate,
       gst_rate,
       hsn_code,
+    });
+  }
+
+  return items;
+}
+
+function extractItemsFromText(text) {
+  const normalized = clean(text.replace(/\n/g, ' '));
+  const items = [];
+  const rowRe = /(?:^|\s)(?:\d{1,3}[.)]?\s+)([A-Za-z][A-Za-z0-9\s.,/&()\-]{4,180}?)\s+(MT|Bags?|CUM|Cu\.?\s?M|SQM|SQFT|SFT|Nos?\.?|PCS|PC|Each|EA|RMT|RM|KG|Kgs?|Litre|Ltrs?|LS|Lot|Month|Set|Pairs?|Ton|Tonne|KN|M3|M2)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)(?:\s+(\d{1,2}(?:\.\d+)?))?/gi;
+
+  for (const match of normalized.matchAll(rowRe)) {
+    const material_name = stripItemNoise(match[1]);
+    if (!material_name || /^(material|description|item|particulars)\b/i.test(material_name)) continue;
+
+    const quantity = parseAmount(match[3]);
+    const rate = parseAmount(match[4]);
+    if (!quantity || !rate) continue;
+
+    const hsnMatch = material_name.match(/\b(\d{4,8})\b/);
+    items.push({
+      material_name,
+      unit: normalizeUnit(match[2]),
+      quantity,
+      rate,
+      gst_rate: match[5] && Number(match[5]) <= 28 ? Number(match[5]) : 18,
+      hsn_code: hsnMatch ? hsnMatch[1] : '',
     });
   }
 
@@ -124,9 +181,18 @@ async function extractPO(buffer) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
   const header = extractHeader(text);
-  const items  = extractItems(lines);
+  let items = extractItems(lines);
+  if (!items.length) items = extractItemsFromText(text);
 
-  return { header, items, rawText: text.slice(0, 2000) };
+  const warnings = [];
+  if (clean(text).length < 80) {
+    warnings.push('This PDF appears to be scanned or image-based, so text extraction is limited.');
+  }
+  if (!items.length) {
+    warnings.push('No PO line items were detected automatically. Please add them manually or upload a text-based PO PDF.');
+  }
+
+  return { header, items, warnings, rawText: text.slice(0, 2000) };
 }
 
 module.exports = { extractPO };

@@ -20,6 +20,16 @@ const dprUpload = multer({
   },
 });
 
+const uploadDPRWorkbook = (req, res, next) => {
+  dprUpload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'DPR Excel file must be 10 MB or smaller' : err.message });
+    }
+    return res.status(400).json({ error: err.message || 'Could not upload DPR Excel file' });
+  });
+};
+
 router.use(authenticate);
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -34,6 +44,9 @@ const ensureObject = (value) =>
   value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
 const cellText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+
+const normalizeLabel = (value) =>
+  cellText(value).replace(/[:\-–—]+$/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 
 function toNumber(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : '';
@@ -53,7 +66,13 @@ function excelDateToISO(value) {
       return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
     }
   }
-  const parsed = new Date(value);
+  const text = cellText(value);
+  const dmy = text.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (dmy) {
+    const year = dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3];
+    return `${year}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  }
+  const parsed = new Date(text);
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
 }
 
@@ -65,11 +84,12 @@ function parseDPRWorkbook(buffer) {
 
   const get = (r, c) => rows[r]?.[c];
   const findRow = (term) => rows.findIndex((row) =>
-    row.some((value) => cellText(value).toLowerCase() === term.toLowerCase())
+    row.some((value) => normalizeLabel(value) === normalizeLabel(term))
   );
   const findAfter = (label) => {
+    const normalized = normalizeLabel(label);
     for (const row of rows) {
-      const idx = row.findIndex((value) => cellText(value).toLowerCase() === label.toLowerCase());
+      const idx = row.findIndex((value) => normalizeLabel(value) === normalized);
       if (idx === -1) continue;
       for (let c = idx + 1; c < row.length; c++) {
         if (cellText(row[c])) return row[c];
@@ -306,7 +326,7 @@ router.get('/dpr/:id', async (req, res) => {
 });
 
 // POST /planning/dpr
-router.post('/dpr', authorize(PLANNERS), async (req, res) => {
+router.post('/dpr', authorize(...PLANNERS), async (req, res) => {
   try {
     const { project_id, report_date } = req.body;
     if (!project_id || !report_date) {
@@ -357,7 +377,7 @@ router.post('/dpr', authorize(PLANNERS), async (req, res) => {
 });
 
 // POST /planning/dpr/import
-router.post('/dpr/import', authorize(PLANNERS), dprUpload.single('file'), async (req, res) => {
+router.post('/dpr/import', authorize(...PLANNERS), uploadDPRWorkbook, async (req, res) => {
   try {
     const { project_id, overwrite } = req.body;
     if (!project_id) return res.status(400).json({ error: 'project_id is required' });
@@ -455,12 +475,13 @@ router.post('/dpr/import', authorize(PLANNERS), dprUpload.single('file'), async 
       },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Failed to import DPR' });
+    const isWorkbookError = /DPR report date|workbook|excel/i.test(err.message || '');
+    res.status(isWorkbookError ? 400 : 500).json({ error: err.message || 'Failed to import DPR' });
   }
 });
 
 // PUT /planning/dpr/:id
-router.put('/dpr/:id', authorize(PLANNERS), async (req, res) => {
+router.put('/dpr/:id', authorize(...PLANNERS), async (req, res) => {
   try {
     const existing = await db().query(`
       SELECT d.*
@@ -514,7 +535,7 @@ router.put('/dpr/:id', authorize(PLANNERS), async (req, res) => {
 });
 
 // PATCH /planning/dpr/:id/approve
-router.patch('/dpr/:id/approve', authorize(MANAGERS), async (req, res) => {
+router.patch('/dpr/:id/approve', authorize(...MANAGERS), async (req, res) => {
   try {
     const existing = await db().query(`
       SELECT d.*
@@ -543,7 +564,7 @@ router.patch('/dpr/:id/approve', authorize(MANAGERS), async (req, res) => {
 });
 
 // DELETE /planning/dpr/:id
-router.delete('/dpr/:id', authorize(MANAGERS), async (req, res) => {
+router.delete('/dpr/:id', authorize(...MANAGERS), async (req, res) => {
   try {
     const { rowCount } = await db().query(`
       DELETE FROM daily_progress_reports d
@@ -616,7 +637,7 @@ router.get('/activities/:id', async (req, res) => {
 });
 
 // POST /planning/activities
-router.post('/activities', authorize(PLANNERS), async (req, res) => {
+router.post('/activities', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, activity_code, activity_name, description, location,
@@ -656,7 +677,7 @@ router.post('/activities', authorize(PLANNERS), async (req, res) => {
 });
 
 // PUT /planning/activities/:id
-router.put('/activities/:id', authorize(PLANNERS), async (req, res) => {
+router.put('/activities/:id', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       activity_name, description, location, activity_type,
@@ -705,7 +726,7 @@ router.put('/activities/:id', authorize(PLANNERS), async (req, res) => {
 });
 
 // PATCH /planning/activities/:id/progress  — quick progress update
-router.patch('/activities/:id/progress', authorize(PLANNERS), async (req, res) => {
+router.patch('/activities/:id/progress', authorize(...PLANNERS), async (req, res) => {
   try {
     const { progress_pct, actual_quantity, status, actual_start_date, actual_end_date } = req.body;
 
@@ -737,7 +758,7 @@ router.patch('/activities/:id/progress', authorize(PLANNERS), async (req, res) =
 });
 
 // DELETE /planning/activities/:id
-router.delete('/activities/:id', authorize(ADMINS), async (req, res) => {
+router.delete('/activities/:id', authorize(...ADMINS), async (req, res) => {
   try {
     const { rowCount } = await db().query(
       `DELETE FROM project_activities WHERE id = $1`, [req.params.id]
@@ -778,7 +799,7 @@ router.get('/milestones', async (req, res) => {
 });
 
 // POST /planning/milestones
-router.post('/milestones', authorize(PLANNERS), async (req, res) => {
+router.post('/milestones', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, milestone_code, milestone_name, description,
@@ -811,7 +832,7 @@ router.post('/milestones', authorize(PLANNERS), async (req, res) => {
 });
 
 // PUT /planning/milestones/:id
-router.put('/milestones/:id', authorize(PLANNERS), async (req, res) => {
+router.put('/milestones/:id', authorize(...PLANNERS), async (req, res) => {
   try {
     const { milestone_name, description, milestone_type, target_date,
             affects_payment_release, related_activity_id, remarks } = req.body;
@@ -839,7 +860,7 @@ router.put('/milestones/:id', authorize(PLANNERS), async (req, res) => {
 });
 
 // PATCH /planning/milestones/:id/achieve
-router.patch('/milestones/:id/achieve', authorize(MANAGERS), async (req, res) => {
+router.patch('/milestones/:id/achieve', authorize(...MANAGERS), async (req, res) => {
   try {
     const { actual_date, remarks } = req.body;
     if (!actual_date) return res.status(400).json({ error: 'actual_date is required' });
@@ -897,7 +918,7 @@ router.get('/look-ahead', async (req, res) => {
 });
 
 // POST /planning/look-ahead
-router.post('/look-ahead', authorize(PLANNERS), async (req, res) => {
+router.post('/look-ahead', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, plan_week_start, plan_week_end,
@@ -948,7 +969,7 @@ router.post('/look-ahead', authorize(PLANNERS), async (req, res) => {
 });
 
 // PATCH /planning/look-ahead/:id/approve
-router.patch('/look-ahead/:id/approve', authorize(MANAGERS), async (req, res) => {
+router.patch('/look-ahead/:id/approve', authorize(...MANAGERS), async (req, res) => {
   try {
     const { rows } = await db().query(`
       UPDATE look_ahead_plans SET
@@ -1002,7 +1023,7 @@ router.get('/progress', async (req, res) => {
 });
 
 // POST /planning/progress
-router.post('/progress', authorize(PLANNERS), async (req, res) => {
+router.post('/progress', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, activity_id, tracking_date,
@@ -1064,7 +1085,7 @@ router.get('/scurve', async (req, res) => {
 });
 
 // POST /planning/scurve/snapshot  — record today's snapshot
-router.post('/scurve/snapshot', authorize(PLANNERS), async (req, res) => {
+router.post('/scurve/snapshot', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, reporting_date,
@@ -1131,7 +1152,7 @@ router.get('/delays', async (req, res) => {
 });
 
 // POST /planning/delays
-router.post('/delays', authorize(PLANNERS), async (req, res) => {
+router.post('/delays', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, activity_id, analysis_date, delay_days,
@@ -1164,7 +1185,7 @@ router.post('/delays', authorize(PLANNERS), async (req, res) => {
 });
 
 // PUT /planning/delays/:id
-router.put('/delays/:id', authorize(PLANNERS), async (req, res) => {
+router.put('/delays/:id', authorize(...PLANNERS), async (req, res) => {
   try {
     const { mitigation_plan, responsible_party, is_resolved } = req.body;
 
