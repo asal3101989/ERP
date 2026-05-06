@@ -17,6 +17,8 @@ const C = {
   mutedDark: '#30363d',
 };
 
+const PRINT_SCALE = 0.78;
+
 const normalize = value => String(value || '').trim();
 
 const fmt = (value, digits = 2) => {
@@ -146,8 +148,8 @@ function DataTable({ columns, rows, emptyText = 'No data' }) {
 
 export default function DPRPrintTemplate({ dpr, project }) {
   const view = toView(dpr, project);
-  const workRows = view.workRows.slice(0, 9);
-  const labourRows = view.directWorkers.slice(0, 5);
+  const workRows = view.workRows.slice(0, 8);
+  const labourRows = view.directWorkers.slice(0, 4);
   const subRows = view.subcontractors.slice(0, 4);
   const plantRows = view.plant.filter(row => Number(row.nos) || normalize(row.item)).slice(0, 4);
   const materialRows = view.materialRows.slice(0, 4);
@@ -183,6 +185,13 @@ export default function DPRPrintTemplate({ dpr, project }) {
           color: ${C.text};
           box-shadow: 0 2px 20px rgba(15,23,42,0.18);
           overflow: hidden;
+        }
+        .dpr-template-inner {
+          width: ${100 / PRINT_SCALE}%;
+          height: ${100 / PRINT_SCALE}%;
+          transform: scale(${PRINT_SCALE});
+          transform-origin: top left;
+          background: ${C.bg};
         }
         .dpr-topbar {
           height: 38px;
@@ -394,6 +403,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
           .planning-dpr-print-root { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; background: ${C.bg} !important; }
           .planning-dpr-print-hide { display: none !important; }
           .dpr-template-page { width: 297mm; height: 210mm; margin: 0; box-shadow: none; }
+          .dpr-template-inner { width: ${100 / PRINT_SCALE}%; height: ${100 / PRINT_SCALE}%; transform: scale(${PRINT_SCALE}); transform-origin: top left; }
           @page { size: A4 landscape; margin: 0; }
         }
       `}</style>
@@ -403,6 +413,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
       </div>
 
       <div className="dpr-template-page">
+      <div className="dpr-template-inner">
         <div className="dpr-topbar">
           <div className="dpr-brand">
             <img src={bcimLogo} alt="BCIM" />
@@ -521,6 +532,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
             <div className="dpr-note-box"><strong>Prepared / Approved</strong>{view.preparedBy || '-'} / {view.approvedBy || '-'}</div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
