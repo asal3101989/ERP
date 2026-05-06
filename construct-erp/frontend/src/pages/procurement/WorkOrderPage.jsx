@@ -5,7 +5,7 @@ import useAuthStore from '../../store/authStore';
 import {
   Hammer, Plus, X, Search, FileText,
   Printer, Building2, Clock, CheckCircle2,
-  ChevronRight, UserPlus, Calculator,
+  ChevronRight, UserPlus, Calculator, Upload,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -45,9 +45,214 @@ function Field({ label, children }) {
 
 const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all placeholder:text-slate-400';
 
+const WO_UNITS = ['SQFT', 'SQM', 'RMT', 'Nos', 'MT', 'Point', 'Month', 'LS', 'Day'];
+
+function WOImportModal({ onClose, vendors, projects, onImported }) {
+  const [step, setStep]           = useState(1);
+  const [file, setFile]           = useState(null);
+  const [extracted, setExtracted] = useState(null);
+  const [header, setHeader]       = useState({});
+  const [items, setItems]         = useState([]);
+  const [projectId, setProjectId] = useState('');
+  const [vendorId, setVendorId]   = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [result, setResult]       = useState(null);
+  const fileRef = React.useRef();
+
+  const handleUpload = async () => {
+    if (!file) return toast.error('Please select a PDF file');
+    setLoading(true);
+    try {
+      const res = await subcontractorAPI.importWOPreview(file);
+      const data = res.data;
+      setExtracted(data);
+      setHeader(data.header || {});
+      setItems((data.items || []).map(it => ({ ...it })));
+      const vName = (data.header?.vendor_name || '').toLowerCase();
+      const matched = (vendors || []).find(v => v.name?.toLowerCase().includes(vName) || vName.includes(v.name?.toLowerCase()));
+      if (matched) setVendorId(matched.id);
+      setStep(2);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to parse PDF');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!projectId) return toast.error('Please select a project');
+    if (!vendorId)  return toast.error('Please select a vendor');
+    setLoading(true);
+    try {
+      const res = await subcontractorAPI.importWOConfirm({ project_id: projectId, vendor_id: vendorId, header, items });
+      setResult(res.data);
+      setStep(3);
+      onImported();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to save Work Order');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateItem = (i, field, val) => setItems(prev => prev.map((it, idx) => idx === i ? { ...it, [field]: val } : it));
+  const removeItem = (i) => setItems(prev => prev.filter((_, idx) => idx !== i));
+  const addItem = () => setItems(prev => [...prev, { description: '', unit: 'SQFT', quantity: 0, rate: 0, remarks: '' }]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden max-h-[92vh]">
+
+        <div className="px-6 py-4 bg-slate-900 flex items-center justify-between flex-shrink-0">
+          <div>
+            <p className="text-base font-bold text-white">Import Work Order from PDF</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {step === 1 ? 'Upload your PDF file' : step === 2 ? 'Review & correct extracted data' : 'Import complete'}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="flex border-b border-slate-100 flex-shrink-0">
+          {['Upload PDF', 'Review Data', 'Done'].map((label, i) => (
+            <div key={i} className={clsx('flex-1 py-3 text-center text-xs font-semibold border-b-2 transition-colors',
+              step === i+1 ? 'border-indigo-500 text-indigo-600' : step > i+1 ? 'border-emerald-400 text-emerald-600' : 'border-transparent text-slate-400')}>
+              {label}
+            </div>
+          ))}
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-6">
+
+          {step === 1 && (
+            <div className="space-y-5">
+              <div onClick={() => fileRef.current?.click()}
+                className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all">
+                <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-700">{file ? file.name : 'Click to select a Work Order PDF'}</p>
+                <p className="text-xs text-slate-400 mt-1">PDF format only · max 10 MB</p>
+                <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={e => setFile(e.target.files[0])} />
+              </div>
+              <p className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                The system will extract WO number, contractor name, dates, scope, and line items. You can review and edit before saving.
+              </p>
+              <div className="flex justify-end">
+                <button onClick={handleUpload} disabled={!file || loading}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg px-6 py-2 flex items-center gap-2">
+                  {loading ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Parsing…</> : 'Extract Data →'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Project *</label>
+                  <select value={projectId} onChange={e => setProjectId(e.target.value)}
+                    className={inputCls}>
+                    <option value="">Select project…</option>
+                    {(projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Vendor / Contractor *</label>
+                  <select value={vendorId} onChange={e => setVendorId(e.target.value)} className={inputCls}>
+                    <option value="">Select vendor…</option>
+                    {(vendors || []).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  </select>
+                  {extracted?.header?.vendor_name && <p className="text-xs text-slate-400 mt-1">Extracted: <em>{extracted.header.vendor_name}</em></p>}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">WO Number</label>
+                  <input value={header.wo_number || ''} onChange={e => setHeader(h => ({ ...h, wo_number: e.target.value }))} className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">WO Date</label>
+                  <input type="date" value={header.wo_date || ''} onChange={e => setHeader(h => ({ ...h, wo_date: e.target.value }))} className={inputCls} />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Subject / Scope</label>
+                  <input value={header.subject || ''} onChange={e => setHeader(h => ({ ...h, subject: e.target.value }))} className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Start Date</label>
+                  <input type="date" value={header.start_date || ''} onChange={e => setHeader(h => ({ ...h, start_date: e.target.value }))} className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">End Date</label>
+                  <input type="date" value={header.end_date || ''} onChange={e => setHeader(h => ({ ...h, end_date: e.target.value }))} className={inputCls} />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-slate-700">Scope Items ({items.length})</p>
+                  <button onClick={addItem} className="text-xs text-indigo-600 hover:underline font-semibold">+ Add Row</button>
+                </div>
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        {['Description', 'Unit', 'Qty', 'Rate (₹)', 'Remarks', ''].map(h => (
+                          <th key={h} className="px-3 py-2 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {items.length === 0 && (
+                        <tr><td colSpan={6} className="px-3 py-4 text-center text-slate-400">No items extracted — add manually</td></tr>
+                      )}
+                      {items.map((it, i) => (
+                        <tr key={i}>
+                          <td className="px-2 py-1"><input value={it.description || ''} onChange={e => updateItem(i,'description',e.target.value)} className="w-full border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-400 min-w-[180px]" /></td>
+                          <td className="px-2 py-1">
+                            <select value={it.unit || 'SQFT'} onChange={e => updateItem(i,'unit',e.target.value)} className="border border-slate-200 rounded px-1 py-1 text-xs outline-none focus:border-indigo-400">
+                              {WO_UNITS.map(u => <option key={u}>{u}</option>)}
+                            </select>
+                          </td>
+                          <td className="px-2 py-1"><input type="number" value={it.quantity || ''} onChange={e => updateItem(i,'quantity',e.target.value)} className="w-16 border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-400" /></td>
+                          <td className="px-2 py-1"><input type="number" value={it.rate || ''} onChange={e => updateItem(i,'rate',e.target.value)} className="w-20 border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-400" /></td>
+                          <td className="px-2 py-1"><input value={it.remarks || ''} onChange={e => updateItem(i,'remarks',e.target.value)} className="w-28 border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-400" /></td>
+                          <td className="px-2 py-1"><button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setStep(1)} className="border border-slate-200 text-slate-600 text-sm font-semibold rounded-lg px-4 py-2">← Back</button>
+                <button onClick={handleConfirm} disabled={loading}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg px-4 py-2 flex items-center justify-center gap-2">
+                  {loading ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving…</> : 'Confirm & Import WO'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && result && (
+            <div className="text-center py-10">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-1">Work Order Imported!</h3>
+              <p className="text-sm text-slate-500 mb-4">WO <strong>{result.wo_number}</strong> has been created with status <strong>Draft</strong>.</p>
+              <button onClick={onClose} className="bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg px-6 py-2">Close</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WorkOrderPage() {
   const { user } = useAuthStore();
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [selectedWO, setSelectedWO] = useState(null);
   const [search, setSearch] = useState('');
   const [items, setItems] = useState([{ description: '', quantity: '', unit: 'SQFT', rate: '', remarks: '' }]);
@@ -125,6 +330,10 @@ export default function WorkOrderPage() {
           <p className="text-sm text-slate-400 mt-0.5">Subcontractor & labour work order management</p>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 text-indigo-600 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-all shadow-sm">
+            <Upload className="w-4 h-4" /> Import PDF
+          </button>
           <DataToolbar data={filtered} fileName="Work_Order_Register" onAdd={() => setShowForm(true)} addLabel="New Work Order" />
         </div>
       </div>
@@ -400,6 +609,15 @@ export default function WorkOrderPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showImport && (
+        <WOImportModal
+          onClose={() => setShowImport(false)}
+          vendors={vendorsData}
+          projects={projectsData}
+          onImported={() => qc.invalidateQueries({ queryKey: ['work-orders'] })}
+        />
       )}
 
       {/* WO Detail Side Panel */}

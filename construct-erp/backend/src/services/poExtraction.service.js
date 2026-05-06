@@ -1,0 +1,132 @@
+// PDF extraction service for Purchase Orders
+const pdfParse = require('pdf-parse');
+
+const UNIT_RE = /\b(MT|Bags?|CUM|SQM|SQFT|Nos?|RMT|KG|Kg|Litre|Ltrs?|LS|Month|Set|Pairs?|Ton|KN|M3|M2)\b/i;
+
+function clean(str) {
+  return (str || '').replace(/\s+/g, ' ').trim();
+}
+
+function parseDate(str) {
+  if (!str) return null;
+  const s = str.trim();
+  // DD/MM/YYYY or DD-MM-YYYY
+  const m1 = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m1) {
+    const [, d, mo, y] = m1;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  // DD Mon YYYY  e.g. 12 Jan 2025
+  const m2 = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (m2) {
+    const months = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12 };
+    const mo = months[m2[2].toLowerCase().slice(0,3)];
+    if (mo) return `${m2[3]}-${String(mo).padStart(2,'0')}-${m2[1].padStart(2,'0')}`;
+  }
+  return null;
+}
+
+function parseAmount(str) {
+  if (!str) return 0;
+  return parseFloat(str.replace(/[,\s₹]/g, '')) || 0;
+}
+
+function extractHeader(text) {
+  const header = {
+    po_number: '',
+    vendor_name: '',
+    po_date: null,
+    delivery_date: null,
+    grand_total: 0,
+    notes: '',
+    terms_conditions: '',
+  };
+
+  const patterns = [
+    { key: 'po_number',      re: /(?:P\.?O\.?\s*(?:No|Number|#|Ref)[:\s.]*)([\w\/\-]+)/i },
+    { key: 'po_number',      re: /(?:Purchase\s+Order\s*(?:No|Number|#)?[:\s.]*)([\w\/\-]+)/i },
+    { key: 'vendor_name',    re: /(?:^To[:\s]+|Vendor\s*(?:Name)?[:\s]+|Supplier[:\s]+|M\/s\.?\s+)(.+)/im },
+    { key: 'po_date',        re: /(?:(?:PO\s*)?Date|Dated)[:\s]+([\d]{1,2}[\/-][\d]{1,2}[\/-][\d]{4}|[\d]{1,2}\s+\w+\s+\d{4})/i },
+    { key: 'delivery_date',  re: /(?:Delivery\s*(?:Date)?|Required\s*By|Due\s*Date)[:\s]+([\d]{1,2}[\/-][\d]{1,2}[\/-][\d]{4}|[\d]{1,2}\s+\w+\s+\d{4})/i },
+    { key: 'grand_total',    re: /(?:Grand\s*Total|Total\s*Amount|Net\s*(?:Amount|Value)|Total\s*Value)[:\s₹]*([\d,]+\.?\d*)/i },
+  ];
+
+  for (const { key, re } of patterns) {
+    if (header[key]) continue; // first match wins
+    const m = text.match(re);
+    if (!m) continue;
+    if (key === 'po_date' || key === 'delivery_date') {
+      header[key] = parseDate(m[1]);
+    } else if (key === 'grand_total') {
+      header[key] = parseAmount(m[1]);
+    } else {
+      header[key] = clean(m[1]);
+    }
+  }
+
+  // Extract notes / remarks block
+  const notesM = text.match(/(?:Notes?|Remarks?)[:\s]+([^\n]{3,})/i);
+  if (notesM) header.notes = clean(notesM[1]);
+
+  // Extract terms block (take a few lines after "Terms")
+  const termsIdx = text.search(/Terms?\s*(?:&|and)?\s*Conditions?/i);
+  if (termsIdx !== -1) {
+    header.terms_conditions = clean(text.slice(termsIdx, termsIdx + 400));
+  }
+
+  return header;
+}
+
+function extractItems(lines) {
+  const items = [];
+
+  for (const line of lines) {
+    const unitMatch = line.match(UNIT_RE);
+    if (!unitMatch) continue;
+
+    const unitIdx = line.indexOf(unitMatch[0]);
+    const before = line.slice(0, unitIdx).trim();
+    const after = line.slice(unitIdx + unitMatch[0].length).trim();
+
+    // Strip leading serial number
+    const desc = before.replace(/^\d+[.):\s]+/, '').trim();
+    if (!desc || desc.length < 3) continue;
+
+    // Extract numbers from the "after" portion
+    const nums = [...after.matchAll(/[\d,]+\.?\d*/g)]
+      .map(m => parseFloat(m[0].replace(/,/g, '')))
+      .filter(n => !isNaN(n) && n > 0);
+
+    const quantity = nums[0] || 0;
+    const rate     = nums[1] || 0;
+    const gst_rate = nums[2] && nums[2] <= 28 ? nums[2] : 18;
+
+    // Try to find HSN code: 4–8 digit number early in the line
+    const hsnMatch = line.match(/\b(\d{4,8})\b/);
+    const hsn_code = hsnMatch ? hsnMatch[1] : '';
+
+    items.push({
+      material_name: desc,
+      unit: unitMatch[0].toUpperCase(),
+      quantity,
+      rate,
+      gst_rate,
+      hsn_code,
+    });
+  }
+
+  return items;
+}
+
+async function extractPO(buffer) {
+  const data = await pdfParse(buffer);
+  const text = data.text || '';
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  const header = extractHeader(text);
+  const items  = extractItems(lines);
+
+  return { header, items, rawText: text.slice(0, 2000) };
+}
+
+module.exports = { extractPO };

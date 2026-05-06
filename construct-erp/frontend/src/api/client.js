@@ -104,6 +104,8 @@ export const subcontractorAPI = {
   getWorkOrder:      (id)     => api.get(`/subcontractors/work-orders/${id}`),
   createWorkOrder:   (data)   => api.post('/subcontractors/work-orders', data),
   updateWorkOrder:   (id, d)  => api.patch(`/subcontractors/work-orders/${id}`, d),
+  importWOPreview:   (file)   => { const fd = new FormData(); fd.append('file', file); return api.post('/subcontractors/work-orders/import/preview', fd, { headers: { 'Content-Type': undefined } }); },
+  importWOConfirm:   (data)   => api.post('/subcontractors/work-orders/import/confirm', data),
   // Measurements
   getMeasurements:   (params) => api.get('/subcontractors/measurements', { params }),
   recordMeasurement: (data)   => api.post('/subcontractors/measurements', data),
@@ -187,6 +189,8 @@ export const poAPI = {
   create:  (data)     => api.post('/purchase-orders', data),
   approve: (id, stage, data) => api.patch(`/purchase-orders/${id}/${stage}`, data),
   receive: (id, data) => api.patch(`/purchase-orders/${id}/receive`, data),
+  importPreview: (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/purchase-orders/import/preview', fd, { headers: { 'Content-Type': undefined } }); },
+  importConfirm: (data) => api.post('/purchase-orders/import/confirm', data),
 };
 
 export const poAmendmentAPI = {

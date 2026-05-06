@@ -1,8 +1,12 @@
 // src/routes/po.routes.js
 const express = require('express');
+const multer = require('multer');
 const { authenticate } = require('../middleware/auth');
 const { query, withTransaction } = require('../config/database');
+const { extractPO } = require('../services/poExtraction.service');
 const router = express.Router();
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Public Verification Endpoint (No Auth required for QR scanning)
 router.get('/public/verify/:id', async (req, res) => {
@@ -240,5 +244,81 @@ router.patch('/:id/:stage', async (req, res) => {
   }
 });
 
+
+// POST /purchase-orders/import/preview — extract PO data from PDF, return for review
+router.post('/import/preview', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No PDF file uploaded' });
+    if (req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'Only PDF files are supported' });
+    const result = await extractPO(req.file.buffer);
+    res.json(result);
+  } catch (err) {
+    console.error('[PO Import Preview]:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to parse PDF' });
+  }
+});
+
+// POST /purchase-orders/import/confirm — save reviewed PO data to DB
+router.post('/import/confirm', async (req, res) => {
+  try {
+    const { project_id, vendor_id, header = {}, items = [] } = req.body;
+    if (!project_id || !vendor_id) return res.status(400).json({ error: 'Project and Vendor are required' });
+
+    const result = await withTransaction(async (client) => {
+      // Auto-generate PO number if not extracted
+      const seq = (await client.query(
+        `SELECT COUNT(*) FROM purchase_orders po JOIN projects p ON po.project_id = p.id WHERE p.company_id = $1`,
+        [req.user.company_id]
+      )).rows[0].count;
+      const yr = new Date().getFullYear().toString().slice(-2) + (new Date().getFullYear() + 1).toString().slice(-2);
+      const po_number = header.po_number || `PO/${yr}/${String(Number(seq) + 1).padStart(3, '0')}`;
+
+      // Calculate totals from items
+      let sub_total = 0, total_gst = 0;
+      const processedItems = (items || []).map((it, i) => {
+        const qty   = parseFloat(it.quantity) || 0;
+        const rate  = parseFloat(it.rate) || 0;
+        const gst   = parseFloat(it.gst_rate) || 18;
+        const base  = qty * rate;
+        const gstAmt = base * gst / 100;
+        sub_total  += base;
+        total_gst  += gstAmt;
+        return { ...it, quantity: qty, rate, gst_rate: gst, gst_amount: gstAmt, total_amount: base + gstAmt, sort_order: i + 1 };
+      });
+      const grand_total = sub_total + total_gst;
+
+      const poRow = await client.query(
+        `INSERT INTO purchase_orders
+           (project_id, vendor_id, po_number, po_date, delivery_date,
+            sub_total, total_gst, grand_total, terms_conditions, notes, status, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',$11) RETURNING id, po_number`,
+        [
+          project_id, vendor_id, po_number,
+          header.po_date || null, header.delivery_date || null,
+          sub_total, total_gst, grand_total,
+          header.terms_conditions || '', header.notes || '',
+          req.user.id,
+        ]
+      );
+      const po_id = poRow.rows[0].id;
+
+      for (const it of processedItems) {
+        await client.query(
+          `INSERT INTO po_items (po_id, material_name, hsn_code, quantity, unit, rate, gst_rate, gst_amount, total_amount, sort_order)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [po_id, it.material_name || 'Item', it.hsn_code || '', it.quantity, it.unit || 'Nos',
+           it.rate, it.gst_rate, it.gst_amount, it.total_amount, it.sort_order]
+        );
+      }
+
+      return poRow.rows[0];
+    });
+
+    res.json({ success: true, po_number: result.po_number, id: result.id });
+  } catch (err) {
+    console.error('[PO Import Confirm]:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to save Purchase Order' });
+  }
+});
 
 module.exports = router;

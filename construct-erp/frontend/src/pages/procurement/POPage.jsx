@@ -7,7 +7,7 @@ import {
   ShoppingCart, Plus, X, Check, Clock, Search, Download,
   Printer, AlertCircle, ChevronRight, Trash2, Activity,
   Package, Building2, Calendar, BadgeCheck, FileText,
-  CheckCircle2, UserCheck, Landmark, XCircle,
+  CheckCircle2, UserCheck, Landmark, XCircle, Upload,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -547,12 +547,236 @@ function PODetailPanel({ po, detailedPO, onClose, onApprove, onReject, isApprovi
   );
 }
 
+/* ─── PO Import Modal ─── */
+function POImportModal({ onClose, vendors, projects, onImported }) {
+  const [step, setStep]         = useState(1); // 1=upload, 2=review, 3=done
+  const [file, setFile]         = useState(null);
+  const [extracted, setExtracted] = useState(null);
+  const [header, setHeader]     = useState({});
+  const [items, setItems]       = useState([]);
+  const [projectId, setProjectId] = useState('');
+  const [vendorId, setVendorId]   = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [result, setResult]     = useState(null);
+  const fileRef = React.useRef();
+
+  const handleUpload = async () => {
+    if (!file) return toast.error('Please select a PDF file');
+    setLoading(true);
+    try {
+      const res = await poAPI.importPreview(file);
+      const data = res.data;
+      setExtracted(data);
+      setHeader(data.header || {});
+      setItems((data.items || []).map(it => ({ ...it })));
+      // Auto-match vendor by name
+      const vName = (data.header?.vendor_name || '').toLowerCase();
+      const matched = vendors.find(v => v.name?.toLowerCase().includes(vName) || vName.includes(v.name?.toLowerCase()));
+      if (matched) setVendorId(matched.id);
+      setStep(2);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to parse PDF');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!projectId) return toast.error('Please select a project');
+    if (!vendorId)  return toast.error('Please select a vendor');
+    setLoading(true);
+    try {
+      const res = await poAPI.importConfirm({ project_id: projectId, vendor_id: vendorId, header, items });
+      setResult(res.data);
+      setStep(3);
+      onImported();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to save PO');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateItem = (i, field, val) => {
+    setItems(prev => prev.map((it, idx) => idx === i ? { ...it, [field]: val } : it));
+  };
+  const removeItem = (i) => setItems(prev => prev.filter((_, idx) => idx !== i));
+  const addItem = () => setItems(prev => [...prev, { material_name: '', unit: 'Nos', quantity: 0, rate: 0, gst_rate: 18, hsn_code: '' }]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden max-h-[92vh]">
+
+        {/* Header */}
+        <div className="px-6 py-4 bg-indigo-600 flex items-center justify-between flex-shrink-0">
+          <div>
+            <p className="text-base font-bold text-white">Import Purchase Order from PDF</p>
+            <p className="text-xs text-indigo-200 mt-0.5">
+              {step === 1 ? 'Upload your PDF file' : step === 2 ? 'Review & correct extracted data' : 'Import complete'}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-indigo-200 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex border-b border-slate-100 flex-shrink-0">
+          {['Upload PDF', 'Review Data', 'Done'].map((label, i) => (
+            <div key={i} className={clsx('flex-1 py-3 text-center text-xs font-semibold border-b-2 transition-colors',
+              step === i+1 ? 'border-indigo-500 text-indigo-600' : step > i+1 ? 'border-emerald-400 text-emerald-600' : 'border-transparent text-slate-400')}>
+              {label}
+            </div>
+          ))}
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-6">
+
+          {/* Step 1: Upload */}
+          {step === 1 && (
+            <div className="space-y-5">
+              <div
+                onClick={() => fileRef.current?.click()}
+                className="border-2 border-dashed border-indigo-200 rounded-xl p-10 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all"
+              >
+                <Upload className="w-8 h-8 text-indigo-400 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-700">{file ? file.name : 'Click to select a PO PDF file'}</p>
+                <p className="text-xs text-slate-400 mt-1">PDF format only · max 10 MB</p>
+                <input ref={fileRef} type="file" accept=".pdf" className="hidden"
+                  onChange={e => setFile(e.target.files[0])} />
+              </div>
+              <p className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                The system will automatically extract PO number, vendor, dates, and line items from the PDF.
+                You will be able to review and correct everything before saving.
+              </p>
+              <div className="flex justify-end">
+                <button onClick={handleUpload} disabled={!file || loading}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg px-6 py-2 flex items-center gap-2">
+                  {loading ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Parsing…</> : 'Extract Data →'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Review */}
+          {step === 2 && (
+            <div className="space-y-5">
+              {/* Header fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Project *</label>
+                  <select value={projectId} onChange={e => setProjectId(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+                    <option value="">Select project…</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Vendor *</label>
+                  <select value={vendorId} onChange={e => setVendorId(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+                    <option value="">Select vendor…</option>
+                    {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  </select>
+                  {extracted?.header?.vendor_name && (
+                    <p className="text-xs text-slate-400 mt-1">Extracted: <em>{extracted.header.vendor_name}</em></p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">PO Number</label>
+                  <input value={header.po_number || ''} onChange={e => setHeader(h => ({ ...h, po_number: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">PO Date</label>
+                  <input type="date" value={header.po_date || ''} onChange={e => setHeader(h => ({ ...h, po_date: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Delivery Date</label>
+                  <input type="date" value={header.delivery_date || ''} onChange={e => setHeader(h => ({ ...h, delivery_date: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Notes</label>
+                  <input value={header.notes || ''} onChange={e => setHeader(h => ({ ...h, notes: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+              </div>
+
+              {/* Line items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-slate-700">Line Items ({items.length})</p>
+                  <button onClick={addItem} className="text-xs text-indigo-600 hover:underline font-semibold">+ Add Row</button>
+                </div>
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        {['Material / Description', 'Unit', 'Qty', 'Rate', 'GST%', 'HSN', ''].map(h => (
+                          <th key={h} className="px-3 py-2 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {items.length === 0 && (
+                        <tr><td colSpan={7} className="px-3 py-4 text-center text-slate-400">No items extracted — add manually</td></tr>
+                      )}
+                      {items.map((it, i) => (
+                        <tr key={i}>
+                          <td className="px-2 py-1"><input value={it.material_name || ''} onChange={e => updateItem(i,'material_name',e.target.value)} className="w-full border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-400 min-w-[180px]" /></td>
+                          <td className="px-2 py-1">
+                            <select value={it.unit || 'Nos'} onChange={e => updateItem(i,'unit',e.target.value)} className="border border-slate-200 rounded px-1 py-1 text-xs outline-none focus:border-indigo-400">
+                              {UNITS.map(u => <option key={u}>{u}</option>)}
+                            </select>
+                          </td>
+                          <td className="px-2 py-1"><input type="number" value={it.quantity || ''} onChange={e => updateItem(i,'quantity',e.target.value)} className="w-16 border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-400" /></td>
+                          <td className="px-2 py-1"><input type="number" value={it.rate || ''} onChange={e => updateItem(i,'rate',e.target.value)} className="w-20 border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-400" /></td>
+                          <td className="px-2 py-1"><input type="number" value={it.gst_rate ?? 18} onChange={e => updateItem(i,'gst_rate',e.target.value)} className="w-12 border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-400" /></td>
+                          <td className="px-2 py-1"><input value={it.hsn_code || ''} onChange={e => updateItem(i,'hsn_code',e.target.value)} className="w-16 border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-400" /></td>
+                          <td className="px-2 py-1"><button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setStep(1)} className="border border-slate-200 text-slate-600 text-sm font-semibold rounded-lg px-4 py-2">← Back</button>
+                <button onClick={handleConfirm} disabled={loading}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg px-4 py-2 flex items-center justify-center gap-2">
+                  {loading ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving…</> : 'Confirm & Import PO'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Done */}
+          {step === 3 && result && (
+            <div className="text-center py-10">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-1">Purchase Order Imported!</h3>
+              <p className="text-sm text-slate-500 mb-4">PO <strong>{result.po_number}</strong> has been created with status <strong>Pending Audit</strong>.</p>
+              <button onClick={onClose} className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg px-6 py-2">
+                Close
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Page ─── */
 export default function POPage() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
   const location = useLocation();
   const [showForm, setShowForm]       = useState(false);
+  const [showImport, setShowImport]   = useState(false);
   const [prefillData, setPrefillData] = useState(null);
   const [selectedPO, setSelectedPO]   = useState(null);
   const [search, setSearch]           = useState('');
@@ -662,6 +886,10 @@ export default function POPage() {
           <button onClick={exportCSV}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:border-slate-300 transition-all shadow-sm">
             <Download className="w-4 h-4" /> Export CSV
+          </button>
+          <button onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 text-indigo-600 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-all shadow-sm">
+            <Upload className="w-4 h-4" /> Import PDF
           </button>
           <button onClick={() => { setPrefillData(null); setShowForm(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
@@ -815,6 +1043,15 @@ export default function POPage() {
           onCreate={d => createMutation.mutate(d)}
           isPending={createMutation.isPending}
           prefill={prefillData}
+        />
+      )}
+
+      {showImport && (
+        <POImportModal
+          onClose={() => setShowImport(false)}
+          vendors={vendorsData}
+          projects={projectsData}
+          onImported={() => qc.invalidateQueries({ queryKey: ['purchase-orders'] })}
         />
       )}
     </div>
