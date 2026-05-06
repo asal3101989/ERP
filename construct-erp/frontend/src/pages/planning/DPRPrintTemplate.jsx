@@ -18,11 +18,15 @@ const pct = (qty, total) => {
 
 const sum = (rows, key) => (rows || []).reduce((acc, row) => acc + (Number(row?.[key]) || 0), 0);
 
+const SHEET_WIDTH = 1122;
+const SHEET_INNER_WIDTH = 1102;
+const A4_SCALE = 0.74;
+
 const cell = {
   border: '1px solid #8db3cf',
-  padding: '3px 5px',
-  fontSize: '8.4px',
-  lineHeight: 1.15,
+  padding: '2px 4px',
+  fontSize: '7.2px',
+  lineHeight: 1.04,
   verticalAlign: 'middle',
 };
 
@@ -128,10 +132,33 @@ export default function DPRPrintTemplate({ dpr, project }) {
   return (
     <div className="planning-dpr-print-root" style={{ background: '#eef3f8', padding: 16 }}>
       <style>{`
+        .planning-dpr-a4-page {
+          width: 283mm;
+          min-height: 196mm;
+          margin: 0 auto;
+          overflow: hidden;
+          background: #fff;
+          box-shadow: 0 2px 20px rgba(15,23,42,0.14);
+        }
+        .planning-dpr-scale-box {
+          width: ${SHEET_WIDTH * A4_SCALE}px;
+          height: auto;
+          transform: scale(${A4_SCALE});
+          transform-origin: top left;
+        }
+        .planning-dpr-sheet {
+          width: ${SHEET_WIDTH}px;
+          min-width: ${SHEET_WIDTH}px;
+          background: #fff;
+          color: #111827;
+          font-family: Arial, Helvetica, sans-serif;
+          padding: 8px;
+        }
         @media print {
           body * { visibility: hidden; }
           .planning-dpr-print-root, .planning-dpr-print-root * { visibility: visible; }
           .planning-dpr-print-root { position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; padding: 0 !important; }
+          .planning-dpr-a4-page { width: 283mm; height: 196mm; margin: 0; box-shadow: none; overflow: hidden; }
           .planning-dpr-print-hide { display: none !important; }
           @page { size: A4 landscape; margin: 7mm; }
         }
@@ -146,18 +173,10 @@ export default function DPRPrintTemplate({ dpr, project }) {
         </button>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-      <div style={{
-        width: 1122,
-        minWidth: 1122,
-        margin: '0 auto',
-        background: '#fff',
-        color: '#111827',
-        fontFamily: 'Arial, Helvetica, sans-serif',
-        boxShadow: '0 2px 20px rgba(15,23,42,0.14)',
-        padding: 10,
-      }}>
-        <table style={{ width: 1102, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+      <div className="planning-dpr-a4-page">
+      <div className="planning-dpr-scale-box">
+      <div className="planning-dpr-sheet">
+        <table style={{ width: SHEET_INNER_WIDTH, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 38 }} />
             <col style={{ width: 38 }} />
@@ -182,9 +201,9 @@ export default function DPRPrintTemplate({ dpr, project }) {
           <tbody>
             <tr>
               <TD colSpan={5} style={{ border: 'none', height: 30 }}>
-                <img src={bcimLogo} alt="BCIM" style={{ maxHeight: 28, maxWidth: 140, objectFit: 'contain' }} />
+                <img src={bcimLogo} alt="BCIM" style={{ maxHeight: 22, maxWidth: 128, objectFit: 'contain' }} />
               </TD>
-              <TD colSpan={9} style={{ border: 'none', fontSize: 16, textAlign: 'center', fontWeight: 800, letterSpacing: '0.8px' }}>
+              <TD colSpan={9} style={{ border: 'none', fontSize: 14, textAlign: 'center', fontWeight: 800, letterSpacing: '0.6px' }}>
                 DAILY PROGRESS REPORT
               </TD>
               <TD colSpan={5} style={{ border: 'none', textAlign: 'right', fontSize: 10, fontWeight: 700 }}>
@@ -399,6 +418,7 @@ export default function DPRPrintTemplate({ dpr, project }) {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
     </div>
   );
