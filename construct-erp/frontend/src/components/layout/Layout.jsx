@@ -437,25 +437,24 @@ function CollapsedIcon3D({ item, isActive, groupColor, onClick, to }) {
 
 function usePageTitle() {
   const location = useLocation();
+  const smartMatch = (itemTo) => {
+    const p = itemTo.split('?')[0];
+    if (location.pathname === p) return true;
+    const segs = p.split('/').filter(Boolean);
+    return segs.length >= 2 && location.pathname.startsWith(p + '/');
+  };
+  // Prefer longest matching path (most specific)
+  let best = null;
   for (const g of navGroups) {
     for (const item of g.items) {
-      const itemPath = item.to.split('?')[0];
-      const itemSearch = item.to.includes('?') ? `?${item.to.split('?')[1]}` : null;
-      const pathMatch = location.pathname === itemPath || location.pathname.startsWith(itemPath + '/');
-      if (itemSearch ? pathMatch && location.search === itemSearch : pathMatch && !location.search) {
-        return { title: item.label, group: g.label };
+      if (smartMatch(item.to)) {
+        if (!best || item.to.length > best.item.to.length) {
+          best = { item, group: g.label };
+        }
       }
     }
   }
-  // fallback: match by path only
-  for (const g of navGroups) {
-    for (const item of g.items) {
-      const itemPath = item.to.split('?')[0];
-      if (location.pathname === itemPath || location.pathname.startsWith(itemPath + '/')) {
-        return { title: item.label, group: g.label };
-      }
-    }
-  }
+  if (best) return { title: best.item.label, group: best.group };
   return { title: 'ConstructERP', group: '' };
 }
 
@@ -504,9 +503,13 @@ export default function Layout() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  // Exact match for top-level routes (/finance, /planning …)
+  // Prefix match only for routes with 2+ segments (/finance/gst, /qs/ra-bills …)
   const matchesPath = (itemTo) => {
     const p = itemTo.split('?')[0];
-    return location.pathname === p || location.pathname.startsWith(p + '/');
+    if (location.pathname === p) return true;
+    const segments = p.split('/').filter(Boolean);
+    return segments.length >= 2 && location.pathname.startsWith(p + '/');
   };
 
   const [expandedGroups, setExpandedGroups] = useState(() => {
@@ -626,10 +629,7 @@ export default function Layout() {
         }).map((group) => {
           const isOpen = expandedGroups.includes(group.label);
           const groupColor = GROUP_COLORS[group.label] || '#6366F1';
-          const hasActive = group.items.some(it => {
-            const p = it.to.split('?')[0];
-            return location.pathname === p || location.pathname.startsWith(p + '/');
-          });
+          const hasActive = group.items.some(it => matchesPath(it.to));
 
           return (
             <div key={group.label}>
@@ -677,9 +677,11 @@ export default function Layout() {
                   {group.items.map((item) => {
                     const itemPath = item.to.split('?')[0];
                     const itemSearch = item.to.includes('?') ? item.to.split('?')[1] : null;
+                    const segments = itemPath.split('/').filter(Boolean);
                     const isActive = itemSearch
                       ? location.pathname === itemPath && location.search === `?${itemSearch}`
-                      : (location.pathname === itemPath || location.pathname.startsWith(itemPath + '/')) && !location.search;
+                      : location.pathname === itemPath ||
+                        (segments.length >= 2 && location.pathname.startsWith(itemPath + '/'));
                     return (
                       <CollapsedIcon3D
                         key={item.to}
@@ -699,9 +701,11 @@ export default function Layout() {
                     {group.items.map((item, idx) => {
                       const itemPath = item.to.split('?')[0];
                       const itemSearch = item.to.includes('?') ? item.to.split('?')[1] : null;
+                      const segments = itemPath.split('/').filter(Boolean);
                       const isActive = itemSearch
                         ? location.pathname === itemPath && location.search === `?${itemSearch}`
-                        : (location.pathname === itemPath || location.pathname.startsWith(itemPath + '/')) && !location.search;
+                        : location.pathname === itemPath ||
+                          (segments.length >= 2 && location.pathname.startsWith(itemPath + '/'));
                       return (
                         <NavItem3D
                           key={item.to}
