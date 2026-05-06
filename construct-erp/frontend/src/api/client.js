@@ -189,7 +189,7 @@ export const poAPI = {
   create:  (data)     => api.post('/purchase-orders', data),
   approve: (id, stage, data) => api.patch(`/purchase-orders/${id}/${stage}`, data),
   receive: (id, data) => api.patch(`/purchase-orders/${id}/receive`, data),
-  importPreview: (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/purchase-orders/import/preview', fd, { headers: { 'Content-Type': 'multipart/form-data' } }); },
+  importPreview: (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/purchase-orders/import/preview', fd, { headers: { 'Content-Type': undefined } }); },
   importConfirm: (data) => api.post('/purchase-orders/import/confirm', data),
 };
 
@@ -270,7 +270,7 @@ export const planningAPI = {
     fd.append('file', file);
     fd.append('project_id', projectId);
     fd.append('overwrite', overwrite ? 'true' : 'false');
-    return api.post('/planning/dpr/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return api.post('/planning/dpr/import', fd, { headers: { 'Content-Type': undefined } });
   },
 
   // Activities
