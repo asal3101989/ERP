@@ -4,7 +4,7 @@ const router = express.Router();
 const ctrl = require('../controllers/subcontractor.controller');
 const { authenticate, authorize } = require('../middleware/auth');
 const multer = require('multer');
-const pdfParse = require('pdf-parse');
+const { extractTextFromPDF } = require('../utils/pdf-ocr');
 
 // ── Work Order PDF Parser ─────────────────────────────────────────────────────
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -110,11 +110,12 @@ function parseWOText(text) {
 router.post('/work-orders/parse-pdf', authenticate, memUpload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No PDF file uploaded' });
-    const data   = await pdfParse(req.file.buffer);
-    const parsed = parseWOText(data.text);
+    const { text, method } = await extractTextFromPDF(req.file.buffer);
+    const parsed = parseWOText(text);
+    parsed._method = method;
     res.json({ success: true, data: parsed });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to parse PDF: ' + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 // ─────────────────────────────────────────────────────────────────────────────

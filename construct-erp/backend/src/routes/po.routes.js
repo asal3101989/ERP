@@ -3,7 +3,7 @@ const express = require('express');
 const { authenticate } = require('../middleware/auth');
 const { query, withTransaction } = require('../config/database');
 const multer = require('multer');
-const pdfParse = require('pdf-parse');
+const { extractTextFromPDF } = require('../utils/pdf-ocr');
 const router = express.Router();
 
 // ── PDF Parse Helper ──────────────────────────────────────────────────────────
@@ -114,15 +114,16 @@ function parsePOText(text) {
   return { poNumber, poDate, vendorName, vendorGST, projectRaw, narration, paymentTerms, items, grandTotal };
 }
 
-// POST /purchase-orders/parse-pdf  — No auth needed just for parsing (returns only extracted data)
+// POST /purchase-orders/parse-pdf
 router.post('/parse-pdf', authenticate, memUpload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No PDF file uploaded' });
-    const data = await pdfParse(req.file.buffer);
-    const parsed = parsePOText(data.text);
-    res.json({ success: true, data: parsed, rawText: data.text.slice(0, 3000) });
+    const { text, method } = await extractTextFromPDF(req.file.buffer);
+    const parsed = parsePOText(text);
+    parsed._method = method; // 'text' or 'ocr'
+    res.json({ success: true, data: parsed });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to parse PDF: ' + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 // ─────────────────────────────────────────────────────────────────────────────
