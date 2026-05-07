@@ -499,6 +499,30 @@ export default function StoreLedgerPage() {
     toast.success('Template downloaded');
   };
 
+  const exportLedgerCSV = () => {
+    const headers = ['SL NO','Category','Material Description','Unit','Opening Stock','Closing Stock','Rate (₹)','Total Issued Stock Value','Opening Stock Value','Closing Stock Value','GST @18%','Grand Total'];
+    const rows = filteredSummary.map((s, idx) => {
+      const rate       = parseFloat(s.unit_rate  || 0);
+      const opening    = parseFloat(s.opening_stock || 0);
+      const closing    = parseFloat(s.closing_stock || 0);
+      const issued     = Math.max(0, opening - closing);
+      const issuedVal  = (issued   * rate).toFixed(2);
+      const openingVal = (opening  * rate).toFixed(2);
+      const closingVal = (closing  * rate).toFixed(2);
+      const gst        = (closing  * rate * GST_RATE).toFixed(2);
+      const grand      = (closing  * rate * (1 + GST_RATE)).toFixed(2);
+      return [idx + 1, s.category || '', s.material_name, s.unit, opening, closing, rate, issuedVal, openingVal, closingVal, gst, grand];
+    });
+    const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Store_Ledger_${dayjs().format('YYYY-MM-DD')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Store ledger exported');
+  };
+
   const exportMovCSV = () => {
     const headers = ['Material','Unit','Opening','Received','Total','Issued','Closing','Rate','Value'];
     const rows = movFiltered.map(r => [
@@ -642,6 +666,12 @@ export default function StoreLedgerPage() {
                 <option value="out_of_stock">Out of Stock</option>
               </select>
             </div>
+            <button
+              onClick={exportLedgerCSV}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:border-emerald-400 hover:text-emerald-600 text-slate-600 text-sm font-semibold rounded-lg transition shrink-0"
+            >
+              <Download size={14} /> Export CSV
+            </button>
           </div>
 
           {/* ── Stock Report Table (Excel columns) ─────────────── */}
