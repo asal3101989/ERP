@@ -615,7 +615,7 @@ export default function Layout() {
       {/* ── Nav ───────────────────────────────────────────────────────────── */}
       <nav ref={navRef} onClickCapture={handleNavClick} className="flex-1 overflow-y-auto py-2 zoho-scroll" style={{ position: 'relative', zIndex: 1 }}>
         {navGroups.filter(g => {
-          if (['admin', 'super_admin'].includes(user?.role)) return true;
+          if (['admin', 'super_admin', 'managing_director'].includes(user?.role)) return true;
           if (g.label === 'Overview') return true;
           return user?.accessible_modules?.includes(g.label);
         }).map((group) => {
@@ -1005,7 +1005,7 @@ export default function Layout() {
         isOpen={paletteOpen}
         onClose={() => setPaletteOpen(false)}
         navGroups={navGroups.filter(g => {
-          if (['admin', 'super_admin'].includes(user?.role)) return true;
+          if (['admin', 'super_admin', 'managing_director'].includes(user?.role)) return true;
           if (g.label === 'Overview') return true;
           return user?.accessible_modules?.includes(g.label);
         })}
