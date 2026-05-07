@@ -49,7 +49,7 @@ export default function WorkOrderPage() {
     try {
       const formDataUpload = new FormData();
       formDataUpload.append('pdf', file);
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const res = await fetch('/api/v1/subcontractors/work-orders/parse-pdf', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },

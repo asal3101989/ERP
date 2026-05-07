@@ -733,7 +733,7 @@ export default function POPage() {
     try {
       const formData = new FormData();
       formData.append('pdf', file);
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const res = await fetch('/api/v1/purchase-orders/parse-pdf', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
