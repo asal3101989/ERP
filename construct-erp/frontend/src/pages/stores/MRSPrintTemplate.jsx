@@ -11,10 +11,35 @@ const fmtDate = (d) => {
 const now = () => dayjs().format('D/M/YYYY, h:mm:ss a');
 
 // ── Print trigger ─────────────────────────────────────────────────────────────
+// Converts relative <img src> to absolute so the popup window can load them.
+async function resolveImgSrcs(htmlString) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlString, 'text/html');
+  const imgs = Array.from(doc.querySelectorAll('img'));
+  await Promise.all(imgs.map(async (img) => {
+    const src = img.getAttribute('src');
+    if (!src || src.startsWith('data:') || src.startsWith('http')) return;
+    // Convert relative path → absolute URL via canvas→base64
+    try {
+      const abs = new URL(src, window.location.origin).href;
+      const res = await fetch(abs);
+      const blob = await res.blob();
+      const b64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+      img.setAttribute('src', b64);
+    } catch { /* leave as-is */ }
+  }));
+  return doc.body.innerHTML;
+}
+
 export function useMRSPrint(ref) {
-  return () => {
-    const content = ref.current?.innerHTML;
-    if (!content) return;
+  return async () => {
+    const raw = ref.current?.innerHTML;
+    if (!raw) return;
+    const content = await resolveImgSrcs(raw);
     const win = window.open('', '_blank', 'width=1200,height=900');
     win.document.write(`<!DOCTYPE html><html><head>
       <title>Material Requisition</title>
@@ -79,13 +104,22 @@ export default function MRSPrintTemplate({ data, onClose }) {
         }}>
 
           {/* ══ PAGE HEADER ══ */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 2 }}>
-            <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+            {/* Logo — left */}
+            <div style={{ flex: 1 }}>
+              <img
+                src="/bcim-logo.png"
+                alt="BCIM"
+                style={{ height: 52, maxWidth: 160, objectFit: 'contain' }}
+              />
+            </div>
+            {/* Title — centre */}
             <div style={{ textAlign: 'center', flex: 1 }}>
               <div style={{ fontSize: '13pt', fontWeight: 700, textDecoration: 'underline', letterSpacing: 1, fontFamily: 'Arial,sans-serif' }}>
                 MATERIAL / SERVICE REQUISITION
               </div>
             </div>
+            {/* Tel — right */}
             <div style={{ flex: 1, textAlign: 'right', fontSize: '9pt', fontWeight: 600 }}>
               Tel : 080 22244455
             </div>
