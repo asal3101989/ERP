@@ -50,7 +50,7 @@ router.post('/', admin, async (req, res) => {
        RETURNING id, name, email, role, designation, department, employee_code, is_active, created_at, accessible_modules`,
       [req.user.company_id, empCode, name, email, phone || null,
        passwordHash, role, designation || null, department || null,
-       accessible_modules ? JSON.stringify(accessible_modules) : '[]']
+       Array.isArray(accessible_modules) ? accessible_modules : []]
     );
 
     res.status(201).json({ message: 'User created successfully', data: result.rows[0] });
@@ -85,7 +85,7 @@ router.put('/:id', admin, async (req, res) => {
        WHERE id = $9 AND company_id = $10`,
       [name, email, phone, role, designation, department,
        is_active !== undefined ? is_active : null,
-       accessible_modules ? JSON.stringify(accessible_modules) : null,
+       Array.isArray(accessible_modules) ? accessible_modules : null,
        req.params.id, req.user.company_id]
     );
 
