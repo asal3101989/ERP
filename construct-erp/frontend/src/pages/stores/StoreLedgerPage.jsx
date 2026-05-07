@@ -88,6 +88,21 @@ function EditableCell({ value, onSave, prefix, numeric, placeholder }) {
 }
 
 /* ── Import Modal ────────────────────────────────────────────── */
+function downloadImportTemplate() {
+  const headers = ['Category', 'MATERIAL DESCRIPTION', 'Unit', 'OPENING STOCK', 'CLOSING STOCK', 'RATE'];
+  const samples = [
+    ['Cement', 'OPC 53 Grade Cement', 'Bags', '500', '320', '380'],
+    ['Steel', '8mm dia TMT Bar Fe500', 'MT', '12.5', '8.2', '58000'],
+    ['Steel', '12mm dia TMT Bar Fe500', 'MT', '8.0', '5.5', '58500'],
+    ['Aggregate', '20mm Crushed Stone', 'CUM', '50', '30', '1200'],
+    ['Sand', 'M-Sand / River Sand', 'CUM', '40', '22', '900'],
+  ];
+  const csv = [headers, ...samples].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  const a = document.createElement('a'); a.href = url; a.download = 'Store_Ledger_Template.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
 function ImportModal({ projects, onClose, onDone }) {
   const fileRef    = useRef();
   const [step, setStep]           = useState(1); // 1=upload, 2=preview, 3=result
@@ -204,15 +219,23 @@ function ImportModal({ projects, onClose, onDone }) {
                 )}
               </div>
 
-              {/* Required columns info */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-xs font-bold text-amber-800 mb-2 uppercase tracking-wide">Expected columns (your Excel matches these exactly)</p>
+              {/* Template download + Required columns info */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Required Columns</p>
+                  <button
+                    onClick={downloadImportTemplate}
+                    className="flex items-center gap-1.5 bg-white border border-amber-300 text-amber-700 hover:bg-amber-100 text-xs font-semibold px-3 py-1.5 rounded-lg transition"
+                  >
+                    <Download size={12} /> Download Template (.csv)
+                  </button>
+                </div>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {['Category', 'MATERIAL DESCRPITION', 'Unit', 'OPENING STOCK', 'CLOSING STOCK', 'RATE'].map(c => (
+                  {['Category', 'MATERIAL DESCRIPTION', 'Unit', 'OPENING STOCK', 'CLOSING STOCK', 'RATE'].map(c => (
                     <div key={c} className="bg-white border border-amber-100 rounded-lg px-2 py-1 text-xs font-mono text-amber-700">{c}</div>
                   ))}
                 </div>
-                <p className="text-[11px] text-amber-600 mt-2">Value columns (TOTAL ISSUED, GST, GRAND TOTAL) are auto-calculated — not imported.</p>
+                <p className="text-[11px] text-amber-600">Value columns (TOTAL ISSUED, GST, GRAND TOTAL) are auto-calculated — not imported.</p>
               </div>
             </div>
           )}
@@ -457,6 +480,25 @@ export default function StoreLedgerPage() {
   const movTotalValue = movData.reduce((s, r) => s + parseFloat(r.stock_value || 0), 0);
   const movMaxQty     = Math.max(...movData.map(r => Math.max(parseFloat(r.received_qty || 0), parseFloat(r.issued_qty || 0))), 1);
 
+  const downloadTemplate = () => {
+    const headers = ['Category', 'MATERIAL DESCRIPTION', 'Unit', 'OPENING STOCK', 'CLOSING STOCK', 'RATE'];
+    const samples = [
+      ['Cement', 'OPC 53 Grade Cement', 'Bags', '500', '320', '380'],
+      ['Steel', '8mm dia TMT Bar Fe500', 'MT', '12.5', '8.2', '58000'],
+      ['Steel', '12mm dia TMT Bar Fe500', 'MT', '8.0', '5.5', '58500'],
+      ['Aggregate', '20mm Crushed Stone', 'CUM', '50', '30', '1200'],
+      ['Sand', 'M-Sand / River Sand', 'CUM', '40', '22', '900'],
+      ['Paint', 'Exterior Emulsion Paint', 'Ltr', '200', '120', '180'],
+      ['Plumbing', 'PVC Pipe 4 inch', 'RMT', '300', '180', '85'],
+      ['Electrical', 'FRLS Wire 2.5 sq mm', 'RMT', '1000', '650', '22'],
+    ];
+    const csv = [headers, ...samples].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'Store_Ledger_Template.csv'; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Template downloaded');
+  };
+
   const exportMovCSV = () => {
     const headers = ['Material','Unit','Opening','Received','Total','Issued','Closing','Rate','Value'];
     const rows = movFiltered.map(r => [
@@ -495,6 +537,13 @@ export default function StoreLedgerPage() {
               {lowCount > 0 && `${lowCount} low stock`}
             </div>
           )}
+          <button
+            onClick={downloadTemplate}
+            className="flex items-center gap-2 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 text-slate-600 font-semibold text-sm px-4 py-2.5 rounded-xl transition shadow-sm"
+          >
+            <Download size={15} />
+            Download Template
+          </button>
           <button
             onClick={() => setShowImport(true)}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-4 py-2.5 rounded-xl transition shadow-sm"
