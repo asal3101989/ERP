@@ -343,6 +343,42 @@ router.patch('/:id/reject', async (req, res) => {
   }
 });
 
+// PATCH /purchase-orders/:id/renumber — update PO display number
+// NOTE: must be declared BEFORE /:id/:stage to avoid being swallowed by that wildcard
+router.patch('/:id/renumber', async (req, res) => {
+  try {
+    const { po_number_display } = req.body;
+    if (!po_number_display?.trim()) {
+      return res.status(400).json({ error: 'PO number cannot be empty' });
+    }
+    // Check ownership
+    const existing = await query(
+      `SELECT po.id, p.company_id FROM purchase_orders po
+       JOIN projects p ON po.project_id = p.id
+       WHERE po.id = $1`,
+      [req.params.id]
+    );
+    if (!existing.rows.length || existing.rows[0].company_id !== req.user.company_id) {
+      return res.status(404).json({ error: 'PO not found' });
+    }
+    // Check duplicate
+    const dup = await query(
+      `SELECT id FROM purchase_orders WHERE serial_no_formatted = $1 AND id != $2`,
+      [po_number_display.trim(), req.params.id]
+    );
+    if (dup.rows.length) {
+      return res.status(400).json({ error: 'This PO number is already used by another PO' });
+    }
+    const result = await query(
+      `UPDATE purchase_orders SET serial_no_formatted = $1 WHERE id = $2 RETURNING *`,
+      [po_number_display.trim(), req.params.id]
+    );
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Stage-based Approval  (3 stages: Audit → Director → MD)
 const PO_STAGES = {
   'verify-audit': { nextStatus: 'verified_audit', colBy: 'verified_procurement_by', colAt: 'verified_procurement_at', requiredPrev: 'draft',          allowedRoles: ['super_admin','admin','project_manager','site_engineer'] },
@@ -400,40 +436,5 @@ router.patch('/:id/:stage', async (req, res) => {
   }
 });
 
-
-// PATCH /purchase-orders/:id/renumber — update PO display number
-router.patch('/:id/renumber', async (req, res) => {
-  try {
-    const { po_number_display } = req.body;
-    if (!po_number_display?.trim()) {
-      return res.status(400).json({ error: 'PO number cannot be empty' });
-    }
-    // Check ownership
-    const existing = await query(
-      `SELECT po.id, p.company_id FROM purchase_orders po
-       JOIN projects p ON po.project_id = p.id
-       WHERE po.id = $1`,
-      [req.params.id]
-    );
-    if (!existing.rows.length || existing.rows[0].company_id !== req.user.company_id) {
-      return res.status(404).json({ error: 'PO not found' });
-    }
-    // Check duplicate
-    const dup = await query(
-      `SELECT id FROM purchase_orders WHERE serial_no_formatted = $1 AND id != $2`,
-      [po_number_display.trim(), req.params.id]
-    );
-    if (dup.rows.length) {
-      return res.status(400).json({ error: 'This PO number is already used by another PO' });
-    }
-    const result = await query(
-      `UPDATE purchase_orders SET serial_no_formatted = $1 WHERE id = $2 RETURNING *`,
-      [po_number_display.trim(), req.params.id]
-    );
-    res.json({ data: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 module.exports = router;
