@@ -559,6 +559,36 @@ async function nextPCNumber() {
   return `PC-${yr}-${String(n).padStart(4, '0')}`;
 }
 
+// ── POST /dqs/bills/auto-link-pos ─────────────────────────────────────────
+// Match dqs_bills.po_number text → purchase_orders.serial_no_formatted / po_number
+// Updates po_id on all unlinked bills where a match is found (same company).
+router.post('/auto-link-pos', async (req, res) => {
+  try {
+    const result = await query(`
+      UPDATE dqs_bills b
+      SET    po_id = po.id,
+             updated_at = NOW()
+      FROM   purchase_orders po
+      JOIN   projects p ON p.id = po.project_id
+      WHERE  b.is_deleted = FALSE
+        AND  b.po_id IS NULL
+        AND  b.po_number IS NOT NULL
+        AND  b.po_number != ''
+        AND  p.company_id = $1
+        AND  (
+               LOWER(TRIM(b.po_number)) = LOWER(TRIM(COALESCE(po.serial_no_formatted, '')))
+            OR LOWER(TRIM(b.po_number)) = LOWER(TRIM(COALESCE(po.po_number, '')))
+             )
+      RETURNING b.id
+    `, [req.user.company_id]);
+
+    res.json({ linked: result.rows.length, message: `${result.rows.length} bill(s) auto-linked to PO records` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GET /dqs/bills/lookup/po-balance ─────────────────────────────────────
 // Per PO item: ordered qty, GRN-received qty, already-invoiced qty, remaining
 router.get('/lookup/po-balance', async (req, res) => {
@@ -979,6 +1009,24 @@ router.post('/import-excel', importUpload.single('file'), async (req, res) => {
 
       return result;
     });
+
+    // Auto-link any bills whose po_number matches a PO record
+    const autoLink = await query(`
+      UPDATE dqs_bills b
+      SET    po_id = po.id, updated_at = NOW()
+      FROM   purchase_orders po
+      JOIN   projects p ON p.id = po.project_id
+      WHERE  b.is_deleted = FALSE
+        AND  b.po_id IS NULL
+        AND  b.po_number IS NOT NULL
+        AND  b.po_number != ''
+        AND  p.company_id = $1
+        AND  (
+               LOWER(TRIM(b.po_number)) = LOWER(TRIM(COALESCE(po.serial_no_formatted, '')))
+            OR LOWER(TRIM(b.po_number)) = LOWER(TRIM(COALESCE(po.po_number, '')))
+             )
+    `, [req.user.company_id || null]);
+    summary.auto_linked = autoLink.rows?.length ?? 0;
 
     res.json({ message: 'DQS tracker imported', ...summary });
   } catch (err) {

@@ -550,6 +550,7 @@ export const dqsBillsAPI = {
   getVendorLedger: (params) => api.get('/dqs/bills/vendor-ledger', { params }),
   getAPAging:      (params) => api.get('/dqs/bills/ap-aging',      { params }),
   updateMeta:      (id, d)  => api.patch(`/dqs/bills/${id}/meta`, d),
+  autoLinkPOs:     ()       => api.post('/dqs/bills/auto-link-pos'),
 };
 
 export const dqsTrackerAPI = {

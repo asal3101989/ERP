@@ -1017,10 +1017,21 @@ export default function DQSBillsPage() {
     mutationFn: (fd) => dqsBillsAPI.importExcel(fd),
     onSuccess: (res) => {
       const data = res.data || {};
-      toast.success(`Imported ${data.imported || 0} bills (${data.created || 0} new, ${data.updated || 0} updated)`);
+      toast.success(`Imported ${data.imported || 0} bills (${data.created || 0} new, ${data.updated || 0} updated${data.auto_linked ? `, ${data.auto_linked} PO-linked` : ''})`);
       qc.invalidateQueries({ queryKey: ['dqs-bills'] });
     },
     onError: (err) => toast.error(err?.response?.data?.error || 'Excel import failed'),
+  });
+
+  const autoLinkMut = useMutation({
+    mutationFn: () => dqsBillsAPI.autoLinkPOs(),
+    onSuccess: (res) => {
+      const { linked = 0 } = res.data || {};
+      if (linked > 0) toast.success(`✅ ${linked} bill(s) linked to PO records`);
+      else toast('No new matches found — all bills may already be linked', { icon: 'ℹ️' });
+      qc.invalidateQueries({ queryKey: ['dqs-bills'] });
+    },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Auto-link failed'),
   });
 
   const handleImportFile = (event) => {
@@ -1144,6 +1155,14 @@ export default function DQSBillsPage() {
           >
             <Upload className="w-4 h-4" /> {importMut.isPending ? 'Importing' : 'Import Excel'}
           </button>
+          <button
+            onClick={() => autoLinkMut.mutate()}
+            disabled={autoLinkMut.isPending}
+            title="Auto-match bill PO numbers to PO records"
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-sm font-black rounded-lg hover:bg-emerald-500 transition-all flex-shrink-0 disabled:opacity-60"
+          >
+            {autoLinkMut.isPending ? '…' : '🔗 Auto-Link POs'}
+          </button>
         </div>
       )}
 
@@ -1160,6 +1179,13 @@ export default function DQSBillsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => autoLinkMut.mutate()}
+              disabled={autoLinkMut.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg disabled:opacity-60 hover:bg-emerald-500"
+            >
+              {autoLinkMut.isPending ? '…' : '🔗 Auto-Link POs'}
+            </button>
             <button
               onClick={() => importInputRef.current?.click()}
               disabled={importMut.isPending}
