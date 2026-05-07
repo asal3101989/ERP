@@ -404,25 +404,44 @@ router.get('/:id/qty-status', async (req, res) => {
       return res.json({ data: rows, source: 'po_items' });
     }
 
-    // ── Fallback: aggregate from GRN items + DQS bill line items ──────────
+    // ── Fallback: aggregate from DQS bill line items + GRN items ─────────
     // Used for older POs that don't have po_items records
+    // Bills are linked via dqs_bills.po_id; GRNs may or may not have po_id set
     const fallback = await query(`
       SELECT
-        material_name                    AS item_name,
+        item_name,
         unit,
         NULL                             AS ordered_qty,
         COALESCE(SUM(received_qty), 0)   AS received_qty,
-        0                                AS invoiced_qty,
+        COALESCE(SUM(invoiced_qty), 0)   AS invoiced_qty,
         NULL                             AS grn_remaining,
         NULL                             AS inv_remaining
       FROM (
-        SELECT gi.material_name, gi.unit, gi.quantity_received AS received_qty
+        -- GRN quantities (linked by po_id)
+        SELECT
+          COALESCE(gi.material_name, gi.description, '—')  AS item_name,
+          gi.unit,
+          gi.quantity_received                              AS received_qty,
+          0                                                 AS invoiced_qty
         FROM grn_items gi
         JOIN grn g ON g.id = gi.grn_id
         WHERE g.po_id = $1 AND g.quality_status = 'approved'
-      ) grn_data
-      GROUP BY material_name, unit
-      ORDER BY material_name
+
+        UNION ALL
+
+        -- DQS bill line-item quantities (linked via bills.po_id)
+        SELECT
+          COALESCE(li.description, li.material_name, '—')  AS item_name,
+          li.unit,
+          0                                                 AS received_qty,
+          li.quantity                                       AS invoiced_qty
+        FROM dqs_bill_line_items li
+        JOIN dqs_bills b ON b.id = li.bill_id
+        WHERE b.po_id = $1 AND b.is_deleted = FALSE
+      ) combined
+      GROUP BY item_name, unit
+      HAVING COALESCE(SUM(received_qty), 0) > 0 OR COALESCE(SUM(invoiced_qty), 0) > 0
+      ORDER BY item_name
     `, [req.params.id]);
 
     res.json({ data: fallback.rows, source: 'grn_fallback' });

@@ -745,16 +745,17 @@ function POQtySection({ poId }) {
           {/* Fallback notice for old POs */}
           {isFallback && (
             <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
-              <p className="text-[10px] text-amber-700">⚠ PO items not stored — showing GRN received quantities only. "Ordered" column unavailable for this PO.</p>
+              <p className="text-[10px] text-amber-700">⚠ Legacy PO — "Ordered" qty unavailable. Showing GRN received &amp; billed quantities from linked records.</p>
             </div>
           )}
 
           {/* Column headers */}
-          <div className={`grid px-4 py-2 bg-slate-50 text-[9px] font-bold text-slate-400 uppercase tracking-wide ${isFallback ? 'grid-cols-3' : 'grid-cols-5'}`}>
+          <div className="grid grid-cols-5 px-4 py-2 bg-slate-50 text-[9px] font-bold text-slate-400 uppercase tracking-wide">
             <div className="col-span-2">Item</div>
             {!isFallback && <div className="text-right">Ordered</div>}
+            {isFallback  && <div />}
             <div className="text-right">GRN Rcvd</div>
-            {!isFallback && <div className="text-right">Invoiced</div>}
+            <div className="text-right">Invoiced</div>
           </div>
 
           {items.map((it, i) => {
@@ -780,18 +781,17 @@ function POQtySection({ poId }) {
                       <p className="text-xs font-bold text-slate-700">{ordered}</p>
                     </div>
                   )}
+                  {isFallback && <div />}
                   <div className="text-right">
                     <p className={`text-xs font-bold ${rcvExceed ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {received} {rcvExceed && '⚠'}
+                      {received > 0 ? received : '—'} {rcvExceed && '⚠'}
                     </p>
                   </div>
-                  {!isFallback && (
-                    <div className="text-right">
-                      <p className={`text-xs font-bold ${invExceed ? 'text-red-600' : 'text-indigo-600'}`}>
-                        {invoiced} {invExceed && '⚠'}
-                      </p>
-                    </div>
-                  )}
+                  <div className="text-right">
+                    <p className={`text-xs font-bold ${invExceed ? 'text-red-600' : 'text-indigo-600'}`}>
+                      {invoiced > 0 ? invoiced : '—'} {invExceed && '⚠'}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Progress bar — only when ordered qty is known */}
