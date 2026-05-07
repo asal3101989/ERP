@@ -16,8 +16,9 @@ import {
   BarChart2, Users, Star,
 } from 'lucide-react';
 import {
-  projectAPI, analyticsAPI, dqsBillsAPI,
+  projectAPI, analyticsAPI, dqsBillsAPI, poAPI,
 } from '../api/client';
+import api from '../api/client';
 import useAuthStore from '../store/authStore';
 import dayjs from 'dayjs';
 
@@ -240,7 +241,7 @@ export default function Dashboard() {
   const role = user?.role || '';
   const dept = (user?.department || '').toLowerCase();
 
-  if (!['super_admin', 'admin'].includes(role)) {
+  if (!['super_admin', 'admin', 'managing_director'].includes(role)) {
     let RoleDash = null;
     if (role === 'project_manager') RoleDash = PMDashboard;
     else if (role === 'site_engineer') RoleDash = SiteEngineerDashboard;
@@ -280,6 +281,21 @@ export default function Dashboard() {
   const { data: tqsBills = [] } = useQuery({
     queryKey: ['dashboard-tqs-bills', refreshKey],
     queryFn: () => dqsBillsAPI.list({}).then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])).catch(() => []),
+  });
+
+  const isMDOrAdmin = ['super_admin', 'admin', 'managing_director'].includes(role);
+
+  // MD Pending Actions
+  const { data: pendingMDPOs = [] } = useQuery({
+    queryKey: ['dashboard-pending-md-pos', refreshKey],
+    queryFn: () => poAPI.list({ status: 'released_mgmt' }).then(r => r.data?.data || []).catch(() => []),
+    enabled: isMDOrAdmin,
+  });
+
+  const { data: pendingPaymentsApproval = [] } = useQuery({
+    queryKey: ['dashboard-pending-payments', refreshKey],
+    queryFn: () => api.get('/payments/pending-approval').then(r => r.data?.data || []).catch(() => []),
+    enabled: isMDOrAdmin,
   });
 
   const dashboardProjects   = dashboard?.projects || [];
@@ -424,6 +440,57 @@ export default function Dashboard() {
             ))}
           </div>
         </motion.div>
+
+        {/* MD Pending Actions Widget */}
+        {isMDOrAdmin && (pendingMDPOs.length > 0 || pendingPaymentsApproval.length > 0) && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 12, padding: '14px 18px', marginBottom: 18, backdropFilter: 'blur(10px)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <AlertTriangle size={16} color="#f59e0b" />
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Your Pending Approvals
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: 10, color: 'rgba(251,191,36,0.7)', fontWeight: 600 }}>
+                {pendingMDPOs.length + pendingPaymentsApproval.length} action{(pendingMDPOs.length + pendingPaymentsApproval.length) !== 1 ? 's' : ''} required
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {pendingMDPOs.length > 0 && (
+                <Link to="/procurement/po" style={{ textDecoration: 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>
+                    <FileText size={13} color="#f59e0b" />
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: '#fbbf24' }}>{pendingMDPOs.length} PO{pendingMDPOs.length !== 1 ? 's' : ''} to Authorize</div>
+                      <div style={{ fontSize: 9, color: 'rgba(251,191,36,0.6)', marginTop: 1 }}>Released by management, awaiting MD sign-off</div>
+                    </div>
+                    <ChevronRight size={12} color="rgba(251,191,36,0.5)" style={{ marginLeft: 4 }} />
+                  </div>
+                </Link>
+              )}
+              {pendingPaymentsApproval.length > 0 && (
+                <Link to="/finance/payments" style={{ textDecoration: 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>
+                    <DollarSign size={13} color="#f59e0b" />
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: '#fbbf24' }}>{pendingPaymentsApproval.length} Payment{pendingPaymentsApproval.length !== 1 ? 's' : ''} &gt; ₹1L</div>
+                      <div style={{ fontSize: 9, color: 'rgba(251,191,36,0.6)', marginTop: 1 }}>
+                        {(() => {
+                          const total = pendingPaymentsApproval.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+                          return inr(total) + ' awaiting authorization';
+                        })()}
+                      </div>
+                    </div>
+                    <ChevronRight size={12} color="rgba(251,191,36,0.5)" style={{ marginLeft: 4 }} />
+                  </div>
+                </Link>
+              )}
+            </div>
+          </motion.div>
+        )}
 
         {/* KPI Cards — row 1 */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14 }}>

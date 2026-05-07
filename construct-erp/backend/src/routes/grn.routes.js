@@ -69,7 +69,7 @@ router.use(authenticate);
 // GET /grn
 router.get('/', async (req, res) => {
   try {
-    const { project_id, status } = req.query;
+    const { project_id, status, po_id } = req.query;
     let sql = `SELECT g.*,
                       g.quality_status AS status,
                       v.name as vendor_name,
@@ -83,6 +83,7 @@ router.get('/', async (req, res) => {
     let i = 2;
     if (project_id) { sql += ` AND g.project_id = $${i++}`; params.push(project_id); }
     if (status)     { sql += ` AND g.quality_status = $${i++}`; params.push(status); }
+    if (po_id)      { sql += ` AND g.po_id = $${i++}`; params.push(po_id); }
     sql += ' ORDER BY g.grn_date DESC';
     const result = await query(sql, params);
     res.json({ data: result.rows });

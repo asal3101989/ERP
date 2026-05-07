@@ -1,16 +1,16 @@
 // src/pages/stores/GRNPage.jsx  — Unified GRN (Create · View · Verify · Approve · Print)
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   PackageCheck, Plus, X, Search, Download, Printer,
   Truck, CheckCircle2, Clock, AlertTriangle, Package,
   ChevronRight, FileText, Calendar, Hash, TrendingUp,
   ShieldCheck, CheckCheck, RefreshCw, ClipboardList,
-  Eye, Building2
+  Eye, Building2, Link2, Info
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
-import { grnAPI, projectAPI, vendorAPI } from '../../api/client';
+import { grnAPI, projectAPI, vendorAPI, poAPI } from '../../api/client';
 import toast from 'react-hot-toast';
 import { useReactToPrint } from 'react-to-print';
 import GRNPrintTemplate from './GRNPrintTemplate';
@@ -618,18 +618,72 @@ export default function GRNPage() {
 /* ── GRN Create Form ─────────────────────────────────────────── */
 function GRNForm({ onClose, projects, qc }) {
   const [form, setForm] = useState({
-    project_id: '', vendor_id: '', grn_date: dayjs().format('YYYY-MM-DD'),
+    project_id: '', po_id: '', vendor_id: '', grn_date: dayjs().format('YYYY-MM-DD'),
     vehicle_number: '', driver_name: '', challan_number: '', invoice_number: '',
     site_location: '', gate_pass_no: '', wb_slip_no: '', remarks: '',
   });
   const [items, setItems] = useState([
-    { material_name: '', unit: 'Nos', quantity_received: '', quality_remarks: '' }
+    { material_name: '', unit: 'Nos', quantity_received: '', quality_remarks: '', po_item_id: null }
   ]);
+  const [poLinked, setPoLinked] = useState(null); // stores selected PO detail
 
   const { data: vendors = [] } = useQuery({
     queryKey: ['vendors'],
     queryFn: () => vendorAPI.list().then(r => r.data.data),
   });
+
+  // Load approved/sent POs for selected project
+  const { data: availablePOs = [] } = useQuery({
+    queryKey: ['pos-for-grn', form.project_id],
+    queryFn: () => poAPI.list({ project_id: form.project_id, status: 'approved' })
+      .then(r => r.data.data || []),
+    enabled: !!form.project_id,
+  });
+
+  // Also load 'sent' POs (already dispatched to vendor)
+  const { data: sentPOs = [] } = useQuery({
+    queryKey: ['pos-for-grn-sent', form.project_id],
+    queryFn: () => poAPI.list({ project_id: form.project_id, status: 'sent' })
+      .then(r => r.data.data || []),
+    enabled: !!form.project_id,
+  });
+
+  const allAvailablePOs = [...availablePOs, ...sentPOs];
+
+  // When PO is selected, auto-fill vendor and items
+  useEffect(() => {
+    if (!form.po_id) {
+      setPoLinked(null);
+      return;
+    }
+    poAPI.get(form.po_id).then(r => {
+      const po = r.data.data;
+      setPoLinked(po);
+      // Auto-fill vendor
+      if (po.vendor_id) setForm(prev => ({ ...prev, vendor_id: po.vendor_id }));
+      // Auto-fill items from PO items
+      if (po.items?.length) {
+        setItems(po.items.map(it => ({
+          material_name: it.material_name || '',
+          unit: it.unit || 'Nos',
+          quantity_received: '',   // blank — stores team fills actual received qty
+          quality_remarks: '',
+          po_item_id: it.id || null,
+          po_qty: it.quantity,     // reference quantity from PO (display only)
+          po_rate: it.rate,        // reference rate from PO
+        })));
+      }
+    }).catch(() => {
+      toast.error('Could not load PO details');
+    });
+  }, [form.po_id]);
+
+  // Reset PO link when project changes
+  useEffect(() => {
+    setForm(prev => ({ ...prev, po_id: '', vendor_id: '' }));
+    setPoLinked(null);
+    setItems([{ material_name: '', unit: 'Nos', quantity_received: '', quality_remarks: '', po_item_id: null }]);
+  }, [form.project_id]);
 
   const createMutation = useMutation({
     mutationFn: (d) => grnAPI.create(d),
@@ -651,7 +705,7 @@ function GRNForm({ onClose, projects, qc }) {
 
   const setField = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const updateItem = (idx, k, v) => { const n = [...items]; n[idx][k] = v; setItems(n); };
-  const addRow = () => setItems([...items, { material_name: '', unit: 'Nos', quantity_received: '', quality_remarks: '' }]);
+  const addRow = () => setItems([...items, { material_name: '', unit: 'Nos', quantity_received: '', quality_remarks: '', po_item_id: null }]);
   const removeRow = (idx) => { if (items.length > 1) setItems(items.filter((_, i) => i !== idx)); };
 
   const inp = 'w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all';
@@ -706,12 +760,59 @@ function GRNForm({ onClose, projects, qc }) {
                 </div>
               ))}
             </div>
+
+            {/* PO Link — shown only when project is selected */}
+            {form.project_id && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Link2 size={13} className="text-indigo-500" />
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Link to Purchase Order (Optional)</span>
+                </div>
+                {allAvailablePOs.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">No approved / sent POs found for this project</p>
+                ) : (
+                  <select
+                    value={form.po_id}
+                    onChange={e => setField('po_id', e.target.value)}
+                    className={inp + ' max-w-md'}
+                  >
+                    <option value="">— No PO link (walk-in / direct purchase) —</option>
+                    {allAvailablePOs.map(po => (
+                      <option key={po.id} value={po.id}>
+                        {po.po_number} — {po.vendor_name} ({po.status === 'sent' ? 'Sent' : 'Approved'})
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* PO linked banner */}
+                {poLinked && (
+                  <div className="mt-3 flex items-start gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
+                    <Info size={15} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-indigo-700">
+                        Linked to {poLinked.po_number}
+                      </p>
+                      <p className="text-xs text-indigo-500 mt-0.5">
+                        Vendor auto-filled · {poLinked.items?.length || 0} item(s) pre-loaded from PO — enter actual quantities received below
+                      </p>
+                    </div>
+                    <button onClick={() => setField('po_id', '')} className="text-indigo-400 hover:text-indigo-600 transition">
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Section 2: Items */}
           <div className="border border-slate-200 rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Material Items Received</h3>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Material Items Received
+                {poLinked && <span className="ml-2 text-indigo-500 font-normal normal-case">(from PO — enter actual qty)</span>}
+              </h3>
               <button onClick={addRow}
                 className="flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition">
                 <Plus size={12} /> Add Row
@@ -721,7 +822,7 @@ function GRNForm({ onClose, projects, qc }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr>
-                    {['Material Name *','Unit','Qty Received *','Quality Remarks',''].map(h => (
+                    {['Material Name *','Unit', ...(poLinked ? ['PO Qty'] : []), 'Qty Received *','Quality Remarks',''].map(h => (
                       <th key={h} className="pb-2 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider pr-3">{h}</th>
                     ))}
                   </tr>
@@ -740,9 +841,24 @@ function GRNForm({ onClose, projects, qc }) {
                           {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                         </select>
                       </td>
+                      {/* PO reference qty column */}
+                      {poLinked && (
+                        <td className="pr-2 py-1.5">
+                          <div className="w-24 h-9 bg-indigo-50 border border-indigo-100 rounded-lg px-3 flex items-center justify-end text-sm text-indigo-500 font-medium">
+                            {it.po_qty || '—'}
+                          </div>
+                        </td>
+                      )}
                       <td className="pr-2 py-1.5">
                         <input type="number" placeholder="0" value={it.quantity_received}
-                          onChange={e => updateItem(idx, 'quantity_received', e.target.value)}
+                          onChange={e => {
+                            const v = e.target.value;
+                            // warn if exceeds PO qty
+                            if (it.po_qty && parseFloat(v) > parseFloat(it.po_qty)) {
+                              toast('Qty exceeds PO quantity!', { icon: '⚠️' });
+                            }
+                            updateItem(idx, 'quantity_received', v);
+                          }}
                           className="w-28 h-9 bg-emerald-50 border border-emerald-200 rounded-lg px-3 text-sm text-emerald-700 font-semibold text-right outline-none focus:border-emerald-400" />
                       </td>
                       <td className="pr-2 py-1.5">

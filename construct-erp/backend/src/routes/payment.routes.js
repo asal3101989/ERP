@@ -10,10 +10,17 @@ router.use(authenticate);
 const ensurePaymentCols = async () => {
   const alters = [
     `ALTER TABLE payments ADD COLUMN IF NOT EXISTS cost_head VARCHAR(100)`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS approval_status VARCHAR(30) DEFAULT 'approved'`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id)`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS approval_remarks TEXT`,
   ];
   for (const sql of alters) await query(sql).catch(() => {});
+  console.log('[Payments] Schema migration OK');
 };
 ensurePaymentCols();
+
+const LARGE_PAYMENT_THRESHOLD = 100000; // ₹1 Lakh — requires MD approval
 
 router.get('/', async (req, res) => {
   const { project_id, payment_type, from_date, to_date } = req.query;
@@ -84,15 +91,20 @@ router.post('/', authorize('super_admin', 'admin', 'accountant'), async (req, re
   const tdsAmount = parseFloat(tds_deducted || 0);
   const netAmount = grossAmount - tdsAmount;
 
+  // Large payments (> ₹1L) require MD/Admin approval
+  const needsApproval = grossAmount > LARGE_PAYMENT_THRESHOLD &&
+    !['super_admin', 'admin', 'managing_director'].includes(req.user.role);
+  const approvalStatus = needsApproval ? 'pending_approval' : 'approved';
+
   const result = await query(
     `INSERT INTO payments (
       project_id, payment_type, entity_name, entity_pan, invoice_id, amount,
       tds_deducted, net_amount, payment_date, payment_mode, reference_number,
-      bank_name, remarks, created_by, cost_head
+      bank_name, remarks, created_by, cost_head, approval_status
     ) VALUES (
       $1, $2, $3, $4, $5, $6,
       $7, $8, $9, $10, $11,
-      $12, $13, $14, $15
+      $12, $13, $14, $15, $16
     )
     RETURNING *`,
     [
@@ -111,10 +123,99 @@ router.post('/', authorize('super_admin', 'admin', 'accountant'), async (req, re
       remarks,
       req.user.id,
       cost_head || null,
+      approvalStatus,
     ]
   );
 
-  res.status(201).json({ data: result.rows[0] });
+  const responseData = result.rows[0];
+  if (needsApproval) {
+    res.status(201).json({
+      data: responseData,
+      warning: `Payment of ₹${grossAmount.toLocaleString('en-IN')} exceeds ₹1L — pending MD approval before processing.`,
+      needs_approval: true,
+    });
+  } else {
+    res.status(201).json({ data: responseData });
+  }
+});
+
+// GET /payments/pending-approval — for MD dashboard widget
+router.get('/pending-approval', authorize('super_admin', 'admin', 'managing_director'), async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT pay.*, p.name AS project_name, u.name AS created_by_name
+       FROM payments pay
+       JOIN projects p ON pay.project_id = p.id
+       LEFT JOIN users u ON pay.created_by = u.id
+       WHERE p.company_id = $1 AND pay.approval_status = 'pending_approval'
+       ORDER BY pay.created_at DESC`,
+      [req.user.company_id]
+    );
+    res.json({ data: result.rows, count: result.rowCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /payments/:id/approve — MD/Admin approves a large payment
+router.patch('/:id/approve', authorize('super_admin', 'admin', 'managing_director'), async (req, res) => {
+  try {
+    const { remarks } = req.body;
+    const existing = await query(
+      `SELECT pay.id, pay.approval_status, p.company_id
+       FROM payments pay
+       JOIN projects p ON pay.project_id = p.id
+       WHERE pay.id = $1`,
+      [req.params.id]
+    );
+    if (!existing.rowCount || existing.rows[0].company_id !== req.user.company_id) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    if (existing.rows[0].approval_status !== 'pending_approval') {
+      return res.status(400).json({ error: 'Payment is not pending approval' });
+    }
+    const result = await query(
+      `UPDATE payments SET
+         approval_status = 'approved',
+         approved_by = $1,
+         approved_at = NOW(),
+         approval_remarks = $2
+       WHERE id = $3 RETURNING *`,
+      [req.user.id, remarks || null, req.params.id]
+    );
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /payments/:id/reject — MD/Admin rejects a large payment
+router.patch('/:id/reject', authorize('super_admin', 'admin', 'managing_director'), async (req, res) => {
+  try {
+    const { remarks } = req.body;
+    const existing = await query(
+      `SELECT pay.id, pay.approval_status, p.company_id
+       FROM payments pay
+       JOIN projects p ON pay.project_id = p.id
+       WHERE pay.id = $1`,
+      [req.params.id]
+    );
+    if (!existing.rowCount || existing.rows[0].company_id !== req.user.company_id) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    const result = await query(
+      `UPDATE payments SET
+         approval_status = 'rejected',
+         approved_by = $1,
+         approved_at = NOW(),
+         approval_remarks = $2
+       WHERE id = $3 RETURNING *`,
+      [req.user.id, remarks || null, req.params.id]
+    );
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.delete('/:id', authorize('super_admin', 'admin', 'accountant'), async (req, res) => {

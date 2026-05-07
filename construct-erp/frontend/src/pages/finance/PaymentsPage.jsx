@@ -2,9 +2,10 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Plus, X, Search, Download, RefreshCw, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, X, Search, Download, RefreshCw, ArrowUpDown, ChevronLeft, ChevronRight, ShieldAlert, CheckCircle2, XCircle } from 'lucide-react';
 import api, { projectAPI, raBillAPI } from '../../api/client';
 import dayjs from 'dayjs';
+import useAuthStore from '../../store/authStore';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const inr = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(v || 0));
@@ -36,6 +37,8 @@ const PAGE_SIZE = 20;
 
 export default function PaymentsPage() {
   const qc = useQueryClient();
+  const { user } = useAuthStore();
+  const canApprove = ['super_admin', 'admin', 'managing_director'].includes(user?.role);
   const [activeTab, setActiveTab]   = useState('out');
   const [showModal, setShowModal]   = useState(false);
   const [search, setSearch]         = useState('');
@@ -72,12 +75,31 @@ export default function PaymentsPage() {
   // ── Mutations ──────────────────────────────────────────────────────────────
   const createMut = useMutation({
     mutationFn: (payload) => api.post('/payments', payload),
-    onSuccess: () => { toast.success('Payment recorded'); qc.invalidateQueries(['payments']); setShowModal(false); setForm(EMPTY_FORM); },
+    onSuccess: (res) => {
+      qc.invalidateQueries(['payments']);
+      setShowModal(false);
+      setForm(EMPTY_FORM);
+      if (res.data?.needs_approval) {
+        toast(res.data.warning || 'Payment submitted — pending MD approval', { icon: '⚠️', duration: 6000 });
+      } else {
+        toast.success('Payment recorded');
+      }
+    },
     onError: () => toast.error('Failed to record payment'),
   });
   const deleteMut = useMutation({
     mutationFn: (id) => api.delete(`/payments/${id}`),
     onSuccess: () => { toast.success('Deleted'); qc.invalidateQueries(['payments']); },
+  });
+  const approveMut = useMutation({
+    mutationFn: (id) => api.patch(`/payments/${id}/approve`),
+    onSuccess: () => { toast.success('Payment approved'); qc.invalidateQueries(['payments']); },
+    onError: () => toast.error('Approval failed'),
+  });
+  const rejectMut = useMutation({
+    mutationFn: (id) => api.patch(`/payments/${id}/reject`),
+    onSuccess: () => { toast.success('Payment rejected'); qc.invalidateQueries(['payments']); },
+    onError: () => toast.error('Rejection failed'),
   });
 
   // ── Filter ─────────────────────────────────────────────────────────────────
@@ -104,10 +126,11 @@ export default function PaymentsPage() {
   const toggleSort = (f) => { if (sortField===f) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortField(f); setSortDir('asc'); } setPage(1); };
 
   // ── Stats ──────────────────────────────────────────────────────────────────
-  const totalGross = filtered.reduce((s,p) => s+p.gross_amount, 0);
-  const totalTds   = filtered.reduce((s,p) => s+p.tds_amount_val, 0);
-  const totalNet   = filtered.reduce((s,p) => s+p.net_amount_val, 0);
-  const dqsCount   = filtered.filter(p => p.source_val === 'dqs').length;
+  const totalGross    = filtered.reduce((s,p) => s+p.gross_amount, 0);
+  const totalTds      = filtered.reduce((s,p) => s+p.tds_amount_val, 0);
+  const totalNet      = filtered.reduce((s,p) => s+p.net_amount_val, 0);
+  const dqsCount      = filtered.filter(p => p.source_val === 'dqs').length;
+  const pendingApprovalCount = payments.filter(p => p.approval_status === 'pending_approval').length;
 
   // ── RA Bills tab ───────────────────────────────────────────────────────────
   const certifiedBills = allRaBills.filter(b => b.status === 'certified');
@@ -145,11 +168,31 @@ export default function PaymentsPage() {
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <SummaryCard label="Net Disbursed"  value={inr(totalNet)}   sub="Released to payees"       color="#059669" />
-          <SummaryCard label="Gross Amount"    value={inr(totalGross)} sub="Before TDS deduction"     color="#374151" />
-          <SummaryCard label="TDS Deducted"    value={inr(totalTds)}   sub="Held at source"           color="#DC2626" />
-          <SummaryCard label="DQS Linked"      value={dqsCount}        sub="Auto-synced from DQS"     color="#1D4ED8" />
+          <SummaryCard label="Net Disbursed"     value={inr(totalNet)}         sub="Released to payees"      color="#059669" />
+          <SummaryCard label="Gross Amount"       value={inr(totalGross)}       sub="Before TDS deduction"    color="#374151" />
+          <SummaryCard label="TDS Deducted"       value={inr(totalTds)}         sub="Held at source"          color="#DC2626" />
+          {pendingApprovalCount > 0 ? (
+            <SummaryCard label="Pending MD Approval" value={pendingApprovalCount} sub="Large payments awaiting auth" color="#D97706" />
+          ) : (
+            <SummaryCard label="DQS Linked"       value={dqsCount}              sub="Auto-synced from DQS"    color="#1D4ED8" />
+          )}
         </div>
+
+        {/* Pending Approval Banner — visible to MD/Admin when there are pending payments */}
+        {canApprove && pendingApprovalCount > 0 && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="text-sm font-semibold text-amber-800">
+              {pendingApprovalCount} payment{pendingApprovalCount > 1 ? 's' : ''} pending your approval (amount &gt; ₹1L)
+            </span>
+            <button
+              onClick={() => { setSearch(''); setProjectFilter('all'); setModeFilter('all'); }}
+              className="ml-auto text-xs font-bold text-amber-600 hover:text-amber-800"
+            >
+              View all →
+            </button>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-gray-200">
@@ -229,10 +272,29 @@ export default function PaymentsPage() {
                         <td className="px-4 py-3 text-right font-mono text-sm text-red-500">{p.tds_amount_val>0 ? inr(p.tds_amount_val) : '—'}</td>
                         <td className="px-4 py-3 text-right font-semibold text-sm text-gray-900">{inr(p.net_amount_val)}</td>
                         <td className="px-4 py-3">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${p.source_val==='dqs' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>{p.source_val==='dqs'?'DQS':'Manual'}</span>
+                          <div className="flex flex-col gap-1">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${p.source_val==='dqs' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>{p.source_val==='dqs'?'DQS':'Manual'}</span>
+                            {p.approval_status === 'pending_approval' && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Pending Approval</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
-                          <button onClick={()=>{ if(window.confirm('Delete this payment?')) deleteMut.mutate(p.id); }} className="text-xs text-red-400 hover:text-red-600">Delete</button>
+                          <div className="flex items-center gap-1">
+                            {canApprove && p.approval_status === 'pending_approval' && (
+                              <>
+                                <button onClick={() => approveMut.mutate(p.id)} title="Approve payment"
+                                  className="p-1.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100 transition">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => rejectMut.mutate(p.id)} title="Reject payment"
+                                  className="p-1.5 rounded bg-red-50 border border-red-200 text-red-500 hover:bg-red-100 transition">
+                                  <XCircle className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                            <button onClick={()=>{ if(window.confirm('Delete this payment?')) deleteMut.mutate(p.id); }} className="text-xs text-red-400 hover:text-red-600">Delete</button>
+                          </div>
                         </td>
                       </tr>
                     ))}
