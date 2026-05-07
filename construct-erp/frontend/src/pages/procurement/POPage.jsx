@@ -18,14 +18,20 @@ import POPrintTemplate from './POPrintTemplate';
 const UNITS = ['MT', 'Bags', 'CUM', 'SQM', 'Nos', 'RMT', 'KG', 'Litre', 'Month', 'LS'];
 
 const STATUS_CONFIG = {
-  draft:          { label: 'Draft',           short: 'Draft',        color: 'bg-slate-50 text-slate-600 border-slate-200',      dot: 'bg-slate-400',   icon: FileText,     stage: 1 },
-  verified_audit: { label: 'Audit Verified',  short: 'Audit OK',     color: 'bg-blue-50 text-blue-700 border-blue-200',        dot: 'bg-blue-500',    icon: UserCheck,    stage: 2 },
-  released_mgmt:  { label: 'Dir. Released',   short: 'Released',     color: 'bg-violet-50 text-violet-700 border-violet-200',  dot: 'bg-violet-500',  icon: Building2,    stage: 3 },
-  approved:       { label: 'MD Authorized',   short: 'Authorized',   color: 'bg-emerald-50 text-emerald-700 border-emerald-200',dot: 'bg-emerald-500', icon: CheckCircle2, stage: 4 },
-  sent:           { label: 'Sent to Vendor',  short: 'Sent',         color: 'bg-sky-50 text-sky-700 border-sky-200',           dot: 'bg-sky-500',     icon: Activity,     stage: 5 },
-  part_received:  { label: 'Part Received',   short: 'Part Rcvd',    color: 'bg-cyan-50 text-cyan-700 border-cyan-200',        dot: 'bg-cyan-500',    icon: Package,      stage: 6 },
-  fully_received: { label: 'Fully Received',  short: 'Received',     color: 'bg-green-50 text-green-700 border-green-200',     dot: 'bg-green-500',   icon: Check,        stage: 7 },
-  rejected:       { label: 'Rejected',        short: 'Rejected',     color: 'bg-red-50 text-red-700 border-red-200',           dot: 'bg-red-400',     icon: XCircle,      stage: 0 },
+  // Current statuses
+  draft:           { label: 'Draft',           short: 'Draft',        color: 'bg-slate-50 text-slate-600 border-slate-200',      dot: 'bg-slate-400',   icon: FileText,     stage: 1 },
+  verified_audit:  { label: 'Audit Verified',  short: 'Audit OK',     color: 'bg-blue-50 text-blue-700 border-blue-200',        dot: 'bg-blue-500',    icon: UserCheck,    stage: 2 },
+  released_mgmt:   { label: 'Dir. Released',   short: 'Released',     color: 'bg-violet-50 text-violet-700 border-violet-200',  dot: 'bg-violet-500',  icon: Building2,    stage: 3 },
+  approved:        { label: 'MD Authorized',   short: 'Authorized',   color: 'bg-emerald-50 text-emerald-700 border-emerald-200',dot: 'bg-emerald-500', icon: CheckCircle2, stage: 4 },
+  sent:            { label: 'Sent to Vendor',  short: 'Sent',         color: 'bg-sky-50 text-sky-700 border-sky-200',           dot: 'bg-sky-500',     icon: Activity,     stage: 5 },
+  part_received:   { label: 'Part Received',   short: 'Part Rcvd',    color: 'bg-cyan-50 text-cyan-700 border-cyan-200',        dot: 'bg-cyan-500',    icon: Package,      stage: 6 },
+  fully_received:  { label: 'Fully Received',  short: 'Received',     color: 'bg-green-50 text-green-700 border-green-200',     dot: 'bg-green-500',   icon: Check,        stage: 7 },
+  rejected:        { label: 'Rejected',        short: 'Rejected',     color: 'bg-red-50 text-red-700 border-red-200',           dot: 'bg-red-400',     icon: XCircle,      stage: 0 },
+  cancelled:       { label: 'Cancelled',       short: 'Cancelled',    color: 'bg-red-50 text-red-600 border-red-200',           dot: 'bg-red-400',     icon: XCircle,      stage: 0 },
+  // Legacy statuses (old DB records)
+  pending:         { label: 'Pending',         short: 'Pending',      color: 'bg-slate-50 text-slate-600 border-slate-200',     dot: 'bg-slate-400',   icon: Clock,        stage: 1 },
+  verified_procurement: { label: 'Audit Verified', short: 'Audit OK', color: 'bg-blue-50 text-blue-700 border-blue-200',       dot: 'bg-blue-500',    icon: UserCheck,    stage: 2 },
+  checked_finance: { label: 'Finance Checked', short: 'Finance OK',   color: 'bg-teal-50 text-teal-700 border-teal-200',       dot: 'bg-teal-500',    icon: Landmark,     stage: 3 },
 };
 
 const STAGE_ACTIONS = [
@@ -127,7 +133,7 @@ function SignaturePadModal({ signerName, signerRole, onSave, onClose }) {
 }
 
 function StatusBadge({ status }) {
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
   const Icon = cfg.icon;
   return (
     <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border whitespace-nowrap', cfg.color)}>
@@ -690,7 +696,7 @@ function PODetailPanel({ po, detailedPO, onClose, onApprove, onReject, isApprovi
   const [sigModal, setSigModal] = useState(null); // { stage }
   const liveStatus = detailedPO?.status ?? po.status;
   const currentAction = STAGE_ACTIONS.find(a => a.reqStatus === liveStatus);
-  const cfg = STATUS_CONFIG[liveStatus] || STATUS_CONFIG.pending;
+  const cfg = STATUS_CONFIG[liveStatus] || STATUS_CONFIG.draft;
   const signatures = detailedPO?.signatures || {};
 
   return (
@@ -808,7 +814,7 @@ function PODetailPanel({ po, detailedPO, onClose, onApprove, onReject, isApprovi
                 <div className="absolute bg-slate-200 left-[17px] top-5" style={{ width: 1, height: 'calc(100% - 40px)' }} />
                 <div className="space-y-3">
                   {STAGE_ACTIONS.map((stage, idx) => {
-                    const curStage = (STATUS_CONFIG[liveStatus] || STATUS_CONFIG.pending).stage;
+                    const curStage = (STATUS_CONFIG[liveStatus] || STATUS_CONFIG.draft).stage;
                     const isDone   = curStage > idx + 1;
                     const isActive = curStage === idx + 1;
                     const sig      = signatures[stage.id];
