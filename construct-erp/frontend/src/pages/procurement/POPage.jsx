@@ -151,48 +151,115 @@ const INP = 'w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text
 
 /* ─── New PO Modal ─── */
 const EMPTY_ITEM = { material_name:'', mix_design:'', hsn_code:'', unit:'Cum', quantity:'', rate:'', gst_rate:'18', req_date:'' };
-const TC_DEFAULT = `1. All Bills and DCs should contain the Reference of the Concerned PO.
-2. All materials supplied will be subject to inspections & test when received at our site.
-3. Final Bill shall be cleared after Certification by the Concerned Engg & on actual measurements taken at Site.
-4. If any Goods damaged or rejected must be replaced immediately at the suppliers own expenses.
-5. Payment: 30 Days from the date of supply.
-6. Lead Time: As per site requirement.
-7. Bill Requirement: Bill must carry PO number, GST number, HSN Code, Bill number, LUT details, Transporter challan.
-8. Quantity Certification: Quantity mentioned in the Order may be approximate; actual & mutually certified measurement will be accounted for payment.
-9. Price Escalation: Price is absolute frozen for this Order. No escalation will be entertained.
-10. TDS as applicable under Income Tax Laws shall be deducted at applicable rates.`;
+const UOM_OPTIONS = ['Cum','Sqm','Rmt','Nos','Kg','MT','Ltr','Bags','LS','Set','Point'];
+const PO_TYPES    = ['Fresh PO','Amendment'];
+const TC_CATEGORIES = ['General','Quality','Billing','Payment','Delivery','Quantity','Price','Cancellation','Dispute','GST','HSE','Special','Amendment'];
+
+const DEFAULT_TC_CLAUSES = [
+  { id:1,  category:'General',      text:'All Bills and DCs should contain the Reference of the Concerned PO.' },
+  { id:2,  category:'Quality',      text:'All materials supplied will be subject to inspections & test when received at our site.' },
+  { id:3,  category:'Billing',      text:'Final Bill shall be cleared after Certification by the Concerned Engg & on actual measurements taken at Site.' },
+  { id:4,  category:'Quality',      text:'If any Goods damaged or rejected must be replaced immediately at the suppliers own expenses.' },
+  { id:5,  category:'Payment',      text:'Payment : 30 Days from the date of supply.' },
+  { id:6,  category:'Delivery',     text:'Lead Time : As per site requirement.' },
+  { id:7,  category:'General',      text:'Contact details of Supplier: Mr. Krishna 94490 30232.' },
+  { id:8,  category:'Billing',      text:'Bill Requirement: Bill must carry details of Specific Order number, site acceptance signature along with seal, buyer and supplier GST number, HSN Code, Bill number, LUT details, Transporter challan etc.' },
+  { id:9,  category:'Quantity',     text:'Quantity Certification: Quantity mentioned in the Order may be approximate, actual & mutually certified measurement will be accounted for the payment.' },
+  { id:10, category:'Price',        text:'Price Escalation: Above mentioned price is absolute frozen for this Order, in case of any price escalation "after" or "before/in-between" will be considered breach of Contract terms & will not be entertained.' },
+  { id:11, category:'Cancellation', text:'Cancellation: Time is of the essence in this order. Buyer reserves the right to cancel this order, or any portion of this order, without liability, if; (1) delivery is not made when and as specified; (b) Seller fails to meet contract commitments as to exact time, price, quality or quantity.' },
+  { id:12, category:'Dispute',      text:'Any dispute or difference which may arise between the parties or their representatives shall be referred to two arbitrators to be nominated by each of the dissenting parties and the decision of the arbitrators shall be final and binding on the concerned parties and the proceedings shall be governed by the Arbitration and Conciliation Act 1996. All disputes shall be subject to jurisdiction of courts at Bangalore.' },
+  { id:13, category:'GST',          text:'GST TERMS: (a) Payment Clause: In an event of denial of credits to M/s. BCIM ENGINEERING PRIVATE LIMITED arising, on account of any non-payment of taxes or non-compliance with the GST Laws by the Vendor, BCIM ENGINEERING PRIVATE LIMITED shall withhold such amounts from the subsequent payments to the Vendor, till the input tax credit so denied is reinstated.\n\n(b) Contract Value Clause: From the date of GST implementation, Basic Price mentioned in the contract to be taken before all central and state levies subsumed into GST. All intermediary credits availed by the vendor and non-creditable tax costs included in the basic price have to be passed on to us.\n\n(c) TDS Clause: TDS as may be applicable under the Income Tax Laws and the GST Laws shall be deducted by M/s. BCIM ENGINEERING PRIVATE LIMITED at the applicable rates.' },
+  { id:14, category:'HSE',          text:'We at BCIM are an environment friendly health and safety conscious organisation, therefore we expect you as our business associate to provide us with all the environment friendly materials & services.' },
+  { id:15, category:'HSE',          text:'Also please ensure that your material during transit to us does not result in any environmental pollution and issues. Also ensure adequate package protection to prevent any damages to the material. As part of health and safety requirement please ensure that all chemicals consignment are accompanied by MSDS (Material safety data sheet) related to the chemicals.' },
+  { id:16, category:'HSE',          text:'Ensure compliances to all statutory and regulatory requirements of environment and health and safety including vehicle being certified for emission controls operated by licenced drivers and ensure covering the materials so that do not emit any fugitive dust / emissions to environment.' },
+  { id:17, category:'HSE',          text:'Where the material generate dust, that could pollute atmosphere during the transit, supplier shall ensure to cover the truck transporting the material securely and safely to ensure there is no fugitive dust emission during the transit.' },
+  { id:18, category:'Billing',      text:'NOTE: 3 Copies of Tax invoice (original, duplicate & triplicate) to be submitted along with each consignment supply.' },
+  { id:19, category:'General',      text:'Order to be acknowledged and accepted or to be reverted if any changes within 4 hours. If not it will be considered as accepted.' },
+];
 
 function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }) {
+  // ── Order type
+  const [poType,       setPoType]       = useState('Fresh PO');
+  const [originalPoNo, setOriginalPoNo] = useState('');
+
+  // ── Core form
   const [form, setForm] = useState({
-    vendor_id:        prefill?.vendor_id        || '',
-    project_id:       prefill?.project_id       || '',
-    po_date:          prefill?.po_date          || dayjs().format('YYYY-MM-DD'),
-    delivery_date:    '',
-    po_ref_no:        prefill?.po_ref           || '',
-    po_req_no:        prefill?.po_req_no        || '',
-    approval_no:      '',
-    delivery_address: prefill?.delivery_address || '',
-    narration:        prefill?.narration        || '',
-    cgst_rate:        prefill?.cgst_rate        || '9',
-    sgst_rate:        prefill?.sgst_rate        || '9',
-    igst_rate:        '0',
-    gst_inclusive:    prefill?.gst_inclusive    ?? true,
-    terms_conditions: prefill?.terms_conditions || TC_DEFAULT,
-    notes:            prefill?.notes            || (prefill?.mrs_ref ? `Ref: CS / ${prefill.mrs_ref}` : ''),
+    vendor_id:     prefill?.vendor_id     || '',
+    project_id:    prefill?.project_id    || '',
+    po_date:       prefill?.po_date       || dayjs().format('YYYY-MM-DD'),
+    delivery_date: '',
+    po_ref_no:     prefill?.po_ref        || '',
+    po_req_no:     prefill?.po_req_no     || '',
+    po_req_date:   '',
+    approval_no:   '',
+    narration:     prefill?.narration     || '',
+    payment_terms: '30 Days from the date of supply',
+    lead_time:     'As per site requirement',
+    cgst_rate:     prefill?.cgst_rate     || '9',
+    sgst_rate:     prefill?.sgst_rate     || '9',
+    igst_rate:     '0',
+    gst_inclusive: prefill?.gst_inclusive ?? true,
+    notes:         prefill?.notes         || (prefill?.mrs_ref ? `Ref: CS / ${prefill.mrs_ref}` : ''),
   });
+
+  // ── Vendor detail text fields (auto-filled from selected vendor, editable)
+  const [vendorAddress,   setVendorAddress]   = useState('');
+  const [vendorEmail,     setVendorEmail]     = useState('');
+  const [vendorContact,   setVendorContact]   = useState('');
+  const [vendorGST,       setVendorGST]       = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState(prefill?.delivery_address || '');
+  const [deliveryContact, setDeliveryContact] = useState('');
+
+  // Auto-fill vendor details when vendor selected
+  useEffect(() => {
+    if (form.vendor_id) {
+      const v = vendors.find(v => v.id === form.vendor_id);
+      if (v) {
+        setVendorAddress(v.address || '');
+        setVendorEmail(v.email || '');
+        setVendorContact(v.contact_person || '');
+        setVendorGST(v.gstin || '');
+      }
+    }
+  }, [form.vendor_id, vendors]);
+
+  // Auto-fill delivery address from project location
+  useEffect(() => {
+    if (form.project_id) {
+      const p = projects.find(p => p.id === form.project_id);
+      if (p) setDeliveryAddress(prev => prev || p.location || '');
+    }
+  }, [form.project_id, projects]);
+
+  // ── Items
   const [items, setItems] = useState(
     prefill?.items?.length ? prefill.items : [{ ...EMPTY_ITEM }]
   );
+
+  // ── T&C Clauses
+  const [terms,       setTerms]       = useState(DEFAULT_TC_CLAUSES.map(t => ({ ...t, enabled: true })));
+  const [tcFilter,    setTcFilter]    = useState('All');
+  const [tcEditingId, setTcEditingId] = useState(null);
+
+  const updateTerm = (id, field, val) => setTerms(prev => prev.map(t => t.id === id ? { ...t, [field]: val } : t));
+  const addTerm = () => {
+    const newId = Date.now();
+    setTerms(prev => [...prev, { id: newId, category: 'General', text: '', enabled: true }]);
+    setTcEditingId(newId);
+  };
+  const removeTerm = (id) => setTerms(prev => prev.filter(t => t.id !== id));
+  const filteredTerms = tcFilter === 'All' ? terms : terms.filter(t => t.category === tcFilter);
+  const activeCount   = terms.filter(t => t.enabled).length;
 
   const set     = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const setItem = (i, k, v) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [k]: v } : it));
   const addItem = () => setItems(p => [...p, { ...EMPTY_ITEM }]);
   const removeItem = i => setItems(p => p.filter((_, idx) => idx !== i));
 
-  const subTotal  = items.reduce((s, it) => s + (parseFloat(it.quantity)||0)*(parseFloat(it.rate)||0), 0);
-  const cgstAmt   = form.gst_inclusive ? 0 : subTotal * (parseFloat(form.cgst_rate)||0) / 100;
-  const sgstAmt   = form.gst_inclusive ? 0 : subTotal * (parseFloat(form.sgst_rate)||0) / 100;
-  const igstAmt   = form.gst_inclusive ? 0 : subTotal * (parseFloat(form.igst_rate)||0) / 100;
+  const subTotal   = items.reduce((s, it) => s + (parseFloat(it.quantity)||0)*(parseFloat(it.rate)||0), 0);
+  const cgstAmt    = form.gst_inclusive ? 0 : subTotal * (parseFloat(form.cgst_rate)||0) / 100;
+  const sgstAmt    = form.gst_inclusive ? 0 : subTotal * (parseFloat(form.sgst_rate)||0) / 100;
+  const igstAmt    = form.gst_inclusive ? 0 : subTotal * (parseFloat(form.igst_rate)||0) / 100;
   const grandTotal = subTotal + cgstAmt + sgstAmt + igstAmt;
 
   const handleSubmit = () => {
@@ -200,34 +267,78 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
     if (!form.project_id) return toast.error('Select a project');
     if (items.some(it => !it.material_name?.trim() || !it.quantity || !it.rate))
       return toast.error('All items need description, quantity and rate');
-    onCreate({ ...form, delivery_date: form.delivery_date || null, items });
+
+    const termsText = terms
+      .filter(t => t.enabled && t.text.trim())
+      .map((t, i) => `${i + 1}. ${t.text}`)
+      .join('\n');
+
+    const vendorInfo = [
+      vendorAddress && `Address: ${vendorAddress}`,
+      vendorGST     && `GSTIN: ${vendorGST}`,
+      vendorEmail   && `Email: ${vendorEmail}`,
+      vendorContact && `Contact: ${vendorContact}`,
+    ].filter(Boolean).join(' | ');
+
+    const notesLines = [
+      form.notes,
+      deliveryContact && `Delivery Contact: ${deliveryContact}`,
+      form.payment_terms && `Payment Terms: ${form.payment_terms}`,
+      form.lead_time     && `Lead Time: ${form.lead_time}`,
+      poType === 'Amendment' && originalPoNo && `Amendment to PO: ${originalPoNo}`,
+    ].filter(Boolean).join('\n');
+
+    onCreate({
+      ...form,
+      delivery_address: deliveryAddress,
+      delivery_date:    form.delivery_date || null,
+      terms_conditions: termsText,
+      bank_details:     vendorInfo || null,
+      notes:            notesLines || null,
+      items,
+    });
   };
 
-  const TA = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all resize-none';
+  const INP2 = 'w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all';
+  const TA2  = 'w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all resize-none';
+  const SH   = 'bg-slate-50 px-4 py-2.5 border-b border-slate-100';
+  const SC   = 'text-[10px] font-bold text-slate-500 uppercase tracking-widest';
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white border border-slate-200 w-full max-w-5xl rounded-2xl flex flex-col max-h-[95vh] shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
+      <div className="bg-[#f0f2f5] w-full max-w-6xl rounded-2xl flex flex-col max-h-[97vh] shadow-2xl overflow-hidden border border-slate-200">
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0 bg-gradient-to-r from-amber-50 to-white">
+        {/* ── Header Bar ── */}
+        <div className="flex items-center justify-between px-5 py-3.5 bg-indigo-700 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
-              <ShoppingCart className="w-4 h-4 text-amber-600" />
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">B</span>
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-900">
-                {form.po_ref_no ? `Purchase Order — ${form.po_ref_no}` : 'Create Purchase Order'}
+              <p className="text-sm font-bold text-white">
+                {poType === 'Amendment' ? 'Amended Purchase Order' : 'Purchase Order'}
               </p>
-              <p className="text-xs text-slate-400 mt-0.5">BCIM-PUR-F-03 · 4-stage authorization workflow</p>
+              <p className="text-[11px] text-white/70">BCIM-PUR-F-03 · 4-stage authorization workflow</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-all">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-3">
+            {grandTotal > 0 && (
+              <span className="font-mono text-sm text-white bg-white/15 px-3 py-1 rounded-full">
+                ₹ {Number(grandTotal).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </span>
+            )}
+            <span className={clsx('text-xs font-semibold px-2.5 py-1 rounded-full',
+              poType === 'Amendment' ? 'bg-orange-500 text-white' : 'bg-white/20 text-white')}>
+              {poType}
+            </span>
+            <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 flex items-center justify-center transition-all">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
           {prefill?.mrs_ref && (
             <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
               <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
@@ -235,96 +346,133 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
             </div>
           )}
 
-          {/* ── SECTION 1: PO HEADER ── */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
-              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Purchase Order Details</h3>
-            </div>
-            <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="Vendor *">
-                <select className={INP} value={form.vendor_id} onChange={e => set('vendor_id', e.target.value)}>
-                  <option value="">Select vendor…</option>
-                  {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+          {/* ══ SECTION 1: ORDER INFORMATION ══ */}
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div className={SH}><h3 className={SC}>📋 Order Information</h3></div>
+            <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Field label="PO Type">
+                <select className={INP2} value={poType} onChange={e => setPoType(e.target.value)}>
+                  {PO_TYPES.map(t => <option key={t}>{t}</option>)}
                 </select>
               </Field>
-              <Field label="Project *">
-                <select className={INP} value={form.project_id} onChange={e => set('project_id', e.target.value)}>
-                  <option value="">Select project…</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </Field>
-              <Field label="PO No (Ref)">
-                <input className={INP} placeholder="e.g. POTQS001-A3" value={form.po_ref_no} onChange={e => set('po_ref_no', e.target.value)} />
+              {poType === 'Amendment' && (
+                <Field label="Original PO No.">
+                  <input className={INP2} placeholder="e.g. POTQS001" value={originalPoNo} onChange={e => setOriginalPoNo(e.target.value)} />
+                </Field>
+              )}
+              <Field label="PO Number (Ref)">
+                <input className={INP2} placeholder="e.g. POTQS001-A3" value={form.po_ref_no} onChange={e => set('po_ref_no', e.target.value)} />
               </Field>
               <Field label="PO Date *">
-                <input type="date" className={INP} value={form.po_date} onChange={e => set('po_date', e.target.value)} />
+                <input type="date" className={INP2} value={form.po_date} onChange={e => set('po_date', e.target.value)} />
               </Field>
-              <Field label="PO Req No">
-                <input className={INP} placeholder="e.g. Mail / MR-018" value={form.po_req_no} onChange={e => set('po_req_no', e.target.value)} />
+              <Field label="PO Req No.">
+                <input className={INP2} placeholder="Mail / Ref No." value={form.po_req_no} onChange={e => set('po_req_no', e.target.value)} />
               </Field>
-              <Field label="Approval No">
-                <input className={INP} placeholder="Approval reference" value={form.approval_no} onChange={e => set('approval_no', e.target.value)} />
+              <Field label="PO Req Date">
+                <input type="date" className={INP2} value={form.po_req_date} onChange={e => set('po_req_date', e.target.value)} />
+              </Field>
+              <Field label="Approval No.">
+                <input className={INP2} placeholder="Approval reference" value={form.approval_no} onChange={e => set('approval_no', e.target.value)} />
               </Field>
               <Field label="Expected Delivery">
-                <input type="date" className={INP} value={form.delivery_date} onChange={e => set('delivery_date', e.target.value)} />
+                <input type="date" className={INP2} value={form.delivery_date} onChange={e => set('delivery_date', e.target.value)} />
               </Field>
             </div>
           </div>
 
-          {/* ── SECTION 2: DELIVERY ADDRESS ── */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
-              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Delivery Address</h3>
+          {/* ══ SECTION 2: VENDOR + PROJECT ══ */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Vendor */}
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className={SH}><h3 className={SC}>🏭 Vendor Details</h3></div>
+              <div className="p-4 space-y-3">
+                <Field label="Vendor *">
+                  <select className={INP2} value={form.vendor_id} onChange={e => set('vendor_id', e.target.value)}>
+                    <option value="">Select vendor…</option>
+                    {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Address">
+                  <textarea rows={2} className={TA2} placeholder="Vendor address" value={vendorAddress} onChange={e => setVendorAddress(e.target.value)} />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Email">
+                    <input type="email" className={INP2} placeholder="vendor@email.com" value={vendorEmail} onChange={e => setVendorEmail(e.target.value)} />
+                  </Field>
+                  <Field label="Contact Person">
+                    <input className={INP2} placeholder="Name & Phone" value={vendorContact} onChange={e => setVendorContact(e.target.value)} />
+                  </Field>
+                  <div className="col-span-2">
+                    <Field label="Vendor GSTIN">
+                      <input className={INP2} placeholder="29XXXXXXXXXXXXX" maxLength={15} value={vendorGST} onChange={e => setVendorGST(e.target.value.toUpperCase())} />
+                    </Field>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="p-4">
-              <textarea rows={3} className={TA}
-                placeholder="YNT 63, Survey No. 5/3 & 6/1, Mandalakunte Village, Chikkabommasandra, Yelahanka Hobli, Near Mother Dairy, Bangalore 560065&#10;Contact Person: Mr. Ananthan 73036 75533"
-                value={form.delivery_address} onChange={e => set('delivery_address', e.target.value)} />
+
+            {/* Project & Delivery */}
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className={SH}><h3 className={SC}>🏗️ Project & Delivery</h3></div>
+              <div className="p-4 space-y-3">
+                <Field label="Project *">
+                  <select className={INP2} value={form.project_id} onChange={e => set('project_id', e.target.value)}>
+                    <option value="">Select project…</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Delivery Address">
+                  <textarea rows={3} className={TA2} placeholder="Site delivery address" value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} />
+                </Field>
+                <Field label="Site Contact">
+                  <input className={INP2} placeholder="Name & Phone" value={deliveryContact} onChange={e => setDeliveryContact(e.target.value)} />
+                </Field>
+              </div>
             </div>
           </div>
 
-          {/* ── SECTION 3: LINE ITEMS ── */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Line Items</h3>
-              <button onClick={addItem} className="flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-colors">
-                <Plus className="w-3 h-3" /> Add Row
+          {/* ══ SECTION 3: LINE ITEMS ══ */}
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div className={`${SH} flex items-center justify-between`}>
+              <h3 className={SC}>📦 Line Items</h3>
+              <button type="button" onClick={addItem}
+                className="flex items-center gap-1 px-3 h-7 rounded-lg text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                <Plus className="w-3 h-3" /> Add Item
               </button>
             </div>
             <div className="p-4 overflow-x-auto">
-              {/* Column headers */}
-              <div className="grid gap-2 mb-2 min-w-[900px]"
-                style={{ gridTemplateColumns: '32px 2fr 1.5fr 70px 70px 90px 90px 80px 70px 32px' }}>
-                {['#', 'Description', 'Mix Design', 'Unit', 'HSN', 'Qty', 'Rate (₹)', 'Req Date', 'GST%', ''].map(h => (
+              <div className="grid gap-2 mb-2 min-w-[960px]"
+                style={{ gridTemplateColumns: '30px 2fr 1.5fr 70px 65px 85px 90px 100px 65px 30px' }}>
+                {['#','Description','Mix Design / Spec','UOM','HSN','Qty','Rate (₹)','Req Date','GST%',''].map(h => (
                   <div key={h} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">{h}</div>
                 ))}
               </div>
-              {/* Rows */}
-              <div className="space-y-2 min-w-[900px]">
+              <div className="space-y-2 min-w-[960px]">
                 {items.map((it, i) => (
                   <div key={i} className="grid gap-2 items-center"
-                    style={{ gridTemplateColumns: '32px 2fr 1.5fr 70px 70px 90px 90px 80px 70px 32px' }}>
-                    <div className="text-xs text-slate-400 text-center">{i + 1}</div>
+                    style={{ gridTemplateColumns: '30px 2fr 1.5fr 70px 65px 85px 90px 100px 65px 30px' }}>
+                    <div className="text-xs text-slate-400 text-center font-mono">{i + 1}</div>
                     <input className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm outline-none focus:border-indigo-400 transition-all"
-                      placeholder="M30 Grade Concrete" value={it.material_name} onChange={e => setItem(i, 'material_name', e.target.value)} />
+                      placeholder="Item description" value={it.material_name} onChange={e => setItem(i, 'material_name', e.target.value)} />
                     <input className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm outline-none focus:border-indigo-400 transition-all"
                       placeholder="280 Kgs Cement + 70 Kgs GGBS" value={it.mix_design||''} onChange={e => setItem(i, 'mix_design', e.target.value)} />
                     <select className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-1 text-sm outline-none focus:border-indigo-400 transition-all"
                       value={it.unit} onChange={e => setItem(i, 'unit', e.target.value)}>
-                      {UNITS.map(u => <option key={u}>{u}</option>)}
+                      {UOM_OPTIONS.map(u => <option key={u}>{u}</option>)}
                     </select>
                     <input className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs outline-none focus:border-indigo-400 transition-all"
                       placeholder="HSN" value={it.hsn_code||''} onChange={e => setItem(i, 'hsn_code', e.target.value)} />
-                    <input type="number" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-right outline-none focus:border-indigo-400 transition-all"
-                      placeholder="0" value={it.quantity} onChange={e => setItem(i, 'quantity', e.target.value)} />
-                    <input type="number" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-right outline-none focus:border-indigo-400 transition-all"
+                    <input type="number" min="0" step="0.01" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-right outline-none focus:border-indigo-400 transition-all"
+                      placeholder="0.00" value={it.quantity} onChange={e => setItem(i, 'quantity', e.target.value)} />
+                    <input type="number" min="0" step="0.01" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-right outline-none focus:border-indigo-400 transition-all"
                       placeholder="0.00" value={it.rate} onChange={e => setItem(i, 'rate', e.target.value)} />
                     <input type="date" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-1 text-xs outline-none focus:border-indigo-400 transition-all"
                       value={it.req_date||''} onChange={e => setItem(i, 'req_date', e.target.value)} />
                     <input type="number" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-center outline-none focus:border-indigo-400 transition-all"
                       value={it.gst_rate} onChange={e => setItem(i, 'gst_rate', e.target.value)} />
-                    <button onClick={() => removeItem(i)} disabled={items.length === 1}
-                      className="w-8 h-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 disabled:opacity-30 transition-all">
+                    <button type="button" onClick={() => removeItem(i)} disabled={items.length === 1}
+                      className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 disabled:opacity-30 transition-all">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -332,40 +480,42 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
               </div>
             </div>
 
-            {/* ── Totals + GST ── */}
-            <div className="border-t border-slate-200 p-4 flex flex-col md:flex-row gap-4 items-start justify-between bg-slate-50/50">
-              {/* GST Settings */}
+            {/* Totals + GST */}
+            <div className="border-t border-slate-100 p-4 flex flex-col sm:flex-row gap-4 items-start justify-between bg-slate-50/60">
               <div className="space-y-2">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">GST Settings</p>
-                <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-                  <input type="checkbox" checked={form.gst_inclusive} onChange={e => set('gst_inclusive', e.target.checked)}
-                    className="rounded border-slate-300 text-indigo-600" />
-                  GST Inclusive in rate (as in PDF)
-                </label>
-                <div className="flex gap-2">
-                  <div>
-                    <p className="text-[10px] text-slate-400 mb-1">CGST %</p>
-                    <input type="number" className="w-16 h-8 bg-white border border-slate-200 rounded-lg px-2 text-xs text-center outline-none focus:border-indigo-400"
-                      value={form.cgst_rate} onChange={e => set('cgst_rate', e.target.value)} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 mb-1">SGST %</p>
-                    <input type="number" className="w-16 h-8 bg-white border border-slate-200 rounded-lg px-2 text-xs text-center outline-none focus:border-indigo-400"
-                      value={form.sgst_rate} onChange={e => set('sgst_rate', e.target.value)} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 mb-1">IGST %</p>
-                    <input type="number" className="w-16 h-8 bg-white border border-slate-200 rounded-lg px-2 text-xs text-center outline-none focus:border-indigo-400"
-                      value={form.igst_rate} onChange={e => set('igst_rate', e.target.value)} />
-                  </div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">GST Treatment</p>
+                <div className="flex gap-5">
+                  {[['inclusive','GST Inclusive (in rate)'],['exclusive','GST Exclusive (add on top)']].map(([val, label]) => (
+                    <label key={val} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                      <input type="radio" name="gstType" value={val}
+                        checked={val === 'inclusive' ? form.gst_inclusive : !form.gst_inclusive}
+                        onChange={() => set('gst_inclusive', val === 'inclusive')}
+                        className="accent-indigo-600" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-1">
+                  {[['cgst_rate','CGST %'],['sgst_rate','SGST %'],['igst_rate','IGST %']].map(([k, label]) => (
+                    <div key={k}>
+                      <p className="text-[10px] text-slate-400 mb-1">{label}</p>
+                      <input type="number" className="w-16 h-8 bg-white border border-slate-200 rounded-lg px-2 text-xs text-center outline-none focus:border-indigo-400"
+                        value={form[k]} onChange={e => set(k, e.target.value)} />
+                    </div>
+                  ))}
                 </div>
               </div>
-              {/* Totals */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 min-w-[230px] space-y-2">
+              <div className="bg-white border border-slate-200 rounded-xl p-4 min-w-[240px] space-y-2">
                 <div className="flex justify-between text-xs text-slate-500">
-                  <span>Sub Total</span><span className="font-semibold text-slate-800">{inr(subTotal)}</span>
+                  <span>Sub Total</span>
+                  <span className="font-semibold text-slate-800">{inr(subTotal)}</span>
                 </div>
-                {!form.gst_inclusive ? (<>
+                {form.gst_inclusive ? (
+                  <div className="flex justify-between text-xs text-emerald-600">
+                    <span>CGST {form.cgst_rate}% + SGST {form.sgst_rate}%</span>
+                    <span className="font-medium">Inclusive</span>
+                  </div>
+                ) : (<>
                   <div className="flex justify-between text-xs text-slate-500">
                     <span>CGST @ {form.cgst_rate}%</span><span>{inr(cgstAmt)}</span>
                   </div>
@@ -377,61 +527,150 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
                       <span>IGST @ {form.igst_rate}%</span><span>{inr(igstAmt)}</span>
                     </div>
                   )}
-                </>) : (
-                  <div className="flex justify-between text-xs text-emerald-600">
-                    <span>CGST {form.cgst_rate}% + SGST {form.sgst_rate}%</span><span>Inclusive</span>
-                  </div>
-                )}
+                </>)}
                 <div className="flex justify-between text-sm font-bold text-slate-800 border-t border-slate-200 pt-2">
-                  <span>Grand Total</span><span className="text-indigo-700">{inr(grandTotal)}</span>
+                  <span>Grand Total</span>
+                  <span className="text-indigo-700">{inr(grandTotal)}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ── SECTION 4: NARRATION ── */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
-              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Narration</h3>
+          {/* ══ SECTION 4: NARRATION + KEY TERMS ══ */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className={SH}><h3 className={SC}>📝 Narration</h3></div>
+              <div className="p-4">
+                <textarea rows={3} className={TA2}
+                  placeholder="e.g. Concrete for TQS Retaining wall work, Security cabin & Compound Wall work"
+                  value={form.narration} onChange={e => set('narration', e.target.value)} />
+              </div>
             </div>
-            <div className="p-4">
-              <textarea rows={2} className={TA}
-                placeholder="e.g. Concrete for TQS Retaining wall work, Security cabin & Compound Wall work"
-                value={form.narration} onChange={e => set('narration', e.target.value)} />
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className={SH}><h3 className={SC}>⚖️ Key Terms</h3></div>
+              <div className="p-4 space-y-3">
+                <Field label="Payment Terms">
+                  <input className={INP2} placeholder="e.g. 30 days from supply" value={form.payment_terms} onChange={e => set('payment_terms', e.target.value)} />
+                </Field>
+                <Field label="Lead Time">
+                  <input className={INP2} placeholder="e.g. As per site requirement" value={form.lead_time} onChange={e => set('lead_time', e.target.value)} />
+                </Field>
+              </div>
             </div>
           </div>
 
-          {/* ── SECTION 5: TERMS & CONDITIONS ── */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
-              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Terms &amp; Conditions</h3>
+          {/* ══ SECTION 5: TERMS & CONDITIONS (rich clause editor) ══ */}
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div className={`${SH} flex flex-wrap items-center justify-between gap-2`}>
+              <h3 className={SC}>📜 Terms &amp; Conditions</h3>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <span className="text-[10px] text-slate-400 font-mono">{activeCount} of {terms.length} active</span>
+                <div className="flex gap-1 flex-wrap">
+                  {['All', ...TC_CATEGORIES].map(cat => (
+                    <button key={cat} type="button" onClick={() => setTcFilter(cat)}
+                      className={clsx('px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all',
+                        tcFilter === cat
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600')}>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" onClick={addTerm}
+                  className="px-3 py-1 rounded-lg text-xs font-semibold text-indigo-600 border border-indigo-100 bg-indigo-50 hover:bg-indigo-100 transition-colors">
+                  + Add Clause
+                </button>
+              </div>
             </div>
-            <div className="p-4">
-              <textarea rows={8} className={TA}
-                value={form.terms_conditions} onChange={e => set('terms_conditions', e.target.value)} />
+            <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+              {filteredTerms.map(term => {
+                const globalIdx = terms.findIndex(t => t.id === term.id);
+                const isEditing = tcEditingId === term.id;
+                return (
+                  <div key={term.id}
+                    className={clsx('flex items-start gap-3 px-4 py-3 transition-colors',
+                      !term.enabled && 'opacity-50 bg-slate-50',
+                      isEditing && 'bg-indigo-50 border-l-4 border-l-indigo-500')}>
+                    {/* Number + toggle */}
+                    <div className="flex flex-col items-center gap-2 pt-0.5 flex-shrink-0 w-10">
+                      <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 font-mono">{globalIdx + 1}</span>
+                      <label className="relative inline-block w-8 h-4 cursor-pointer">
+                        <input type="checkbox" className="sr-only" checked={term.enabled} onChange={e => updateTerm(term.id, 'enabled', e.target.checked)} />
+                        <div className={clsx('w-8 h-4 rounded-full transition-colors', term.enabled ? 'bg-indigo-500' : 'bg-slate-300')} />
+                        <div className={clsx('absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform', term.enabled ? 'translate-x-4' : 'translate-x-0.5')} />
+                      </label>
+                    </div>
+                    {/* Category + text */}
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <select value={term.category} onChange={e => updateTerm(term.id, 'category', e.target.value)}
+                          className="h-6 text-[11px] font-semibold bg-slate-100 border-0 rounded px-1.5 outline-none focus:ring-1 focus:ring-indigo-400">
+                          {TC_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                        <span className={clsx('text-[10px] font-bold px-2 py-0.5 rounded-full', term.enabled ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400')}>
+                          {term.enabled ? 'Active' : 'Excluded'}
+                        </span>
+                      </div>
+                      {isEditing ? (
+                        <textarea rows={Math.max(3, term.text.split('\n').length + 1)}
+                          value={term.text} onChange={e => updateTerm(term.id, 'text', e.target.value)}
+                          className="w-full bg-white border border-indigo-300 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-indigo-100 resize-vertical"
+                          autoFocus />
+                      ) : (
+                        <p onClick={() => setTcEditingId(term.id)}
+                          className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap cursor-pointer px-2 py-1.5 rounded hover:bg-blue-50 hover:outline hover:outline-1 hover:outline-blue-200 transition-all"
+                          title="Click to edit">
+                          {term.text || <span className="italic text-slate-400">Click to enter clause text…</span>}
+                        </p>
+                      )}
+                    </div>
+                    {/* Actions */}
+                    <div className="flex flex-col gap-1 flex-shrink-0 pt-0.5">
+                      {isEditing ? (
+                        <button type="button" onClick={() => setTcEditingId(null)}
+                          className="w-6 h-6 rounded border border-green-300 bg-green-50 text-green-600 text-xs flex items-center justify-center hover:bg-green-100 transition-colors">✓</button>
+                      ) : (
+                        <button type="button" onClick={() => setTcEditingId(term.id)}
+                          className="w-6 h-6 rounded border border-slate-200 bg-white text-slate-400 text-xs flex items-center justify-center hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">✏</button>
+                      )}
+                      <button type="button" onClick={() => removeTerm(term.id)}
+                        className="w-6 h-6 rounded border border-slate-200 bg-white text-slate-400 text-xs flex items-center justify-center hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-colors">✕</button>
+                    </div>
+                  </div>
+                );
+              })}
+              {filteredTerms.length === 0 && (
+                <div className="text-center py-8 text-sm text-slate-400 italic">No clauses in this category.</div>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t border-dashed border-slate-200 flex items-center justify-between">
+              <button type="button" onClick={addTerm} className="text-xs font-medium text-indigo-600 hover:underline">+ Add Custom Clause</button>
+              <span className="text-[11px] text-slate-400 italic">Disabled clauses will not appear on the printed PO.</span>
             </div>
           </div>
 
-          {/* ── SECTION 6: SPECIAL NOTES ── */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
-              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Special Notes / Bank Details</h3>
-            </div>
+          {/* ══ SECTION 6: SPECIAL NOTES ══ */}
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div className={SH}><h3 className={SC}>📌 Special Notes / Bank Details</h3></div>
             <div className="p-4">
-              <textarea rows={2} className={TA}
+              <textarea rows={2} className={TA2}
                 placeholder="Additional instructions, bank details, packing notes…"
                 value={form.notes} onChange={e => set('notes', e.target.value)} />
             </div>
           </div>
+
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 flex-shrink-0">
-          <span className="text-xs text-slate-400">{items.filter(it => it.material_name && it.quantity).length} item(s) · Grand Total: <strong>{inr(grandTotal)}</strong></span>
+        {/* ── Footer ── */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-200 bg-white flex-shrink-0">
+          <span className="text-xs text-slate-400">
+            {items.filter(it => it.material_name && it.quantity).length} item(s) · Grand Total:&nbsp;
+            <strong className="text-indigo-700">{inr(grandTotal)}</strong>
+          </span>
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="px-5 h-9 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-white transition-all">Cancel</button>
-            <button onClick={handleSubmit} disabled={isPending}
-              className="px-6 h-9 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-sm">
+            <button type="button" onClick={onClose} className="px-5 h-9 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">Cancel</button>
+            <button type="button" onClick={handleSubmit} disabled={isPending}
+              className="px-6 h-9 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-sm">
               {isPending ? 'Submitting…' : 'Submit for Audit →'}
             </button>
           </div>
