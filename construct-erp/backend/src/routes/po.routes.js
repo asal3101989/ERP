@@ -364,6 +364,7 @@ router.patch('/:id/reject', async (req, res) => {
 // GET /purchase-orders/:id/qty-status — per-item qty tracking
 router.get('/:id/qty-status', async (req, res) => {
   try {
+    // ── Primary: items stored in po_items ──────────────────────────────────
     const { rows } = await query(`
       SELECT
         pi.id                                                     AS po_item_id,
@@ -383,8 +384,7 @@ router.get('/:id/qty-status', async (req, res) => {
         SELECT gi.po_item_id, SUM(gi.quantity_received) AS received_qty
         FROM grn_items gi
         JOIN grn g ON g.id = gi.grn_id
-        WHERE g.po_id = $1
-          AND g.quality_status = 'approved'
+        WHERE g.po_id = $1 AND g.quality_status = 'approved'
         GROUP BY gi.po_item_id
       ) grn_agg ON grn_agg.po_item_id = pi.id
 
@@ -392,9 +392,7 @@ router.get('/:id/qty-status', async (req, res) => {
         SELECT li.po_item_id, SUM(li.quantity) AS invoiced_qty
         FROM dqs_bill_line_items li
         JOIN dqs_bills b ON b.id = li.bill_id
-        WHERE b.po_id = $1
-          AND b.is_deleted = FALSE
-          AND li.po_item_id IS NOT NULL
+        WHERE b.po_id = $1 AND b.is_deleted = FALSE AND li.po_item_id IS NOT NULL
         GROUP BY li.po_item_id
       ) inv_agg ON inv_agg.po_item_id = pi.id
 
@@ -402,7 +400,32 @@ router.get('/:id/qty-status', async (req, res) => {
       ORDER BY pi.sort_order
     `, [req.params.id]);
 
-    res.json({ data: rows });
+    if (rows.length > 0) {
+      return res.json({ data: rows, source: 'po_items' });
+    }
+
+    // ── Fallback: aggregate from GRN items + DQS bill line items ──────────
+    // Used for older POs that don't have po_items records
+    const fallback = await query(`
+      SELECT
+        material_name                    AS item_name,
+        unit,
+        NULL                             AS ordered_qty,
+        COALESCE(SUM(received_qty), 0)   AS received_qty,
+        0                                AS invoiced_qty,
+        NULL                             AS grn_remaining,
+        NULL                             AS inv_remaining
+      FROM (
+        SELECT gi.material_name, gi.unit, gi.quantity_received AS received_qty
+        FROM grn_items gi
+        JOIN grn g ON g.id = gi.grn_id
+        WHERE g.po_id = $1 AND g.quality_status = 'approved'
+      ) grn_data
+      GROUP BY material_name, unit
+      ORDER BY material_name
+    `, [req.params.id]);
+
+    res.json({ data: fallback.rows, source: 'grn_fallback' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
