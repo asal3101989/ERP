@@ -13,7 +13,18 @@ const PO_UNITS = ['cum', 'mt', 'nos', 'kg', 'sqm', 'rmt', 'bags', 'ltr', 'litre'
 
 function parseNum(s) {
   if (!s) return 0;
-  return parseFloat(String(s).replace(/[,\s₹]/g, '')) || 0;
+  const str = String(s).replace(/[₹\s]/g, '');
+  // Indian format: 1,00,000 or 1,000 — commas are thousand separators
+  // OCR sometimes misreads commas as dots or merges digits oddly
+  // Remove all commas first, then parse
+  return parseFloat(str.replace(/,/g, '')) || 0;
+}
+
+// Fix OCR number artifacts: OCR can merge two numbers "300.004,050.00" → split them
+// or misread comma as period. We look for "quantity rate" pattern in token list.
+function cleanOCRNums(str) {
+  // Replace any sequence of digits that look merged e.g. "300.004050" → try to split at decimal
+  return str.replace(/(\d{1,4})\.(\d{3,})(\d{3})/g, '$1,$2.$3');
 }
 
 function parseDate(s) {

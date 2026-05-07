@@ -152,11 +152,14 @@ const INP = 'w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text
 /* ─── New PO Modal ─── */
 function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }) {
   const [form, setForm] = useState({
-    vendor_id:    prefill?.vendor_id    || '',
-    project_id:   prefill?.project_id   || '',
-    po_date:      dayjs().format('YYYY-MM-DD'),
-    delivery_date: '',
-    notes: prefill?.mrs_ref ? `Ref: CS / ${prefill.mrs_ref}` : '',
+    vendor_id:        prefill?.vendor_id    || '',
+    project_id:       prefill?.project_id   || '',
+    po_date:          prefill?.po_date      || dayjs().format('YYYY-MM-DD'),
+    delivery_date:    '',
+    notes:            prefill?.notes        || (prefill?.mrs_ref ? `Ref: CS / ${prefill.mrs_ref}` : ''),
+    terms_conditions: prefill?.terms_conditions || '',
+    narration:        prefill?.narration    || '',
+    po_ref:           prefill?.po_ref       || '',
   });
   const [items, setItems] = useState(
     prefill?.items?.length
@@ -177,7 +180,15 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
     if (!form.project_id) return toast.error('Select a project');
     if (items.some(it => !it.material_name?.trim() || !it.quantity || !it.rate))
       return toast.error('All items need description, quantity and rate');
-    onCreate({ ...form, delivery_date: form.delivery_date || null, items, mrs_id: prefill?.mrs_id || null });
+    const notesAll = [form.narration, form.notes].filter(Boolean).join('\n');
+    onCreate({
+      ...form,
+      delivery_date:    form.delivery_date    || null,
+      notes:            notesAll              || null,
+      terms_conditions: form.terms_conditions || null,
+      items,
+      mrs_id: prefill?.mrs_id || null,
+    });
   };
 
   return (
@@ -232,12 +243,43 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
               <Field label="PO Date *">
                 <input type="date" className={INP} value={form.po_date} onChange={e => set('po_date', e.target.value)} />
               </Field>
+              <Field label="PDF / Ref PO No">
+                <input className={INP} placeholder="e.g. POTQS001-A3" value={form.po_ref} onChange={e => set('po_ref', e.target.value)} />
+              </Field>
               <Field label="Expected Delivery">
                 <input type="date" className={INP} value={form.delivery_date} onChange={e => set('delivery_date', e.target.value)} />
               </Field>
-              <Field label="Notes / Terms">
-                <input className={clsx(INP, 'md:col-span-2')} placeholder="Delivery terms, packing details…" value={form.notes} onChange={e => set('notes', e.target.value)} />
-              </Field>
+            </div>
+
+            {/* Narration */}
+            <div className="mt-4">
+              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Narration / Scope of Work</label>
+              <input className={INP} placeholder="e.g. Concrete for TQS Retaining wall work, Security cabin & Compound Wall work"
+                value={form.narration} onChange={e => set('narration', e.target.value)} />
+            </div>
+
+            {/* Terms & Conditions */}
+            <div className="mt-4">
+              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Terms &amp; Conditions</label>
+              <textarea
+                rows={6}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all resize-none"
+                placeholder="1. All Bills and DCs should contain PO reference&#10;2. Payment: 30 days from date of supply&#10;3. ..."
+                value={form.terms_conditions}
+                onChange={e => set('terms_conditions', e.target.value)}
+              />
+            </div>
+
+            {/* Notes */}
+            <div className="mt-4">
+              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Notes / Special Instructions</label>
+              <textarea
+                rows={2}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all resize-none"
+                placeholder="Additional notes, bank details, packing instructions…"
+                value={form.notes}
+                onChange={e => set('notes', e.target.value)}
+              />
             </div>
           </div>
 
@@ -575,11 +617,25 @@ function PDFImportModal({ parsed, vendors, projects, onConfirm, onClose }) {
   const handleConfirm = () => {
     if (!vendorId)  return toast.error('Please select a vendor');
     if (!projectId) return toast.error('Please select a project');
+    // Build terms & conditions from PDF payment terms
+    const termsLines = [
+      parsed.paymentTerms ? `Payment: ${parsed.paymentTerms}` : '',
+      'All Bills and DCs should contain the Reference of the Concerned PO.',
+      'All materials supplied will be subject to inspections & test when received at site.',
+      'Final Bill shall be cleared after Certification by the Concerned Engg & on actual measurements taken at Site.',
+      'If any Goods damaged or rejected must be replaced immediately at the suppliers own expenses.',
+      'Lead Time: As per site requirement.',
+      'Price is absolute frozen for this Order. No price escalation will be entertained.',
+    ].filter(Boolean).map((t, i) => `${i + 1}. ${t}`).join('\n');
+
     onConfirm({
-      vendor_id:  vendorId,
-      project_id: projectId,
-      po_date:    parsed.poDate || dayjs().format('YYYY-MM-DD'),
-      notes:      [parsed.narration, `Imported from PDF — PO Ref: ${parsed.poNumber}`, parsed.paymentTerms ? `Payment: ${parsed.paymentTerms}` : ''].filter(Boolean).join('\n'),
+      vendor_id:        vendorId,
+      project_id:       projectId,
+      po_date:          parsed.poDate || dayjs().format('YYYY-MM-DD'),
+      po_ref:           parsed.poNumber || '',
+      narration:        parsed.narration || '',
+      notes:            '',
+      terms_conditions: termsLines,
       items,
     });
   };
