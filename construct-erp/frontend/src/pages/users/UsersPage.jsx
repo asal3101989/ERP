@@ -15,16 +15,18 @@ import DataToolbar from '../../components/common/DataToolbar';
 import TableActions from '../../components/common/TableActions';
 
 const ROLES = [
-  { value: 'admin',           label: 'Admin',            color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
-  { value: 'project_manager', label: 'Project Manager',  color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
-  { value: 'site_engineer',   label: 'Site Engineer',    color: '#0D9488', bg: '#F0FDFA', border: '#99F6E4' },
-  { value: 'qs_engineer',     label: 'QS Engineer',      color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA' },
-  { value: 'accountant',      label: 'Accountant',       color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
-  { value: 'hse_officer',     label: 'HSE Officer',      color: '#E11D48', bg: '#FFF1F2', border: '#FECDD3' },
-  { value: 'hr',              label: 'HR',               color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-  { value: 'it_admin',        label: 'IT Admin',         color: '#0284C7', bg: '#F0F9FF', border: '#BAE6FD' },
-  { value: 'employee',        label: 'Employee',         color: '#0F766E', bg: '#F0FDFA', border: '#99F6E4' },
-  { value: 'viewer',          label: 'Viewer (Read-only)',color: '#64748B', bg: '#F8FAFC', border: '#E2E8F0' },
+  { value: 'super_admin',       label: 'Super Admin',        color: '#1E1B4B', bg: '#EEF2FF', border: '#C7D2FE' },
+  { value: 'managing_director', label: 'Managing Director',  color: '#7C2D12', bg: '#FFF7ED', border: '#FDBA74' },
+  { value: 'admin',             label: 'Admin',              color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
+  { value: 'project_manager',   label: 'Project Manager',    color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
+  { value: 'site_engineer',     label: 'Site Engineer',      color: '#0D9488', bg: '#F0FDFA', border: '#99F6E4' },
+  { value: 'qs_engineer',       label: 'QS Engineer',        color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA' },
+  { value: 'accountant',        label: 'Accountant',         color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+  { value: 'hse_officer',       label: 'HSE Officer',        color: '#E11D48', bg: '#FFF1F2', border: '#FECDD3' },
+  { value: 'hr',                label: 'HR',                 color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  { value: 'it_admin',          label: 'IT Admin',           color: '#0284C7', bg: '#F0F9FF', border: '#BAE6FD' },
+  { value: 'employee',          label: 'Employee',           color: '#0F766E', bg: '#F0FDFA', border: '#99F6E4' },
+  { value: 'viewer',            label: 'Viewer (Read-only)', color: '#64748B', bg: '#F8FAFC', border: '#E2E8F0' },
 ];
 
 const DEPARTMENTS = [

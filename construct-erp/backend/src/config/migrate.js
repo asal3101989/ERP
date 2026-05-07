@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS users (
   phone VARCHAR(15),
   password_hash TEXT NOT NULL,
   role VARCHAR(30) NOT NULL CHECK (role IN (
-    'super_admin','admin','project_manager','site_engineer',
+    'super_admin','admin','managing_director','project_manager','site_engineer',
     'accountant','hr','qs_engineer','hse_officer',
     'it_admin','vendor','client','employee','viewer'
   )),

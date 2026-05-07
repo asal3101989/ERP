@@ -341,9 +341,9 @@ router.patch('/:id/reject', async (req, res) => {
 
 // Stage-based Approval  (3 stages: Audit → Director → MD)
 const PO_STAGES = {
-  'verify-audit': { nextStatus: 'verified_audit', colBy: 'verified_procurement_by', colAt: 'verified_procurement_at', requiredPrev: 'draft'          },
-  'release-mgmt': { nextStatus: 'released_mgmt',  colBy: 'released_mgmt_by',        colAt: 'released_mgmt_at',        requiredPrev: 'verified_audit' },
-  'authorize-md': { nextStatus: 'approved',        colBy: 'authorized_md_by',        colAt: 'authorized_md_at',        requiredPrev: 'released_mgmt'  },
+  'verify-audit': { nextStatus: 'verified_audit', colBy: 'verified_procurement_by', colAt: 'verified_procurement_at', requiredPrev: 'draft',          allowedRoles: ['super_admin','admin','project_manager','site_engineer'] },
+  'release-mgmt': { nextStatus: 'released_mgmt',  colBy: 'released_mgmt_by',        colAt: 'released_mgmt_at',        requiredPrev: 'verified_audit', allowedRoles: ['super_admin','admin','project_manager'] },
+  'authorize-md': { nextStatus: 'approved',        colBy: 'authorized_md_by',        colAt: 'authorized_md_at',        requiredPrev: 'released_mgmt',  allowedRoles: ['super_admin','managing_director'] },
 };
 
 router.patch('/:id/:stage', async (req, res) => {
@@ -351,6 +351,10 @@ router.patch('/:id/:stage', async (req, res) => {
     const { stage } = req.params;
     const cfg = PO_STAGES[stage];
     if (!cfg) return res.status(400).json({ error: 'Invalid approval stage' });
+
+    if (!cfg.allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: `Only ${cfg.allowedRoles.join(' / ')} can perform this action` });
+    }
 
     const { signature_img } = req.body;
 

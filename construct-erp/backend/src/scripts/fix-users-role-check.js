@@ -14,11 +14,11 @@ async function run() {
     `);
     console.log('✅ Old role constraint dropped');
 
-    // Recreate with full role list
+    // Recreate with full role list including managing_director
     await client.query(`
       ALTER TABLE users
         ADD CONSTRAINT users_role_check CHECK (role IN (
-          'super_admin','admin','project_manager','site_engineer',
+          'super_admin','admin','managing_director','project_manager','site_engineer',
           'accountant','hr','qs_engineer','hse_officer',
           'it_admin','vendor','client','employee','viewer'
         ));
