@@ -16,7 +16,7 @@ import {
   BarChart2, Users, Star,
 } from 'lucide-react';
 import {
-  projectAPI, analyticsAPI, tqsBillsAPI,
+  projectAPI, analyticsAPI, dqsBillsAPI,
 } from '../api/client';
 import useAuthStore from '../store/authStore';
 import dayjs from 'dayjs';
@@ -279,7 +279,7 @@ export default function Dashboard() {
 
   const { data: tqsBills = [] } = useQuery({
     queryKey: ['dashboard-tqs-bills', refreshKey],
-    queryFn: () => tqsBillsAPI.list({}).then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])).catch(() => []),
+    queryFn: () => dqsBillsAPI.list({}).then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])).catch(() => []),
   });
 
   const dashboardProjects   = dashboard?.projects || [];

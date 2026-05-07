@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
-import { invoiceAPI, projectAPI, tqsBillsAPI, default as api } from '../../api/client';
+import { invoiceAPI, projectAPI, dqsBillsAPI, default as api } from '../../api/client';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -38,7 +38,7 @@ export default function VendorInvoicePage() {
 
   const { data: tqsBillsRaw = [], isLoading: loadTqs } = useQuery({
     queryKey: ['tqs-bills-finance'],
-    queryFn: () => tqsBillsAPI.list({ limit: 500 }).then(r => {
+    queryFn: () => dqsBillsAPI.list({ limit: 500 }).then(r => {
       const rows = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
       return rows.map(b => ({
         id: b.id,
