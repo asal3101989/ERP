@@ -6,6 +6,15 @@ const { query } = require('../config/database');
 
 router.use(authenticate);
 
+// Ensure new columns exist on live DB (idempotent)
+const ensurePaymentCols = async () => {
+  const alters = [
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS cost_head VARCHAR(100)`,
+  ];
+  for (const sql of alters) await query(sql).catch(() => {});
+};
+ensurePaymentCols();
+
 router.get('/', async (req, res) => {
   const { project_id, payment_type, from_date, to_date } = req.query;
 

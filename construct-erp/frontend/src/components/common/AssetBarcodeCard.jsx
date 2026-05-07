@@ -1,13 +1,27 @@
-// src/components/common/AssetBarcodeCard.jsx
-// Professional printable asset label — sticker-style
+// src/components/common/AssetBarcodeCard.jsx — Professional IT Asset Label
 import React, { useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Printer } from 'lucide-react';
+import { Printer, Download } from 'lucide-react';
 
 function esc(v) {
   return String(v ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Convert logo to base64 so it embeds in print popup
+async function getLogoBase64() {
+  try {
+    const res  = await fetch('/bcim-logo.png');
+    const blob = await res.blob();
+    return await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
 export default function AssetBarcodeCard({
@@ -16,216 +30,379 @@ export default function AssetBarcodeCard({
   subtitle,
   metaLabel = 'Asset Tag',
   metaValue,
-  extraFields = [],   // [{ label, value }]
+  extraFields = [],
   className,
-  size = 140,
+  size = 130,
   companyName = 'BCIM Engineering Pvt Ltd',
 }) {
-  const qrRef       = useRef(null);
-  const barcodeVal  = String(value || metaValue || title || '').trim();
+  const qrRef      = useRef(null);
+  const barcodeVal = String(value || metaValue || title || '').trim();
 
-  const handlePrint = () => {
-    if (!barcodeVal || typeof window === 'undefined') return;
-    const popup = window.open('', '_blank', 'width=420,height=620');
+  /* ── Print popup ── */
+  const handlePrint = async () => {
+    if (!barcodeVal) return;
+    const popup = window.open('', '_blank', 'width=540,height=420');
     if (!popup) return;
 
-    const safeCompany   = esc(companyName);
-    const safeTitle     = esc(title     || barcodeVal);
-    const safeSubtitle  = esc(subtitle  || '');
-    const safeMetaVal   = esc(metaValue || barcodeVal);
-    const qrMarkup      = qrRef.current?.innerHTML || '';
+    const logoB64  = await getLogoBase64();
+    const logoHtml = logoB64
+      ? `<img src="${logoB64}" class="logo-img" alt="logo" />`
+      : `<div class="logo-placeholder">BCIM</div>`;
 
-    // Build extra fields rows
+    const qrMarkup  = qrRef.current?.innerHTML || '';
     const extraRows = extraFields
       .filter(f => f.value)
-      .map(f => `<tr><td class="lbl">${esc(f.label)}</td><td class="val">${esc(f.value)}</td></tr>`)
-      .join('');
+      .map(f => `
+        <div class="field">
+          <span class="field-label">${esc(f.label)}</span>
+          <span class="field-value">${esc(f.value)}</span>
+        </div>`).join('');
 
     popup.document.write(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8"/>
-  <title>Asset Label — ${safeMetaVal}</title>
+  <title>Asset Label — ${esc(metaValue || barcodeVal)}</title>
   <style>
-    @page { size: 90mm 60mm; margin: 0; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
+    @page { size: 105mm 65mm landscape; margin: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Arial, sans-serif;
       background: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
     }
-
-    /* ── Sticker Label ── */
-    .sticker {
-      width: 88mm;
-      border: 1.5px solid #1a73e8;
+    .label {
+      width: 103mm;
+      background: #fff;
+      border: 2px solid #0f2d6b;
       border-radius: 6px;
       overflow: hidden;
-      page-break-inside: avoid;
     }
 
-    /* Header band */
+    /* Header */
     .header {
-      background: #1a73e8;
-      color: #fff;
+      background: #0f2d6b;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 4px 8px;
+      gap: 8px;
+      padding: 5px 10px;
     }
-    .company { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-    .badge   { font-size: 8px; background: rgba(255,255,255,0.25); border-radius: 3px; padding: 1px 5px; }
-
-    /* Body: QR left, details right */
-    .body {
-      display: flex;
-      align-items: stretch;
+    .logo-img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
       background: #fff;
+      border-radius: 4px;
+      padding: 2px;
+      flex-shrink: 0;
+    }
+    .logo-placeholder {
+      width: 28px;
+      height: 28px;
+      background: #fff;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 7px;
+      font-weight: 900;
+      color: #0f2d6b;
+      flex-shrink: 0;
+    }
+    .header-text { flex: 1; }
+    .company-name {
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+    .company-sub {
+      font-size: 7px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.75);
+      letter-spacing: 0.05em;
+    }
+    .it-badge {
+      background: #ffffff;
+      border-radius: 3px;
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #0f2d6b;
+      padding: 2px 7px;
+      flex-shrink: 0;
     }
 
+    /* Body */
+    .body { display: flex; align-items: stretch; }
+
+    /* QR col */
     .qr-col {
-      border-right: 1px dashed #bfdbfe;
-      padding: 8px;
+      width: 38mm;
+      background: #eef2ff;
+      border-right: 1.5px dashed #93c5fd;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #f0f7ff;
-      min-width: 58mm;
+      padding: 8px 6px 6px;
+      gap: 4px;
+      flex-shrink: 0;
     }
-    .qr-col svg { display: block; }
-    .scan-hint { margin-top: 4px; font-size: 6.5px; color: #6b7280; letter-spacing: 0.08em; text-transform: uppercase; }
+    .qr-box {
+      background: #fff;
+      border-radius: 4px;
+      padding: 5px;
+      box-shadow: 0 2px 8px rgba(15,45,107,0.18);
+    }
+    .qr-box svg { display: block; }
+    .scan-text {
+      font-size: 6.5px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #374151;
+      text-align: center;
+    }
 
+    /* Info col */
     .info-col {
       flex: 1;
-      padding: 8px 10px;
+      padding: 8px 11px;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 5px;
+      gap: 3px;
     }
-
     .asset-tag {
-      font-size: 14px;
+      font-family: 'Courier New', monospace;
+      font-size: 17px;
+      font-weight: 900;
+      color: #0f2d6b;
+      letter-spacing: 0.06em;
+      line-height: 1;
+    }
+    .device-line {
+      font-size: 10px;
       font-weight: 800;
-      color: #1a73e8;
-      letter-spacing: 0.04em;
+      color: #111827;
+      margin-top: 2px;
+    }
+    .type-line {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #374151;
+    }
+    .divider {
+      border: none;
+      border-top: 1.5px solid #d1d5db;
+      margin: 4px 0;
+    }
+    .field { display: flex; align-items: baseline; gap: 5px; margin-bottom: 2.5px; }
+    .field-label {
+      font-size: 7px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #374151;
+      min-width: 38%;
+    }
+    .field-value {
+      font-size: 8px;
+      font-weight: 800;
+      color: #111827;
+      flex: 1;
       word-break: break-all;
     }
-    .device-name {
-      font-size: 10px;
-      font-weight: 700;
-      color: #111827;
-    }
-    .device-type {
-      font-size: 8.5px;
-      color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    table.fields { width: 100%; border-collapse: collapse; margin-top: 4px; }
-    table.fields td { font-size: 7.5px; padding: 1.5px 0; vertical-align: top; }
-    td.lbl { color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; width: 40%; }
-    td.val { color: #111827; font-weight: 600; word-break: break-all; }
 
     /* Footer */
     .footer {
-      border-top: 1px solid #e5e7eb;
-      background: #f9fafb;
-      text-align: center;
-      font-size: 7px;
-      color: #9ca3af;
-      padding: 3px 8px;
-      letter-spacing: 0.04em;
+      background: #0f2d6b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 10px;
+    }
+    .footer-left {
+      font-size: 6.5px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 0.05em;
+    }
+    .footer-right {
+      font-size: 6.5px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.65);
     }
 
     @media print {
-      body { min-height: unset; }
+      body { min-height: unset; background: #fff; }
     }
   </style>
 </head>
 <body>
-  <div class="sticker">
+  <div class="label">
     <div class="header">
-      <span class="company">${safeCompany}</span>
-      <span class="badge">IT ASSET</span>
+      ${logoHtml}
+      <div class="header-text">
+        <div class="company-name">${esc(companyName)}</div>
+        <div class="company-sub">IT Asset Management</div>
+      </div>
+      <span class="it-badge">IT ASSET</span>
     </div>
+
     <div class="body">
       <div class="qr-col">
-        ${qrMarkup}
-        <div class="scan-hint">Scan to identify</div>
+        <div class="qr-box">${qrMarkup}</div>
+        <div class="scan-text">▸ Scan to identify</div>
       </div>
       <div class="info-col">
-        <div class="asset-tag">${safeMetaVal}</div>
-        <div class="device-name">${safeTitle}</div>
-        ${safeSubtitle ? `<div class="device-type">${safeSubtitle}</div>` : ''}
-        ${extraRows ? `<table class="fields">${extraRows}</table>` : ''}
+        <div class="asset-tag">${esc(metaValue || barcodeVal)}</div>
+        <div class="device-line">${esc(title || '')}</div>
+        ${subtitle ? `<div class="type-line">${esc(subtitle)}</div>` : ''}
+        <hr class="divider"/>
+        ${extraRows}
       </div>
     </div>
-    <div class="footer">Scan QR Code to view asset details &nbsp;·&nbsp; ${safeCompany}</div>
+
+    <div class="footer">
+      <span class="footer-left">▸ Scan QR code to view full asset details</span>
+      <span class="footer-right">Property of ${esc(companyName)}</span>
+    </div>
   </div>
-  <script>window.onload = function(){ window.print(); }</script>
+  <script>window.onload = function(){ window.print(); window.onfocus = function(){ window.close(); }; }</script>
 </body>
 </html>`);
     popup.document.close();
+  };
+
+  /* ── Download QR as SVG ── */
+  const downloadQR = () => {
+    const svg = qrRef.current?.querySelector('svg');
+    if (!svg) return;
+    const xml  = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([xml], { type: 'image/svg+xml' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `${barcodeVal}_QR.svg`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
   if (!barcodeVal) return null;
 
   return (
     <div className={className}>
-      {/* Preview Card */}
-      <div className="overflow-hidden rounded-xl border-2 border-blue-200 bg-white shadow">
+      {/* ── Sticker Preview ── */}
+      <div className="overflow-hidden rounded-xl border-[2.5px] border-[#0f2d6b] shadow-xl">
+
         {/* Header */}
-        <div className="flex items-center justify-between bg-blue-600 px-4 py-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-white">{companyName}</span>
-          <span className="rounded bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">IT ASSET</span>
+        <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: '#0f2d6b' }}>
+          {/* Logo */}
+          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-white p-1 shadow-sm">
+            <img src="/bcim-logo.png" alt="BCIM" className="h-full w-full object-contain"
+              onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }}
+            />
+            <div className="hidden h-full w-full items-center justify-center text-[9px] font-black text-[#0f2d6b]">
+              BCIM
+            </div>
+          </div>
+          {/* Company text */}
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] font-black uppercase tracking-[0.1em] text-white leading-tight">
+              {companyName}
+            </div>
+            <div className="text-[9px] font-semibold text-white/70 leading-tight mt-0.5">
+              IT Asset Management
+            </div>
+          </div>
+          {/* Badge */}
+          <div className="shrink-0 rounded bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[#0f2d6b]">
+            IT ASSET
+          </div>
         </div>
 
         {/* Body */}
-        <div className="flex items-stretch">
-          {/* QR */}
-          <div className="flex flex-col items-center justify-center border-r border-dashed border-blue-200 bg-blue-50 p-4">
-            <div ref={qrRef}>
-              <QRCodeSVG value={barcodeVal} size={size} includeMargin={false} />
+        <div className="flex items-stretch bg-white">
+
+          {/* QR Column */}
+          <div className="flex flex-col items-center justify-center gap-2 border-r-2 border-dashed border-blue-200 bg-[#eef2ff] px-5 py-4 shrink-0">
+            <div className="rounded-lg bg-white p-2.5 shadow-md ring-2 ring-[#0f2d6b]/20">
+              <div ref={qrRef}>
+                <QRCodeSVG value={barcodeVal} size={size} includeMargin={false} fgColor="#0f2d6b" level="M" />
+              </div>
             </div>
-            <p className="mt-2 text-[9px] uppercase tracking-widest text-gray-400">Scan to identify</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-gray-600">
+              ▸ Scan to identify
+            </p>
           </div>
 
-          {/* Info */}
-          <div className="flex flex-1 flex-col justify-center gap-1.5 p-4">
-            <div className="text-xl font-extrabold tracking-tight text-blue-600">{metaValue || barcodeVal}</div>
-            <div className="text-sm font-bold text-gray-900">{title}</div>
-            {subtitle && <div className="text-xs uppercase tracking-wider text-gray-400">{subtitle}</div>}
-            {extraFields.filter(f => f.value).map((f, i) => (
-              <div key={i} className="flex gap-2 text-xs">
-                <span className="text-gray-400">{f.label}:</span>
-                <span className="font-semibold text-gray-700">{f.value}</span>
+          {/* Info Column */}
+          <div className="flex flex-1 flex-col justify-center gap-1.5 px-5 py-4">
+            {/* Asset Tag */}
+            <div className="font-mono text-2xl font-black leading-none tracking-wide text-[#0f2d6b]">
+              {metaValue || barcodeVal}
+            </div>
+            {/* Device */}
+            <div className="text-sm font-black text-gray-900">{title}</div>
+            {subtitle && (
+              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                {subtitle}
               </div>
-            ))}
+            )}
+
+            {/* Divider */}
+            <div className="my-1 border-t-2 border-gray-200" />
+
+            {/* Extra fields */}
+            <div className="space-y-1.5">
+              {extraFields.filter(f => f.value).map((f, i) => (
+                <div key={i} className="flex items-baseline gap-2">
+                  <span className="min-w-[68px] text-[9px] font-black uppercase tracking-wider text-gray-500">
+                    {f.label}
+                  </span>
+                  <span className="text-[11px] font-bold text-gray-900">{f.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-100 bg-gray-50 py-1.5 text-center text-[9px] text-gray-400">
-          Scan QR Code to view asset details · {companyName}
+        <div className="flex items-center justify-between px-4 py-1.5" style={{ background: '#0f2d6b' }}>
+          <span className="text-[9px] font-bold text-white/80 tracking-wide">▸ Scan QR to view full asset details</span>
+          <span className="text-[8.5px] font-semibold text-white/60">Property of {companyName}</span>
         </div>
       </div>
 
-      {/* Print Button */}
-      <button
-        type="button"
-        onClick={handlePrint}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition"
-      >
-        <Printer className="h-4 w-4" />
-        Print Asset Label
-      </button>
+      {/* ── Action Buttons ── */}
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={handlePrint}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+          style={{ background: '#0f2d6b' }}
+        >
+          <Printer className="h-4 w-4" />
+          Print Label
+        </button>
+        <button
+          type="button"
+          onClick={downloadQR}
+          title="Download QR as SVG"
+          className="flex items-center justify-center gap-2 rounded-lg border-2 border-[#0f2d6b] bg-white px-4 py-2.5 text-sm font-bold text-[#0f2d6b] transition hover:bg-blue-50"
+        >
+          <Download className="h-4 w-4" />
+          QR
+        </button>
+      </div>
     </div>
   );
 }

@@ -49,7 +49,7 @@ vendorRouter.get('/', async (req, res) => {
 });
 
 // POST / — Create single vendor
-vendorRouter.post('/', authorize('admin', 'procurement_manager'), async (req, res) => {
+vendorRouter.post('/', authorize('super_admin', 'admin', 'procurement_manager'), async (req, res) => {
   try {
     const {
       name, gstin, pan, vendor_type, contact_person, phone, email,
@@ -81,7 +81,7 @@ vendorRouter.post('/', authorize('admin', 'procurement_manager'), async (req, re
 });
 
 // PUT /:id — Update vendor
-vendorRouter.put('/:id', authorize('admin', 'procurement_manager'), async (req, res) => {
+vendorRouter.put('/:id', authorize('super_admin', 'admin', 'procurement_manager'), async (req, res) => {
   try {
     const fields = req.body;
     const allowed = [
@@ -115,7 +115,7 @@ vendorRouter.put('/:id', authorize('admin', 'procurement_manager'), async (req, 
 });
 
 // DELETE /:id — Deactivate vendor
-vendorRouter.delete('/:id', authorize('admin'), async (req, res) => {
+vendorRouter.delete('/:id', authorize('super_admin', 'admin', 'procurement_manager'), async (req, res) => {
   try {
     await query('UPDATE vendors SET is_active = false WHERE id = $1', [req.params.id]);
     res.json({ message: 'Vendor deactivated successfully' });
@@ -125,7 +125,7 @@ vendorRouter.delete('/:id', authorize('admin'), async (req, res) => {
 });
 
 // POST /import — Bulk import vendors from CSV
-vendorRouter.post('/import', authorize('admin'), upload.single('file'), async (req, res) => {
+vendorRouter.post('/import', authorize('super_admin', 'admin', 'procurement_manager'), upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   try {

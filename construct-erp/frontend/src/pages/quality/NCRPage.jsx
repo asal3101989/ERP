@@ -11,6 +11,7 @@ import {
   Printer, Download, Eye, Layers
 } from 'lucide-react';
 import { qualityAPI, projectAPI } from '../../api/client';
+import AttachmentPanel from '../../components/quality/AttachmentPanel';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -26,6 +27,7 @@ const SEVERITY_STYLE = {
 
 export default function NCRPage() {
   const [showForm, setShowForm] = useState(false);
+  const [newAttachments, setNewAttachments] = useState([]);
   const [selectedNCR, setSelectedNCR] = useState(null);
   const [markupImage, setMarkupImage] = useState(null);
   const [printData, setPrintData] = useState(null);
@@ -39,9 +41,9 @@ export default function NCRPage() {
     onAfterPrint: () => setPrintData(null),
   });
 
-  const { data: ncrs, isLoading } = useQuery({
+  const { data: ncrs = [], isLoading } = useQuery({
     queryKey: ['quality-ncr'],
-    queryFn: () => qualityAPI.listNCR().then(r => r.data.data),
+    queryFn: () => qualityAPI.listNCR().then(r => r.data?.data ?? r.data ?? []).catch(() => []),
   });
 
   const { data: projects } = useQuery({
@@ -50,12 +52,17 @@ export default function NCRPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: (d) => qualityAPI.createNCR(d),
+    mutationFn: (d) => qualityAPI.createNCR({ ...d, attachments: newAttachments }),
     onSuccess: () => {
       toast.success('NCR Issued for Review');
-      reset(); setShowForm(false);
+      reset(); setShowForm(false); setNewAttachments([]);
       qc.invalidateQueries(['quality-ncr']);
     },
+  });
+
+  const attachMut = useMutation({
+    mutationFn: ({ id, attachments }) => qualityAPI.updateNCRAttachments(id, attachments),
+    onSuccess: () => { qc.invalidateQueries(['quality-ncr']); toast.success('Attachments saved'); },
   });
 
   const rcaMut = useMutation({
@@ -292,10 +299,16 @@ export default function NCRPage() {
                 </div>
               </div>
 
+              <AttachmentPanel
+                attachments={newAttachments}
+                onUpdate={setNewAttachments}
+                label="Attachments (optional)"
+              />
+
               <div className="flex gap-3 pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => { setShowForm(false); setNewAttachments([]); }}
                   className="bg-white border border-[#e2e6ec] text-slate-700 text-sm font-semibold rounded-lg px-4 py-2 flex-1"
                 >
                   Discard
@@ -400,6 +413,12 @@ export default function NCRPage() {
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
                   />
                 </div>
+
+                <AttachmentPanel
+                  attachments={selectedNCR?.attachments || []}
+                  onUpdate={(atts) => attachMut.mutate({ id: selectedNCR.id, attachments: atts })}
+                  label="NCR Attachments"
+                />
 
                 <div className="flex gap-3 pt-4 border-t border-[#e2e6ec]">
                   <button

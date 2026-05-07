@@ -15,7 +15,7 @@ export default function ChecklistTemplatePage() {
 
   const { data: templates, isLoading } = useQuery({
     queryKey: ['quality-checklists'],
-    queryFn: () => qualityAPI.listChecklists().then(r => r.data.data),
+    queryFn: () => qualityAPI.listChecklists().then(r => r.data?.data ?? r.data ?? []).catch(() => []),
   });
 
   const { register, control, handleSubmit, reset } = useForm({

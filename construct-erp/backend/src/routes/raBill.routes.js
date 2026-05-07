@@ -5,6 +5,24 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { query, withTransaction } = require('../config/database');
 router.use(authenticate);
 
+// Ensure new columns exist on live DB (idempotent)
+const ensureRaBillCols = async () => {
+  const alters = [
+    `ALTER TABLE ra_bills ADD COLUMN IF NOT EXISTS contractor_name VARCHAR(200)`,
+    `ALTER TABLE ra_bills ADD COLUMN IF NOT EXISTS contractor_gstin VARCHAR(15)`,
+    `ALTER TABLE ra_bills ADD COLUMN IF NOT EXISTS contractor_pan VARCHAR(10)`,
+    `ALTER TABLE ra_bills ADD COLUMN IF NOT EXISTS work_description TEXT`,
+    `ALTER TABLE ra_bills ADD COLUMN IF NOT EXISTS price_escalation NUMERIC(15,2) DEFAULT 0`,
+    `ALTER TABLE ra_bills ADD COLUMN IF NOT EXISTS certified_by UUID`,
+    `ALTER TABLE ra_bills ADD COLUMN IF NOT EXISTS certified_date TIMESTAMPTZ`,
+    `ALTER TABLE ra_bills ADD COLUMN IF NOT EXISTS client_tds_amount NUMERIC(15,2) DEFAULT 0`,
+    `ALTER TABLE ra_bills ADD COLUMN IF NOT EXISTS amount_received NUMERIC(15,2) DEFAULT 0`,
+    `ALTER TABLE ra_bills ADD COLUMN IF NOT EXISTS company_id UUID`,
+  ];
+  for (const sql of alters) await query(sql).catch(() => {});
+};
+ensureRaBillCols();
+
 // GET /ra-bills
 router.get('/', async (req, res) => {
   try {

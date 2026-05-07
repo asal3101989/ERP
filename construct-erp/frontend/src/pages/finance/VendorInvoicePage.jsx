@@ -1,386 +1,488 @@
-// src/pages/finance/VendorInvoicePage.jsx — Zoho Books style
+// src/pages/finance/VendorInvoicePage.jsx
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Search, SlidersHorizontal, Download, RefreshCw,
-  ChevronLeft, ChevronRight, ExternalLink, ArrowUpDown,
+  FileText, Search, CheckCircle2, Clock, ShieldCheck,
+  ExternalLink, Printer, DollarSign, Building2,
+  AlertTriangle, TrendingUp, Receipt, ArrowRight,
+  ChevronDown, X, Filter
 } from 'lucide-react';
+import { clsx } from 'clsx';
 import dayjs from 'dayjs';
-import { dqsBillsAPI, projectAPI } from '../../api/client';
-import { Link } from 'react-router-dom';
+import { invoiceAPI, projectAPI, tqsBillsAPI, default as api } from '../../api/client';
+import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const inr = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(v || 0));
-const dateFmt = (d) => d ? dayjs(d).format('DD MMM YYYY') : '—';
-
-// Map DQS workflow_status → Zoho-style display status
-function mapStatus(bill) {
-  const ws = String(bill.workflow_status || '').toLowerCase();
-  const ps = String(bill.payment_status  || '').toLowerCase();
-  if (ps === 'paid' || ws === 'paid') return 'paid';
-  if (ps === 'partial')               return 'partial';
-  if (ws === 'procurement')           return 'approved';
-  if (ws === 'accounts')              return 'accounts';
-  if (ws === 'qs')                    return 'qs';
-  if (ws === 'document_controller')   return 'doc_ctrl';
-  if (ws === 'stores')                return 'stores';
-  return 'open';
-}
+const inr = v => `₹${parseFloat(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const STATUS = {
-  all:      { label: 'All',              dot: '#94A3B8', pill: 'bg-slate-100 text-slate-600' },
-  open:     { label: 'Open',             dot: '#3B82F6', pill: 'bg-blue-50 text-blue-700'   },
-  stores:   { label: 'Stores',           dot: '#F97316', pill: 'bg-orange-50 text-orange-700'},
-  doc_ctrl: { label: 'Doc Control',      dot: '#06B6D4', pill: 'bg-cyan-50 text-cyan-700'   },
-  qs:       { label: 'QS',               dot: '#8B5CF6', pill: 'bg-violet-50 text-violet-700'},
-  accounts: { label: 'Accounts',         dot: '#1D4ED8', pill: 'bg-indigo-50 text-indigo-700'},
-  approved: { label: 'Ready to Pay',     dot: '#10B981', pill: 'bg-emerald-50 text-emerald-700'},
-  partial:  { label: 'Partial',          dot: '#F59E0B', pill: 'bg-amber-50 text-amber-700' },
-  paid:     { label: 'Paid',             dot: '#10B981', pill: 'bg-green-50 text-green-700' },
+  pending:    { label: 'Pending Audit',     dot: 'bg-amber-400',   pill: 'bg-amber-50 text-amber-700 border-amber-200',   icon: Clock },
+  verified:   { label: 'Audit Verified',    dot: 'bg-blue-500',    pill: 'bg-blue-50 text-blue-700 border-blue-200',       icon: ShieldCheck },
+  authorized: { label: 'Ready for Payment', dot: 'bg-emerald-500', pill: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
+  paid:       { label: 'Paid',              dot: 'bg-slate-400',   pill: 'bg-slate-100 text-slate-500 border-slate-200',   icon: DollarSign },
 };
 
-const TAB_FILTERS = ['all', 'open', 'stores', 'doc_ctrl', 'qs', 'accounts', 'approved', 'partial', 'paid'];
+export default function VendorInvoicePage() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [filterProject, setFilterProject] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterSource, setFilterSource] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
 
-const PAGE_SIZE = 20;
+  const { data: invoices = [], isLoading: loadInv } = useQuery({
+    queryKey: ['vendor-invoices'],
+    queryFn: () => invoiceAPI.list().then(r => r.data.data).catch(() => []),
+  });
 
-// ── Status Pill ───────────────────────────────────────────────────────────────
-function StatusPill({ status }) {
-  const cfg = STATUS[status] || STATUS.open;
+  const { data: tqsBillsRaw = [], isLoading: loadTqs } = useQuery({
+    queryKey: ['tqs-bills-finance'],
+    queryFn: () => tqsBillsAPI.list({ limit: 500 }).then(r => {
+      const rows = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
+      return rows.map(b => ({
+        id: b.id,
+        _source: 'tqs',
+        invoice_number: b.inv_number || b.sl_number,
+        invoice_date: b.inv_date || b.created_at,
+        vendor_name: b.vendor_name,
+        project_name: b.project_name,
+        project_id: b.project_id,
+        net_amount: b.total_amount || 0,
+        taxable_amount: b.basic_amount || 0,
+        due_date: null,
+        po_number: b.po_number,
+        tqs_sl: b.sl_number,
+        bill_type: b.bill_type,
+        payment_status: b.payment_status,
+        status: (() => {
+          const ws = b.workflow_status;
+          if (ws === 'paid') return 'paid';
+          if (ws === 'procurement' || ws === 'accounts') return 'authorized';
+          if (ws === 'qs') return 'verified';
+          return 'pending';
+        })(),
+        verified_by_name: null,
+        authorized_by_name: null,
+      }));
+    }).catch(() => []),
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => projectAPI.list().then(r => r.data?.data || []).catch(() => []),
+  });
+
+  const verifyMut = useMutation({
+    mutationFn: (id) => invoiceAPI.verify(id),
+    onSuccess: () => { toast.success('Bill verified'); qc.invalidateQueries(['vendor-invoices']); },
+    onError: () => toast.error('Verification failed'),
+  });
+  const authMut = useMutation({
+    mutationFn: (id) => invoiceAPI.authorize(id),
+    onSuccess: () => { toast.success('Bill authorized for payment'); qc.invalidateQueries(['vendor-invoices']); },
+    onError: () => toast.error('Authorization failed'),
+  });
+  const deleteMut = useMutation({
+    mutationFn: (id) => api.delete(`/invoices/${id}`),
+    onSuccess: () => { toast.success('Invoice removed'); qc.invalidateQueries(['vendor-invoices']); },
+    onError: () => toast.error('Delete failed'),
+  });
+
+  const allInvoices = useMemo(() => [
+    ...(invoices || []).map(i => ({ ...i, _source: 'direct' })),
+    ...(tqsBillsRaw || []),
+  ], [invoices, tqsBillsRaw]);
+
+  const filtered = useMemo(() => allInvoices.filter(inv => {
+    if (filterProject !== 'all' && inv.project_id !== filterProject) return false;
+    if (filterStatus !== 'all' && inv.status !== filterStatus) return false;
+    if (filterSource !== 'all' && inv._source !== filterSource) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (inv.vendor_name || '').toLowerCase().includes(q) ||
+             (inv.invoice_number || '').toLowerCase().includes(q) ||
+             (inv.po_number || '').toLowerCase().includes(q) ||
+             (inv.tqs_sl || '').toLowerCase().includes(q);
+    }
+    return true;
+  }), [allInvoices, filterProject, filterStatus, filterSource, search]);
+
+  // KPI calculations
+  const pendingAudit   = allInvoices.filter(i => i.status === 'pending');
+  const readyForPay    = allInvoices.filter(i => i.status === 'authorized');
+  const totalOutstanding = allInvoices.filter(i => i.status !== 'paid').reduce((s, i) => s + parseFloat(i.net_amount || 0), 0);
+  const totalPaid      = allInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + parseFloat(i.net_amount || 0), 0);
+  const isLoading = loadInv || loadTqs;
+
+  const activeFilters = [filterProject !== 'all', filterStatus !== 'all', filterSource !== 'all'].filter(Boolean).length;
+
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${cfg.pill}`}>
-      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: cfg.dot }} />
-      {cfg.label}
-    </span>
-  );
-}
+    <div className="min-h-screen bg-[#f4f6f9]">
 
-// ── Summary Card ─────────────────────────────────────────────────────────────
-function SummaryCard({ label, value, sub, color = '#1D4ED8' }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4">
-      <div className="text-xs text-gray-500 font-medium">{label}</div>
-      <div className="mt-1 text-xl font-bold" style={{ color }}>{value}</div>
-      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+      {/* ── Header ── */}
+      <div className="bg-white border-b border-slate-200 px-6 md:px-8 py-5">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/25">
+              <Receipt className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">Vendor Payables</h1>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                {allInvoices.length} bills · Direct + TQS Tracker unified view
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/finance/invoices/booking')}
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-indigo-600/20"
+          >
+            <FileText className="w-4 h-4" /> + Book Vendor Bill
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 md:px-8 py-6 space-y-5">
+
+        {/* ── KPI Cards ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <KpiCard
+            label="Pending Audit"
+            value={pendingAudit.length}
+            sub={pendingAudit.length > 0 ? `${inr(pendingAudit.reduce((s,i)=>s+parseFloat(i.net_amount||0),0))} exposure` : 'All clear'}
+            icon={<AlertTriangle className="w-5 h-5 text-amber-500" />}
+            accent="amber"
+            onClick={() => setFilterStatus('pending')}
+          />
+          <KpiCard
+            label="Ready for Payment"
+            value={readyForPay.length}
+            sub={readyForPay.length > 0 ? inr(readyForPay.reduce((s,i)=>s+parseFloat(i.net_amount||0),0)) : 'None queued'}
+            icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+            accent="emerald"
+            onClick={() => setFilterStatus('authorized')}
+          />
+          <KpiCard
+            label="Total Outstanding"
+            value={inr(totalOutstanding)}
+            sub="Unpaid liabilities"
+            icon={<TrendingUp className="w-5 h-5 text-indigo-500" />}
+            accent="indigo"
+          />
+          <KpiCard
+            label="Paid This Period"
+            value={inr(totalPaid)}
+            sub={`${allInvoices.filter(i=>i.status==='paid').length} invoices settled`}
+            icon={<DollarSign className="w-5 h-5 text-slate-400" />}
+            accent="slate"
+          />
+        </div>
+
+        {/* ── Search + Filters ── */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search vendor, invoice no, PO number..."
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all"
+            />
+            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X className="w-3.5 h-3.5" /></button>}
+          </div>
+          <button
+            onClick={() => setShowFilters(v => !v)}
+            className={clsx('flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all',
+              showFilters || activeFilters > 0
+                ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
+            )}
+          >
+            <Filter className="w-4 h-4" />
+            Filters
+            {activeFilters > 0 && <span className="w-5 h-5 bg-indigo-600 text-white text-[10px] font-black rounded-full flex items-center justify-center">{activeFilters}</span>}
+            <ChevronDown className={clsx('w-3.5 h-3.5 transition-transform', showFilters && 'rotate-180')} />
+          </button>
+          <button
+            onClick={() => {
+              const csv = [
+                ['Invoice No', 'Vendor', 'Date', 'PO Number', 'Net Amount', 'Status', 'Source'].join(','),
+                ...filtered.map(i => [
+                  i.invoice_number, `"${i.vendor_name}"`,
+                  i.invoice_date ? dayjs(i.invoice_date).format('DD-MM-YYYY') : '',
+                  i.po_number || '', i.net_amount, i.status, i._source,
+                ].join(',')),
+              ].join('\n');
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+              a.download = `Vendor_Payables_${dayjs().format('YYYY-MM-DD')}.csv`;
+              a.click();
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-600 hover:border-slate-300 rounded-xl text-sm font-bold transition-all"
+          >
+            Export CSV
+          </button>
+        </div>
+
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-wrap gap-4 items-end">
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Project</label>
+              <select value={filterProject} onChange={e => setFilterProject(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 min-w-[160px]">
+                <option value="all">All Projects</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 min-w-[160px]">
+                <option value="all">All Stages</option>
+                <option value="pending">Pending Audit</option>
+                <option value="verified">Audit Verified</option>
+                <option value="authorized">Ready for Payment</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Source</label>
+              <select value={filterSource} onChange={e => setFilterSource(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 min-w-[140px]">
+                <option value="all">All Sources</option>
+                <option value="direct">Direct (Bill Booking)</option>
+                <option value="tqs">TQS Tracker</option>
+              </select>
+            </div>
+            {activeFilters > 0 && (
+              <button onClick={() => { setFilterProject('all'); setFilterStatus('all'); setFilterSource('all'); }}
+                className="px-4 py-2 text-xs font-black text-red-500 hover:text-red-700 uppercase tracking-widest transition-all">
+                Clear All
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── Table ── */}
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+
+          {/* Table header row with count */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              {filtered.length} {filtered.length === 1 ? 'bill' : 'bills'}
+              {filtered.length !== allInvoices.length && ` of ${allInvoices.length}`}
+            </span>
+            <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest">
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Pending</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />Verified</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Authorized</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />Paid</span>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="py-20 text-center text-sm text-slate-400 font-bold uppercase tracking-widest">Loading bills…</div>
+          ) : filtered.length === 0 ? (
+            <div className="py-20 text-center space-y-3">
+              <div className="w-14 h-14 bg-slate-100 rounded-2xl mx-auto flex items-center justify-center">
+                <FileText className="w-7 h-7 text-slate-300" />
+              </div>
+              <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No bills found</p>
+              <p className="text-xs text-slate-400">Adjust filters or book a new vendor bill</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="py-3 px-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-left">Vendor / Invoice</th>
+                    <th className="py-3 px-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-left">Project</th>
+                    <th className="py-3 px-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-left">References</th>
+                    <th className="py-3 px-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                    <th className="py-3 px-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                    <th className="py-3 px-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filtered.map(inv => {
+                    const cfg = STATUS[inv.status] || STATUS.pending;
+                    const Icon = cfg.icon;
+                    return (
+                      <tr key={`${inv._source}-${inv.id}`} className="hover:bg-slate-50/60 transition-colors group">
+
+                        {/* Vendor / Invoice */}
+                        <td className="py-4 px-5">
+                          <div className="flex items-center gap-3">
+                            <div className={clsx('w-2 h-2 rounded-full flex-shrink-0', cfg.dot)} />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-black text-slate-900 text-xs uppercase tracking-tight truncate max-w-[180px]">{inv.vendor_name}</span>
+                                {inv._source === 'tqs' && (
+                                  <span className="text-[8px] font-black uppercase tracking-wider bg-violet-100 text-violet-600 border border-violet-200 px-1.5 py-0.5 rounded-md flex-shrink-0">TQS</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] font-mono font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">{inv.invoice_number || '—'}</span>
+                                {inv.invoice_date && <span className="text-[9px] text-slate-400 font-bold">{dayjs(inv.invoice_date).format('D MMM YY')}</span>}
+                              </div>
+                              {inv._source === 'tqs' && inv.tqs_sl && (
+                                <div className="text-[9px] text-slate-400 font-bold mt-0.5">SL: {inv.tqs_sl} · {inv.bill_type === 'wo' ? 'Work Order' : 'PO'}</div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Project */}
+                        <td className="py-4 px-5">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
+                            <span className="text-xs font-bold text-slate-600 truncate max-w-[140px]">{inv.project_name || '—'}</span>
+                          </div>
+                        </td>
+
+                        {/* References */}
+                        <td className="py-4 px-5">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-black text-slate-400 uppercase w-7">PO</span>
+                              <span className="text-[10px] font-mono font-bold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md">{inv.po_number || '—'}</span>
+                            </div>
+                            {inv.grn_number && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black text-slate-400 uppercase w-7">GRN</span>
+                                <span className="text-[10px] font-mono font-bold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md">{inv.grn_number}</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Amount */}
+                        <td className="py-4 px-5 text-right">
+                          <div className="font-black font-mono text-slate-900 text-base">{inr(inv.net_amount)}</div>
+                          {inv.due_date && (
+                            <div className={clsx('text-[9px] font-bold mt-0.5',
+                              dayjs(inv.due_date).isBefore(dayjs()) && inv.status !== 'paid'
+                                ? 'text-red-500' : 'text-slate-400'
+                            )}>
+                              Due {dayjs(inv.due_date).format('D MMM')}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-4 px-5">
+                          <div className="flex justify-center">
+                            <span className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border', cfg.pill)}>
+                              <Icon className="w-3 h-3" /> {cfg.label}
+                            </span>
+                          </div>
+                          {(inv.verified_by_name || inv.authorized_by_name) && (
+                            <div className="text-[9px] text-slate-400 font-bold text-center mt-1">
+                              {inv.status === 'verified' ? inv.verified_by_name : inv.authorized_by_name}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-4 px-5">
+                          <div className="flex items-center justify-end gap-2">
+                            {inv._source !== 'tqs' && inv.status === 'pending' && (
+                              <button
+                                onClick={() => verifyMut.mutate(inv.id)}
+                                disabled={verifyMut.isPending}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm"
+                              >
+                                Verify
+                              </button>
+                            )}
+                            {inv._source !== 'tqs' && inv.status === 'verified' && (
+                              <button
+                                onClick={() => authMut.mutate(inv.id)}
+                                disabled={authMut.isPending}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm"
+                              >
+                                Authorize
+                              </button>
+                            )}
+                            {inv._source === 'tqs' && (
+                              <button
+                                onClick={() => navigate(`/tqs/bills/${inv.id}`)}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-violet-50 hover:bg-violet-100 text-violet-600 border border-violet-200 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all"
+                              >
+                                <ExternalLink className="w-3 h-3" /> TQS
+                              </button>
+                            )}
+                            {inv._source !== 'tqs' && (
+                              <>
+                                <button className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-400 hover:border-slate-300 transition-all">
+                                  <Printer className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => { if (confirm('Delete this invoice?')) deleteMut.mutate(inv.id); }}
+                                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-all"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Footer totals */}
+          {filtered.length > 0 && (
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                {filtered.filter(i => i._source === 'tqs').length} TQS · {filtered.filter(i => i._source !== 'tqs').length} Direct
+              </span>
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Outstanding</div>
+                  <div className="font-black font-mono text-indigo-600 text-sm">{inr(filtered.filter(i=>i.status!=='paid').reduce((s,i)=>s+parseFloat(i.net_amount||0),0))}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Value</div>
+                  <div className="font-black font-mono text-slate-900 text-sm">{inr(filtered.reduce((s,i)=>s+parseFloat(i.net_amount||0),0))}</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-export default function VendorInvoicePage() {
-  const [activeTab, setActiveTab]   = useState('all');
-  const [search, setSearch]         = useState('');
-  const [projectFilter, setProjectFilter] = useState('all');
-  const [sortField, setSortField]   = useState('inv_date');
-  const [sortDir, setSortDir]       = useState('desc');
-  const [page, setPage]             = useState(1);
-
-  // ── Data ──────────────────────────────────────────────────────────────────
-  const { data: rawBills = [], isLoading, refetch } = useQuery({
-    queryKey: ['vendor-payables-dqs'],
-    queryFn: () => dqsBillsAPI.list({ limit: 1000 }).then(r => r.data?.data || []).catch(() => []),
-    staleTime: 30_000,
-  });
-
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects-list'],
-    queryFn: () => projectAPI.list().then(r => r.data?.data || []).catch(() => []),
-    staleTime: 300_000,
-  });
-
-  // ── Normalize bills ────────────────────────────────────────────────────────
-  const bills = useMemo(() => rawBills.map(b => ({
-    id:           b.id,
-    sl_number:    b.sl_number || '—',
-    inv_number:   b.inv_number || b.sl_number || '—',
-    vendor_name:  b.vendor_name || '—',
-    inv_date:     b.inv_date || b.received_date || null,
-    po_number:    b.po_number || '—',
-    bill_type:    (b.bill_type || 'po').toUpperCase(),
-    basic_amount: Number(b.basic_amount || 0),
-    gst_amount:   Number(b.gst_amount || 0),
-    total_amount: Number(b.total_amount || b.basic_amount || 0),
-    paid_amount:  Number(b.paid_amount || 0),
-    balance:      Number(b.total_amount || 0) - Number(b.paid_amount || 0),
-    project_id:   b.project_id,
-    project_name: b.project_name || '—',
-    status:       mapStatus(b),
-  })), [rawBills]);
-
-  // ── Summary stats ──────────────────────────────────────────────────────────
-  const stats = useMemo(() => {
-    const total      = bills.reduce((s, b) => s + b.total_amount, 0);
-    const outstanding= bills.filter(b => b.status !== 'paid').reduce((s, b) => s + b.balance, 0);
-    const paid       = bills.filter(b => b.status === 'paid').reduce((s, b) => s + b.total_amount, 0);
-    const readyToPay = bills.filter(b => b.status === 'approved').length;
-    return { total, outstanding, paid, readyToPay, count: bills.length };
-  }, [bills]);
-
-  // ── Filter + search + sort ─────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    let list = bills;
-    if (activeTab !== 'all') list = list.filter(b => b.status === activeTab);
-    if (projectFilter !== 'all') list = list.filter(b => b.project_id === projectFilter);
-    if (search.trim()) {
-      const s = search.toLowerCase();
-      list = list.filter(b =>
-        [b.vendor_name, b.inv_number, b.po_number, b.sl_number, b.project_name]
-          .some(v => String(v).toLowerCase().includes(s))
-      );
-    }
-    list = [...list].sort((a, b) => {
-      let av = a[sortField], bv = b[sortField];
-      if (typeof av === 'string') av = av.toLowerCase();
-      if (typeof bv === 'string') bv = bv.toLowerCase();
-      return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
-    });
-    return list;
-  }, [bills, activeTab, projectFilter, search, sortField, sortDir]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const toggleSort = (field) => {
-    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortField(field); setSortDir('asc'); }
-    setPage(1);
+function KpiCard({ label, value, sub, icon, accent, onClick }) {
+  const accents = {
+    amber:   'bg-amber-50 border-amber-100',
+    emerald: 'bg-emerald-50 border-emerald-100',
+    indigo:  'bg-indigo-50 border-indigo-100',
+    slate:   'bg-white border-slate-200',
   };
-
-  // ── CSV export ─────────────────────────────────────────────────────────────
-  const exportCSV = () => {
-    const headers = ['SL No', 'Invoice No', 'Vendor', 'PO No', 'Type', 'Date', 'Basic', 'GST', 'Total', 'Paid', 'Balance', 'Status', 'Project'];
-    const rows = filtered.map(b => [
-      b.sl_number, b.inv_number, b.vendor_name, b.po_number, b.bill_type,
-      b.inv_date ? dayjs(b.inv_date).format('DD-MM-YYYY') : '',
-      b.basic_amount, b.gst_amount, b.total_amount, b.paid_amount, b.balance,
-      STATUS[b.status]?.label || b.status, b.project_name,
-    ]);
-    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `Vendor_Bills_${dayjs().format('YYYY-MM-DD')}.csv`;
-    a.click();
-  };
-
-  // ── Tab count helper ───────────────────────────────────────────────────────
-  const tabCount = (key) => key === 'all' ? bills.length : bills.filter(b => b.status === key).length;
-
-  // ────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#F5F7FA] font-sans">
-
-      {/* ── Top bar ── */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-base font-semibold text-gray-800">Vendor Bills</h1>
-          <p className="text-xs text-gray-400">All bills from DQS tracker</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => refetch()} className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-gray-500">
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-medium">
-            <Download className="w-3.5 h-3.5" /> Export
-          </button>
-          <Link to="/dqs/bills" className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-[#1D4ED8] hover:bg-blue-700 text-white text-sm font-medium">
-            <ExternalLink className="w-3.5 h-3.5" /> Open DQS Tracker
-          </Link>
-        </div>
+    <div
+      onClick={onClick}
+      className={clsx('border rounded-2xl p-5 shadow-sm transition-all',
+        accents[accent],
+        onClick && 'cursor-pointer hover:shadow-md hover:-translate-y-0.5'
+      )}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{label}</span>
+        {icon}
       </div>
-
-      <div className="px-6 py-4 space-y-4">
-
-        {/* ── Summary Cards ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <SummaryCard label="Total Bills"        value={stats.count}            sub="All time"                     color="#1D4ED8" />
-          <SummaryCard label="Total Value"         value={inr(stats.total)}       sub="Gross including GST"          color="#374151" />
-          <SummaryCard label="Outstanding Balance" value={inr(stats.outstanding)} sub="Unpaid / partially paid"      color="#DC2626" />
-          <SummaryCard label="Ready to Pay"        value={`${stats.readyToPay} bills`} sub={`${inr(bills.filter(b=>b.status==='approved').reduce((s,b)=>s+b.balance,0))} pending`} color="#059669" />
-        </div>
-
-        {/* ── Filter row ── */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-md px-3 py-1.5 flex-1 min-w-[200px] max-w-sm">
-            <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-            <input
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search vendor, invoice, PO…"
-              className="text-sm outline-none w-full placeholder:text-gray-400 bg-transparent"
-            />
-          </div>
-
-          {/* Project filter */}
-          <select
-            value={projectFilter}
-            onChange={e => { setProjectFilter(e.target.value); setPage(1); }}
-            className="bg-white border border-gray-200 rounded-md px-3 py-1.5 text-sm text-gray-600 outline-none"
-          >
-            <option value="all">All Projects</option>
-            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-
-          <div className="ml-auto text-xs text-gray-400 font-medium">
-            {filtered.length} bill{filtered.length !== 1 ? 's' : ''}
-          </div>
-        </div>
-
-        {/* ── Status tabs ── */}
-        <div className="flex gap-1 overflow-x-auto border-b border-gray-200">
-          {TAB_FILTERS.map(key => {
-            const count = tabCount(key);
-            if (count === 0 && key !== 'all') return null;
-            return (
-              <button
-                key={key}
-                onClick={() => { setActiveTab(key); setPage(1); }}
-                className={`px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  activeTab === key
-                    ? 'border-[#1D4ED8] text-[#1D4ED8]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {STATUS[key]?.label}
-                <span className={`ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                  activeTab === key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-                }`}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ── Table ── */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    <button onClick={() => toggleSort('inv_date')} className="flex items-center gap-1 hover:text-gray-700">
-                      Date <ArrowUpDown className="w-3 h-3" />
-                    </button>
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Bill #</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    <button onClick={() => toggleSort('vendor_name')} className="flex items-center gap-1 hover:text-gray-700">
-                      Vendor <ArrowUpDown className="w-3 h-3" />
-                    </button>
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">PO / Type</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Project</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    <button onClick={() => toggleSort('total_amount')} className="flex items-center gap-1 hover:text-gray-700 ml-auto">
-                      Amount <ArrowUpDown className="w-3 h-3" />
-                    </button>
-                  </th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Balance Due</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {isLoading ? (
-                  <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-sm">Loading bills…</td></tr>
-                ) : paginated.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-16 text-center">
-                      <div className="text-gray-300 text-4xl mb-3">📄</div>
-                      <div className="text-gray-500 font-medium">No bills found</div>
-                      <div className="text-gray-400 text-xs mt-1">Try adjusting your filters</div>
-                    </td>
-                  </tr>
-                ) : paginated.map(bill => (
-                  <tr key={bill.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{dateFmt(bill.inv_date)}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-blue-700 text-xs">{bill.inv_number}</div>
-                      <div className="text-[10px] text-gray-400 mt-0.5">{bill.sl_number}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-800 text-sm max-w-[180px] truncate">{bill.vendor_name}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-xs text-gray-600">{bill.po_number}</div>
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 mt-0.5 inline-block">{bill.bill_type}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 max-w-[140px] truncate">{bill.project_name}</td>
-                    <td className="px-4 py-3"><StatusPill status={bill.status} /></td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="font-semibold text-gray-800 text-sm">{inr(bill.total_amount)}</div>
-                      {bill.gst_amount > 0 && <div className="text-[10px] text-gray-400">GST: {inr(bill.gst_amount)}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={`font-semibold text-sm ${bill.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {bill.balance > 0 ? inr(bill.balance) : '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link to="/dqs/bills" className="text-xs text-blue-600 hover:underline font-medium whitespace-nowrap">
-                        View →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              {/* Footer totals */}
-              {paginated.length > 0 && (
-                <tfoot className="bg-gray-50 border-t border-gray-200">
-                  <tr>
-                    <td colSpan={6} className="px-4 py-3 text-xs font-semibold text-gray-500">
-                      Showing {(page-1)*PAGE_SIZE+1}–{Math.min(page*PAGE_SIZE, filtered.length)} of {filtered.length} bills
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-gray-800 text-sm">
-                      {inr(paginated.reduce((s, b) => s + b.total_amount, 0))}
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-red-600 text-sm">
-                      {inr(paginated.reduce((s, b) => s + b.balance, 0))}
-                    </td>
-                    <td />
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-        </div>
-
-        {/* ── Pagination ── */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-white text-sm text-gray-600 disabled:opacity-40 hover:bg-gray-50"
-            >
-              <ChevronLeft className="w-4 h-4" /> Previous
-            </button>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                const p = i + 1;
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`w-8 h-8 rounded-md text-sm font-medium transition-colors ${
-                      page === p ? 'bg-[#1D4ED8] text-white' : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-              {totalPages > 7 && <span className="text-gray-400 text-sm">…{totalPages}</span>}
-            </div>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-white text-sm text-gray-600 disabled:opacity-40 hover:bg-gray-50"
-            >
-              Next <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-      </div>
+      <div className="font-black text-slate-900 text-2xl font-mono tracking-tight">{value}</div>
+      <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{sub}</div>
+      {onClick && <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 mt-2"><ArrowRight className="w-3 h-3" /> Click to filter</div>}
     </div>
   );
 }

@@ -61,9 +61,9 @@ export default function MINPrintTemplate({ min }) {
             </div>
           </div>
           <div>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Recipient Account / Contractor</span>
-            <p className="text-base font-black uppercase text-slate-800">{min.contractor_name || 'DIRECT LABOUR / SITE TEAM'}</p>
-            <p className="text-xs font-bold text-slate-500 uppercase mt-0.5 tracking-tight">Receiver Name: {min.issued_to}</p>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Issued To / Receiver</span>
+            <p className="text-base font-black uppercase text-slate-800">{min.issued_to || 'SITE TEAM'}</p>
+            <p className="text-xs font-bold text-slate-500 uppercase mt-0.5 tracking-tight">Agency / Context: {min.contractor_name || 'LOCAL / INTERNAL WORK'}</p>
           </div>
         </div>
       </div>

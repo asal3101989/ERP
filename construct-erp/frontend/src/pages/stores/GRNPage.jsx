@@ -382,10 +382,12 @@ export default function GRNPage() {
       g.status || g.quality_status || '',
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.href = url;
     a.download = `GRN_${dayjs().format('YYYY-MM-DD')}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
     toast.success('CSV exported');
   };
 

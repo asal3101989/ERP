@@ -110,7 +110,7 @@ router.get('/', async (req, res) => {
 
     // ── 5. Pending MRS (material requisitions) ────────────────────────────────
     const pendingMrs = await safeCount(
-      `SELECT COUNT(*) FROM mrs m
+      `SELECT COUNT(*) FROM material_requisitions m
        JOIN projects p ON m.project_id = p.id
        WHERE p.company_id = $1 AND m.status = 'pending'`,
       [cid]
@@ -130,7 +130,7 @@ router.get('/', async (req, res) => {
 
     // ── 6. Pending leave requests ─────────────────────────────────────────────
     const pendingLeaves = await safeCount(
-      `SELECT COUNT(*) FROM hr_leave hl
+      `SELECT COUNT(*) FROM hr_leave_requests hl
        JOIN users u ON hl.user_id = u.id
        WHERE u.company_id = $1 AND hl.status = 'pending'`,
       [cid]
@@ -151,7 +151,8 @@ router.get('/', async (req, res) => {
     // ── 7. Open IT support tickets ────────────────────────────────────────────
     const openTickets = await safeCount(
       `SELECT COUNT(*) FROM it_tickets t
-       WHERE t.company_id = $1 AND t.status IN ('open','in_progress')`,
+       JOIN users u ON t.raised_by = u.id
+       WHERE u.company_id = $1 AND t.status IN ('open','in_progress')`,
       [cid]
     );
     if (openTickets > 0) {
@@ -217,7 +218,7 @@ router.get('/', async (req, res) => {
        JOIN projects p ON po.project_id = p.id
        WHERE p.company_id = $1
          AND po.status NOT IN ('closed','cancelled')
-         AND po.expected_delivery < NOW() - INTERVAL '1 day'`,
+         AND po.delivery_date < NOW() - INTERVAL '1 day'`,
       [cid]
     );
     if (overduePOs > 0) {

@@ -48,6 +48,11 @@ export default function ComparativeStatementPage() {
     billReq: 'Bill must carry details of Specific Work order number, site acceptance signature along with seal, Bill number, GST No. & HSN Code / LUT Details etc.',
   });
   const [editTerms, setEditTerms] = useState(false);
+  const [signerNames, setSignerNames] = useState({
+    checked: '',
+    procurement: '',
+    approved: '',
+  });
 
   const { data: csData, isLoading } = useQuery({
     queryKey: ['comparative-statement', id],
@@ -676,9 +681,9 @@ export default function ComparativeStatementPage() {
               </tr>
               <tr>
                 {[
-                  { key: 'checked',     role: 'Checked by',             name: 'Mr. Praveen Parameshwar S' },
-                  { key: 'procurement', role: 'Procurement Department',  name: 'Mr. S Srinivas Raju' },
-                  { key: 'approved',    role: 'Approved by',             name: 'Mr. Stephen' },
+                  { key: 'checked',     role: 'Checked by',             },
+                  { key: 'procurement', role: 'Procurement Department',  },
+                  { key: 'approved',    role: 'Approved by',             },
                 ].map(sig => {
                   const saved = signatures[sig.key];
                   return (
@@ -725,7 +730,16 @@ export default function ComparativeStatementPage() {
 
                       {/* Underline + name + role */}
                       <div style={{ borderTop: '1px solid #000', marginBottom: '3px', width: '75%', marginLeft: 'auto', marginRight: 'auto' }} />
-                      <div style={{ fontWeight: 'bold', fontSize: '10px' }}>{sig.name}</div>
+                      <div style={{ fontWeight: 'bold', fontSize: '10px' }}>
+                        {signerNames[sig.key] || <span style={{ color: '#aaa', fontStyle: 'italic' }}>—</span>}
+                      </div>
+                      <input
+                        className="no-print"
+                        value={signerNames[sig.key]}
+                        onChange={e => setSignerNames(p => ({ ...p, [sig.key]: e.target.value }))}
+                        placeholder="Enter name…"
+                        style={{ display: 'block', width: '90%', margin: '2px auto 0', fontSize: '10px', border: '1px dashed #ccc', borderRadius: '4px', padding: '2px 6px', textAlign: 'center', outline: 'none' }}
+                      />
                       <div style={{ fontSize: '9px', color: '#555' }}>{sig.role}</div>
                       {saved && (
                         <div style={{ fontSize: '8px', color: '#888', marginTop: '2px' }}>

@@ -43,6 +43,124 @@ function mapRow(rawRow) {
   return out;
 }
 
+function cellText(value) {
+  return String(value ?? '').trim();
+}
+
+function toNumber(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const cleaned = String(value ?? '').replace(/,/g, '').trim();
+  const parsed = parseFloat(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function buildHeaderMap(row) {
+  const map = {};
+  row.forEach((value, index) => {
+    const normalised = normaliseHeader(value);
+    if (normalised) map[normalised] = index;
+  });
+  return map;
+}
+
+function getByHeader(row, headerMap, candidates) {
+  for (const candidate of candidates) {
+    const index = headerMap[candidate];
+    if (index !== undefined) return row[index];
+  }
+  return undefined;
+}
+
+function findStockSheet(wb) {
+  let best = null;
+
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    for (let rowIndex = 0; rowIndex < Math.min(rows.length, 15); rowIndex++) {
+      const headerMap = buildHeaderMap(rows[rowIndex]);
+      const hasMaterial = headerMap.materialdescrpition !== undefined ||
+        headerMap.materialdescription !== undefined ||
+        headerMap.materialdesc !== undefined ||
+        headerMap.material !== undefined;
+      const hasOpening = headerMap.openingstock !== undefined;
+      const hasClosing = headerMap.closingstock !== undefined;
+      const hasRate = headerMap.rate !== undefined;
+
+      if (!hasMaterial || !hasClosing) continue;
+
+      const score = (hasRate ? 10 : 0) +
+        (hasOpening ? 5 : 0) +
+        (/stock/i.test(sheetName) ? 3 : 0);
+
+      if (!best || score > best.score) {
+        best = { sheetName, rows, headerRowIndex: rowIndex, headerMap, score };
+      }
+    }
+  }
+
+  return best;
+}
+
+function parseInventoryWorkbook(wb) {
+  const detected = findStockSheet(wb);
+
+  if (detected) {
+    const items = [];
+    let category = null;
+
+    for (const row of detected.rows.slice(detected.headerRowIndex + 1)) {
+      const material = cellText(getByHeader(row, detected.headerMap, [
+        'materialdescrpition',
+        'materialdescription',
+        'materialdesc',
+        'material',
+      ]));
+      const unit = cellText(getByHeader(row, detected.headerMap, ['unit'])) || 'NOS';
+      const slNoRaw = getByHeader(row, detected.headerMap, ['slno']);
+      const slNo = toNumber(slNoRaw);
+
+      if (!material) continue;
+
+      const openingStock = toNumber(getByHeader(row, detected.headerMap, ['openingstock']));
+      const closingStock = toNumber(getByHeader(row, detected.headerMap, ['closingstock', 'stockatsite']));
+      const unitRate = toNumber(getByHeader(row, detected.headerMap, ['rate', 'unitrate']));
+
+      const hasQtyOrRate = openingStock || closingStock || unitRate;
+      const looksLikeCategory = !slNo && !cellText(unit) && !hasQtyOrRate;
+      if (looksLikeCategory) {
+        category = material.replace(/\s+/g, ' ').trim();
+        continue;
+      }
+
+      items.push({
+        material_name: material.replace(/\s+/g, ' ').trim(),
+        category,
+        unit,
+        opening_stock: openingStock,
+        closing_stock: closingStock,
+        unit_rate: unitRate,
+      });
+    }
+
+    return items;
+  }
+
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+  return rows
+    .map(mapRow)
+    .filter(r => r.material_name && cellText(r.material_name))
+    .map(r => ({
+      material_name: cellText(r.material_name),
+      category: cellText(r.category) || null,
+      unit: cellText(r.unit) || 'NOS',
+      opening_stock: toNumber(r.opening_stock),
+      closing_stock: toNumber(r.closing_stock),
+      unit_rate: toNumber(r.unit_rate),
+    }));
+}
+
 // GET /inventory — list with optional project filter
 router.get('/', async (req, res) => {
   try {
@@ -486,19 +604,7 @@ router.post('/import/preview', xlsUpload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const wb   = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const ws   = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    const preview = rows
-      .map(mapRow)
-      .filter(r => r.material_name && String(r.material_name).trim())
-      .map(r => ({
-        material_name: String(r.material_name).trim(),
-        category:      String(r.category || '').trim() || null,
-        unit:          String(r.unit || '').trim() || 'NOS',
-        opening_stock: parseFloat(r.opening_stock) || 0,
-        closing_stock: parseFloat(r.closing_stock) || 0,
-        unit_rate:     parseFloat(r.unit_rate)     || 0,
-      }));
+    const preview = parseInventoryWorkbook(wb);
     res.json({ data: preview, total: preview.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -519,13 +625,8 @@ router.post('/import', xlsUpload.single('file'), async (req, res) => {
     );
     if (!projCheck.rows.length) return res.status(403).json({ error: 'Project not found or access denied' });
 
-    const wb   = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const ws   = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-
-    const items = rows
-      .map(mapRow)
-      .filter(r => r.material_name && String(r.material_name).trim());
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const items = parseInventoryWorkbook(wb);
 
     let inserted = 0, updated = 0, skipped = 0;
     const errors = [];
@@ -533,12 +634,12 @@ router.post('/import', xlsUpload.single('file'), async (req, res) => {
 
     for (const r of items) {
       try {
-        const material_name = String(r.material_name).trim();
-        const unit          = String(r.unit || '').trim() || 'NOS';
-        const opening       = parseFloat(r.opening_stock) || 0;
-        const closing       = parseFloat(r.closing_stock) || 0;
-        const rate          = parseFloat(r.unit_rate)     || 0;
-        const category      = String(r.category || '').trim() || null;
+        const material_name = cellText(r.material_name);
+        const unit          = cellText(r.unit) || 'NOS';
+        const opening       = toNumber(r.opening_stock);
+        const closing       = toNumber(r.closing_stock);
+        const rate          = toNumber(r.unit_rate);
+        const category      = cellText(r.category) || null;
 
         if (!material_name) { skipped++; continue; }
 

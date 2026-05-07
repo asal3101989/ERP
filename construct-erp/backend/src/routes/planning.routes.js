@@ -3,11 +3,32 @@
 
 const express = require('express');
 const router  = express.Router();
+const multer = require('multer');
+const XLSX = require('xlsx');
 const { authenticate, authorize } = require('../middleware/auth');
 
 const PLANNERS = ['project_manager', 'site_engineer', 'admin', 'super_admin'];
 const MANAGERS = ['project_manager', 'admin', 'super_admin'];
 const ADMINS   = ['admin', 'super_admin'];
+
+const dprUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = /\.(xlsx|xls)$/i.test(file.originalname);
+    cb(ok ? null : new Error('Only xlsx/xls files supported'), ok);
+  },
+});
+
+const uploadDPRWorkbook = (req, res, next) => {
+  dprUpload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'DPR Excel file must be 10 MB or smaller' : err.message });
+    }
+    return res.status(400).json({ error: err.message || 'Could not upload DPR Excel file' });
+  });
+};
 
 router.use(authenticate);
 
@@ -21,6 +42,210 @@ const toArray = (value) => Array.isArray(value) ? value : [];
 
 const ensureObject = (value) =>
   value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+
+const cellText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+
+const normalizeLabel = (value) =>
+  cellText(value).replace(/[:\-–—]+$/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+function toNumber(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : '';
+  const cleaned = String(value ?? '').replace(/,/g, '').trim();
+  if (!cleaned || /^#/.test(cleaned)) return '';
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : '';
+}
+
+function excelDateToISO(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed) {
+      return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+    }
+  }
+  const text = cellText(value);
+  const dmy = text.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (dmy) {
+    const year = dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3];
+    return `${year}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  }
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+}
+
+function parseDPRWorkbook(buffer) {
+  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+  const sheetName = wb.SheetNames.find((name) => /^dpr$/i.test(name.trim())) || wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+  const get = (r, c) => rows[r]?.[c];
+  const findRow = (term) => rows.findIndex((row) =>
+    row.some((value) => normalizeLabel(value) === normalizeLabel(term))
+  );
+  const findAfter = (label) => {
+    const normalized = normalizeLabel(label);
+    for (const row of rows) {
+      const idx = row.findIndex((value) => normalizeLabel(value) === normalized);
+      if (idx === -1) continue;
+      for (let c = idx + 1; c < row.length; c++) {
+        if (cellText(row[c])) return row[c];
+      }
+    }
+    return '';
+  };
+  const findAfterAny = (labels) => {
+    for (const label of labels) {
+      const value = findAfter(label);
+      if (cellText(value)) return value;
+    }
+    return '';
+  };
+
+  let reportDate = excelDateToISO(findAfterAny([
+    'Report for', 'Report Date', 'DPR Date', 'DPR for', 'Date',
+    'Dated', 'Report On', 'Date of Report', 'For Date', 'Day',
+  ]));
+
+  // Fallback: scan first 30 rows for any cell that looks like a date
+  if (!reportDate) {
+    for (let r = 0; r < Math.min(30, rows.length); r++) {
+      for (const cell of rows[r]) {
+        const d = excelDateToISO(cell);
+        if (d && d >= '2020-01-01' && d <= '2099-12-31') {
+          reportDate = d;
+          break;
+        }
+      }
+      if (reportDate) break;
+    }
+  }
+
+  // Last resort: use today
+  if (!reportDate) {
+    const now = new Date();
+    reportDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  }
+
+  const concrete_today = [];
+  const concreteSheetName = wb.SheetNames.find((name) => /concrete\s+consumption/i.test(name));
+  if (concreteSheetName) {
+    const concreteRows = XLSX.utils.sheet_to_json(wb.Sheets[concreteSheetName], { header: 1, defval: '' });
+    const header = concreteRows[0] || [];
+    const dateRow = concreteRows.find((row) => excelDateToISO(row[1]) === reportDate);
+    if (dateRow) {
+      for (let c = 4; c <= 16; c++) {
+        const qty = toNumber(dateRow[c]);
+        if (qty === '' || Number(qty) === 0) continue;
+        concrete_today.push({
+          grade: cellText(header[c]),
+          supplier: cellText(dateRow[2]) || 'Batching Plant',
+          qty,
+        });
+      }
+    }
+  }
+
+  const workStart = findRow('WORK PROGRESS');
+  const resourcesRow = findRow('RESOURCES');
+  const work_items = [];
+  if (workStart >= 0) {
+    const end = resourcesRow > workStart ? resourcesRow : rows.length;
+    for (let r = workStart + 2; r < end; r++) {
+      const description = cellText(get(r, 1));
+      if (!description) continue;
+      work_items.push({
+        description,
+        unit: cellText(get(r, 8)),
+        boq_qty: toNumber(get(r, 9)),
+        planned: toNumber(get(r, 10)),
+        achieved: toNumber(get(r, 11)),
+        cumulative: toNumber(get(r, 15)),   // col P = CUM. ACHIEVED QTY (was wrongly col M)
+        remarks: '',
+      });
+    }
+  }
+
+  const plantStart = findRow('PLANT & MACHINERY');
+  const staff = [];
+  const direct_workers = [];
+  const subcontractors = [];
+  // Limit staff/labour scan to resource section only (between RESOURCES row and PLANT & MACHINERY row)
+  // to avoid picking up plant item names (col B) and nos (col F) as staff entries.
+  const resourceScanStart = resourcesRow >= 0 ? resourcesRow : 0;
+  const resourceScanEnd   = plantStart > resourceScanStart ? plantStart : rows.length;
+  for (let r = resourceScanStart; r < resourceScanEnd; r++) {
+    const staffCategory = cellText(get(r, 1));
+    const workerCategory = cellText(get(r, 6));
+    const subcontractorName = cellText(get(r, 12));
+
+    if (staffCategory && !['CATEGORY', 'TOTAL', 'STAFF', 'RESOURCES'].includes(staffCategory.toUpperCase())) {
+      const nos = toNumber(get(r, 5));
+      if (nos !== '') staff.push({ category: staffCategory, nos });
+    }
+    if (workerCategory && !['CATEGORY', 'TOTAL', 'DIRECT WORKERS', 'DAILY LABOUR REPORT'].includes(workerCategory.toUpperCase())) {
+      const day = toNumber(get(r, 10));
+      const night = toNumber(get(r, 11));
+      if (day !== '' || night !== '') direct_workers.push({ category: workerCategory, day, night });
+    }
+    if (subcontractorName && !['NAME', 'SUBCONTRACTORS', 'M A T E R I A L'].includes(subcontractorName.toUpperCase()) && !/^\d+$/.test(subcontractorName)) {
+      const day = toNumber(get(r, 14));
+      const night = toNumber(get(r, 15));
+      if (day !== '' || night !== '') {
+        subcontractors.push({ subcontract_wo_id: '', vendor_id: '', name: subcontractorName, work: '', day, night });
+      }
+    }
+  }
+
+  const plant_items = [];
+  if (plantStart >= 0) {
+    for (let r = plantStart + 1; r < rows.length; r++) {
+      const item = cellText(get(r, 1));
+      if (!item || /^total$/i.test(item)) continue;
+      const nos = toNumber(get(r, 5));
+      if (nos === '') continue;
+      plant_items.push({ item, nos });
+    }
+  }
+
+  const steel = [];
+  const steelStart = rows.findIndex((row) => row.some((value) => /steel\s*fe/i.test(cellText(value))));
+  if (steelStart >= 0) {
+    for (let r = steelStart + 1; r < rows.length; r++) {
+      const dia = cellText(get(r, 6));
+      if (!dia || /^total$/i.test(dia)) break;
+      steel.push({
+        dia: dia.replace(/\s+dia\s*$/i, ''),   // "8mm dia" → "8mm"
+        receipts_today: toNumber(get(r, 10)),   // col K
+        receipts_till_date: toNumber(get(r, 11)), // col L
+        available: toNumber(get(r, 12)),          // col M = available on site
+        consumption: toNumber(get(r, 14)),        // col O = consumption for day
+      });
+    }
+  }
+
+  return {
+    report_date: reportDate,
+    weather: 'normal',
+    site_conditions: 'Dry',
+    rain_log: cellText(findAfter('Rain Log')),
+    work_items,
+    concrete_today,
+    staff,
+    direct_workers,
+    subcontractors,
+    plant_items,
+    steel,
+    constraints: '',
+    rfi: '',
+    prepared_by: '',
+    approved_by: '',
+    status: 'submitted',
+  };
+}
 
 function buildPlanningDPRResponse(row) {
   const workDone = toArray(row.work_done);
@@ -134,7 +359,7 @@ router.get('/dpr/:id', async (req, res) => {
 });
 
 // POST /planning/dpr
-router.post('/dpr', authorize(PLANNERS), async (req, res) => {
+router.post('/dpr', authorize(...PLANNERS), async (req, res) => {
   try {
     const { project_id, report_date } = req.body;
     if (!project_id || !report_date) {
@@ -184,8 +409,117 @@ router.post('/dpr', authorize(PLANNERS), async (req, res) => {
   }
 });
 
+// POST /planning/dpr/import
+router.post('/dpr/import', authorize(...PLANNERS), uploadDPRWorkbook, async (req, res) => {
+  try {
+    const { project_id, overwrite } = req.body;
+    if (!project_id) return res.status(400).json({ error: 'project_id is required' });
+    if (!req.file) return res.status(400).json({ error: 'Excel file is required' });
+
+    const projectCheck = await db().query(
+      `SELECT id FROM projects WHERE id = $1 AND company_id = $2`,
+      [project_id, req.user.company_id]
+    );
+    if (!projectCheck.rows.length) return notFound(res, 'Project');
+
+    const parsed = parseDPRWorkbook(req.file.buffer);
+    const stored = buildPlanningDPRStorage(parsed);
+    const existing = await db().query(
+      `SELECT d.id
+       FROM daily_progress_reports d
+       JOIN projects p ON p.id = d.project_id
+       WHERE d.project_id = $1 AND d.report_date = $2 AND p.company_id = $3
+       ORDER BY d.created_at DESC
+       LIMIT 1`,
+      [project_id, parsed.report_date, req.user.company_id]
+    );
+
+    let dprId = existing.rows[0]?.id;
+    let mode = 'inserted';
+
+    if (dprId && overwrite !== 'false') {
+      mode = 'updated';
+      await db().query(`
+        UPDATE daily_progress_reports
+        SET weather = $1,
+            work_done = $2,
+            material_consumed = $3,
+            equipment_status = $4,
+            issues = $5,
+            tomorrow_plan = $6,
+            status = $7
+        WHERE id = $8
+      `, [
+        stored.weather,
+        JSON.stringify(stored.work_done),
+        JSON.stringify(stored.material_consumed),
+        JSON.stringify(stored.equipment_status),
+        stored.issues,
+        stored.tomorrow_plan,
+        stored.status,
+        dprId,
+      ]);
+    } else if (dprId) {
+      return res.status(409).json({ error: 'DPR already exists for this date' });
+    } else {
+      const dprNumber = `PDPR-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+      const inserted = await db().query(`
+        INSERT INTO daily_progress_reports
+          (project_id, dpr_number, report_date, weather, work_done, material_consumed,
+           equipment_status, issues, tomorrow_plan, site_photos, submitted_by, status)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        RETURNING id
+      `, [
+        project_id,
+        dprNumber,
+        parsed.report_date,
+        stored.weather,
+        JSON.stringify(stored.work_done),
+        JSON.stringify(stored.material_consumed),
+        JSON.stringify(stored.equipment_status),
+        stored.issues,
+        stored.tomorrow_plan,
+        [],
+        req.user.id,
+        stored.status,
+      ]);
+      dprId = inserted.rows[0].id;
+    }
+
+    const result = await db().query(`
+      SELECT d.*, p.name AS project_name, u.name AS submitted_by_name
+      FROM daily_progress_reports d
+      JOIN projects p ON p.id = d.project_id
+      LEFT JOIN users u ON u.id = d.submitted_by
+      WHERE d.id = $1
+    `, [dprId]);
+
+    res.json({
+      data: buildPlanningDPRResponse(result.rows[0]),
+      summary: {
+        mode,
+        report_date: parsed.report_date,
+        work_items: parsed.work_items.length,
+        staff: parsed.staff.length,
+        direct_workers: parsed.direct_workers.length,
+        subcontractors: parsed.subcontractors.length,
+        plant_items: parsed.plant_items.length,
+        steel: parsed.steel.length,
+      },
+    });
+  } catch (err) {
+    console.error('[Planning DPR Import]:', err.message, err.stack);
+    let msg = err.message || 'Failed to import DPR';
+    if (/password|encrypted/i.test(msg)) msg = 'The Excel file is password-protected. Please remove the password and try again.';
+    else if (/CFB|zip|not a valid/i.test(msg)) msg = 'Could not read the Excel file. Make sure it is a valid .xlsx or .xls file.';
+    else if (/duplicate|unique.*dpr_number/i.test(msg)) msg = 'A DPR with this number already exists. Try with overwrite enabled.';
+    const status = /password|encrypted|CFB|zip|not a valid|duplicate/i.test(msg) ? 400 : 500;
+    res.status(status).json({ error: msg });
+  }
+});
+
 // PUT /planning/dpr/:id
-router.put('/dpr/:id', authorize(PLANNERS), async (req, res) => {
+router.put('/dpr/:id', authorize(...PLANNERS), async (req, res) => {
   try {
     const existing = await db().query(`
       SELECT d.*
@@ -239,7 +573,7 @@ router.put('/dpr/:id', authorize(PLANNERS), async (req, res) => {
 });
 
 // PATCH /planning/dpr/:id/approve
-router.patch('/dpr/:id/approve', authorize(MANAGERS), async (req, res) => {
+router.patch('/dpr/:id/approve', authorize(...MANAGERS), async (req, res) => {
   try {
     const existing = await db().query(`
       SELECT d.*
@@ -268,7 +602,7 @@ router.patch('/dpr/:id/approve', authorize(MANAGERS), async (req, res) => {
 });
 
 // DELETE /planning/dpr/:id
-router.delete('/dpr/:id', authorize(MANAGERS), async (req, res) => {
+router.delete('/dpr/:id', authorize(...MANAGERS), async (req, res) => {
   try {
     const { rowCount } = await db().query(`
       DELETE FROM daily_progress_reports d
@@ -341,7 +675,7 @@ router.get('/activities/:id', async (req, res) => {
 });
 
 // POST /planning/activities
-router.post('/activities', authorize(PLANNERS), async (req, res) => {
+router.post('/activities', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, activity_code, activity_name, description, location,
@@ -381,7 +715,7 @@ router.post('/activities', authorize(PLANNERS), async (req, res) => {
 });
 
 // PUT /planning/activities/:id
-router.put('/activities/:id', authorize(PLANNERS), async (req, res) => {
+router.put('/activities/:id', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       activity_name, description, location, activity_type,
@@ -430,7 +764,7 @@ router.put('/activities/:id', authorize(PLANNERS), async (req, res) => {
 });
 
 // PATCH /planning/activities/:id/progress  — quick progress update
-router.patch('/activities/:id/progress', authorize(PLANNERS), async (req, res) => {
+router.patch('/activities/:id/progress', authorize(...PLANNERS), async (req, res) => {
   try {
     const { progress_pct, actual_quantity, status, actual_start_date, actual_end_date } = req.body;
 
@@ -462,7 +796,7 @@ router.patch('/activities/:id/progress', authorize(PLANNERS), async (req, res) =
 });
 
 // DELETE /planning/activities/:id
-router.delete('/activities/:id', authorize(ADMINS), async (req, res) => {
+router.delete('/activities/:id', authorize(...ADMINS), async (req, res) => {
   try {
     const { rowCount } = await db().query(
       `DELETE FROM project_activities WHERE id = $1`, [req.params.id]
@@ -503,7 +837,7 @@ router.get('/milestones', async (req, res) => {
 });
 
 // POST /planning/milestones
-router.post('/milestones', authorize(PLANNERS), async (req, res) => {
+router.post('/milestones', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, milestone_code, milestone_name, description,
@@ -536,7 +870,7 @@ router.post('/milestones', authorize(PLANNERS), async (req, res) => {
 });
 
 // PUT /planning/milestones/:id
-router.put('/milestones/:id', authorize(PLANNERS), async (req, res) => {
+router.put('/milestones/:id', authorize(...PLANNERS), async (req, res) => {
   try {
     const { milestone_name, description, milestone_type, target_date,
             affects_payment_release, related_activity_id, remarks } = req.body;
@@ -564,7 +898,7 @@ router.put('/milestones/:id', authorize(PLANNERS), async (req, res) => {
 });
 
 // PATCH /planning/milestones/:id/achieve
-router.patch('/milestones/:id/achieve', authorize(MANAGERS), async (req, res) => {
+router.patch('/milestones/:id/achieve', authorize(...MANAGERS), async (req, res) => {
   try {
     const { actual_date, remarks } = req.body;
     if (!actual_date) return res.status(400).json({ error: 'actual_date is required' });
@@ -622,7 +956,7 @@ router.get('/look-ahead', async (req, res) => {
 });
 
 // POST /planning/look-ahead
-router.post('/look-ahead', authorize(PLANNERS), async (req, res) => {
+router.post('/look-ahead', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, plan_week_start, plan_week_end,
@@ -673,7 +1007,7 @@ router.post('/look-ahead', authorize(PLANNERS), async (req, res) => {
 });
 
 // PATCH /planning/look-ahead/:id/approve
-router.patch('/look-ahead/:id/approve', authorize(MANAGERS), async (req, res) => {
+router.patch('/look-ahead/:id/approve', authorize(...MANAGERS), async (req, res) => {
   try {
     const { rows } = await db().query(`
       UPDATE look_ahead_plans SET
@@ -727,7 +1061,7 @@ router.get('/progress', async (req, res) => {
 });
 
 // POST /planning/progress
-router.post('/progress', authorize(PLANNERS), async (req, res) => {
+router.post('/progress', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, activity_id, tracking_date,
@@ -789,7 +1123,7 @@ router.get('/scurve', async (req, res) => {
 });
 
 // POST /planning/scurve/snapshot  — record today's snapshot
-router.post('/scurve/snapshot', authorize(PLANNERS), async (req, res) => {
+router.post('/scurve/snapshot', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, reporting_date,
@@ -856,7 +1190,7 @@ router.get('/delays', async (req, res) => {
 });
 
 // POST /planning/delays
-router.post('/delays', authorize(PLANNERS), async (req, res) => {
+router.post('/delays', authorize(...PLANNERS), async (req, res) => {
   try {
     const {
       project_id, activity_id, analysis_date, delay_days,
@@ -889,7 +1223,7 @@ router.post('/delays', authorize(PLANNERS), async (req, res) => {
 });
 
 // PUT /planning/delays/:id
-router.put('/delays/:id', authorize(PLANNERS), async (req, res) => {
+router.put('/delays/:id', authorize(...PLANNERS), async (req, res) => {
   try {
     const { mitigation_plan, responsible_party, is_resolved } = req.body;
 

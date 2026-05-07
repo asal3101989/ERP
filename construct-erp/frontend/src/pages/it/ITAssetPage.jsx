@@ -6,7 +6,7 @@ import {
   Cpu, Plus, X, AlertTriangle, Monitor, Server, Laptop, Network,
   Printer, ShieldAlert, HelpCircle, Zap, Search, RefreshCw,
   Edit2, Trash2, QrCode, ChevronRight, BarChart2, CheckCircle,
-  Clock, Package, Settings, Eye,
+  Clock, Package, Settings, Eye, Upload, Download, FileSpreadsheet,
 } from 'lucide-react';
 import { itAssetAPI, projectAPI } from '../../api/client';
 import toast from 'react-hot-toast';
@@ -60,8 +60,10 @@ export default function ITAssetPage() {
   const [filterType,    setFilterType]    = useState('all');
   const [filterStatus,  setFilterStatus]  = useState('all');
   const [search,        setSearch]        = useState('');
+  const [importing,     setImporting]     = useState(false);
   const qc = useQueryClient();
   const { register, handleSubmit, reset, setValue } = useForm();
+  const importRef = React.useRef(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['it-assets'],
@@ -99,6 +101,67 @@ export default function ITAssetPage() {
     setShowForm(true);
   };
   const closeForm = () => { reset(); setShowForm(false); setEditAsset(null); };
+
+  /* ── Export CSV ── */
+  const exportCSV = () => {
+    const cols = ['asset_tag','asset_type','brand','model','serial_number','os','status',
+                  'assigned_to_name','location_description','purchase_date','purchase_cost',
+                  'warranty_expiry','project_name','notes'];
+    const header = cols.join(',');
+    const rows = allAssets.map(a =>
+      cols.map(c => {
+        const v = a[c] ?? '';
+        return typeof v === 'string' && v.includes(',') ? `"${v}"` : v;
+      }).join(',')
+    );
+    const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `IT_Assets_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast.success(`Exported ${allAssets.length} assets`);
+  };
+
+  /* ── Download Template ── */
+  const downloadTemplate = () => {
+    const header = 'asset_tag,asset_type,brand,model,serial_number,os,purchase_date,purchase_cost,warranty_expiry,status,location_description,notes';
+    const sample = 'IT-LAP-001,laptop,Dell,Latitude 5540,SN1234567,Windows 11 Pro,2024-01-15,85000,2027-01-15,in_use,HO - Accounts Dept,Assigned to finance team';
+    const types  = '# asset_type: laptop | desktop | server | network | cctv | biometric | printer | ups | other';
+    const status = '# status: in_use | available | under_repair | retired | lost';
+    const blob = new Blob([[header, sample, types, status].join('\n')], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'IT_Assets_Import_Template.csv';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+
+  /* ── Import CSV ── */
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+      if (lines.length < 2) { toast.error('No data rows found in CSV'); return; }
+      const headers = lines[0].split(',').map(h => h.trim());
+      const rows = lines.slice(1).map(line => {
+        const vals = line.split(',').map(v => v.replace(/^"|"$/g, '').trim());
+        return Object.fromEntries(headers.map((h, i) => [h, vals[i] || '']));
+      }).filter(r => r.asset_tag && r.brand && r.model);
+      if (!rows.length) { toast.error('No valid rows — check required columns: asset_tag, brand, model, asset_type'); return; }
+      const res = await itAssetAPI.import(rows);
+      toast.success(res.data?.message || 'Import complete');
+      qc.invalidateQueries({ queryKey: ['it-assets'] });
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Import failed');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   /* KPI Cards */
   const kpis = [
@@ -178,12 +241,37 @@ export default function ITAssetPage() {
             <span className="font-semibold text-gray-800">IT Assets</span>
           </div>
           <div className="flex items-center gap-2">
+            <input ref={importRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
             <button
               type="button"
               onClick={() => refetch()}
               className="flex items-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
             >
               <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </button>
+            <button
+              type="button"
+              onClick={downloadTemplate}
+              title="Download CSV import template"
+              className="flex items-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-green-600" /> Template
+            </button>
+            <button
+              type="button"
+              onClick={() => importRef.current?.click()}
+              disabled={importing}
+              className="flex items-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Upload className="h-3.5 w-3.5 text-blue-500" />
+              {importing ? 'Importing...' : 'Import CSV'}
+            </button>
+            <button
+              type="button"
+              onClick={exportCSV}
+              className="flex items-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              <Download className="h-3.5 w-3.5 text-indigo-500" /> Export CSV
             </button>
             <button
               type="button"
@@ -495,49 +583,90 @@ function FormField({ label, children }) {
 function ITAssetBarcodeModal({ asset, onClose }) {
   const assetType  = TYPE_ICON[asset.asset_type]?.label || 'IT Asset';
   const assetTitle = `${asset.brand || ''} ${asset.model || ''}`.trim() || asset.asset_tag;
+  const { Icon: TypeIcon, color: typeColor } = TYPE_ICON[asset.asset_type] || { Icon: HelpCircle, color: '#5f6368' };
+  const daysLeft = asset.warranty_expiry ? dayjs(asset.warranty_expiry).diff(dayjs(), 'day') : null;
+
+  const specs = [
+    { label: 'Asset Tag',      value: asset.asset_tag },
+    { label: 'Type',           value: assetType },
+    { label: 'Brand',          value: asset.brand || '—' },
+    { label: 'Model',          value: asset.model || '—' },
+    { label: 'Serial No.',     value: asset.serial_number || '—' },
+    { label: 'OS / Firmware',  value: asset.os || '—' },
+    { label: 'Status',         value: LABEL[asset.status] || asset.status || '—' },
+    { label: 'Assigned To',    value: asset.assigned_to_name || '—' },
+    { label: 'Project',        value: asset.project_name || '—' },
+    { label: 'Location',       value: asset.location_description || '—' },
+    { label: 'Purchase Date',  value: asset.purchase_date ? dayjs(asset.purchase_date).format('DD MMM YYYY') : '—' },
+    { label: 'Purchase Cost',  value: asset.purchase_cost ? `₹${parseInt(asset.purchase_cost).toLocaleString('en-IN')}` : '—' },
+    { label: 'Warranty',       value: daysLeft === null ? '—' : daysLeft < 0 ? `Expired (${Math.abs(daysLeft)}d ago)` : `${dayjs(asset.warranty_expiry).format('DD MMM YYYY')} (${daysLeft}d left)` },
+    { label: 'Notes',          value: asset.notes || '—' },
+  ];
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">{asset.asset_tag}</h2>
-            <p className="text-xs text-gray-400">{assetTitle} · {assetType}</p>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4"
+          style={{ background: 'linear-gradient(135deg, #0f2d6b 0%, #1a56db 100%)' }}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+              <TypeIcon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="font-mono text-lg font-black tracking-wider text-white">{asset.asset_tag}</h2>
+              <p className="text-xs text-blue-200">{assetTitle} &nbsp;·&nbsp; {assetType}</p>
+            </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100">
+          <button type="button" onClick={onClose}
+            className="rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition">
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="grid gap-6 p-6 sm:grid-cols-2">
-          <AssetBarcodeCard
-            value={asset.asset_tag}
-            title={assetTitle}
-            subtitle={assetType}
-            metaLabel="Asset Tag"
-            metaValue={asset.asset_tag}
-            size={160}
-            extraFields={[
-              { label: 'Serial No.', value: asset.serial_number },
-              { label: 'Status',     value: LABEL[asset.status] || asset.status },
-              { label: 'Location',   value: asset.location_description },
-              { label: 'Assigned',   value: asset.assigned_to_name },
-            ]}
-          />
-          <div className="space-y-3 text-sm">
-            {[
-              ['Asset Tag',     asset.asset_tag],
-              ['Brand / Model', assetTitle],
-              ['Serial No.',    asset.serial_number || '—'],
-              ['Status',        LABEL[asset.status] || asset.status || '—'],
-              ['Assigned To',   asset.assigned_to_name || '—'],
-              ['Location',      asset.location_description || '—'],
-              ['Notes',         asset.notes || '—'],
-            ].map(([k, v]) => (
-              <div key={k} className="flex justify-between rounded border border-gray-100 bg-gray-50 px-3 py-2">
-                <span className="text-xs font-medium text-gray-400">{k}</span>
-                <span className="text-xs text-gray-800 text-right max-w-[55%]">{v}</span>
-              </div>
-            ))}
+
+        {/* Modal Body */}
+        <div className="grid sm:grid-cols-[auto_1fr] gap-0">
+
+          {/* Left — Label Preview */}
+          <div className="border-r border-gray-100 bg-slate-50 p-6">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Asset Label</p>
+            <AssetBarcodeCard
+              value={asset.asset_tag}
+              title={assetTitle}
+              subtitle={assetType}
+              metaLabel="Asset Tag"
+              metaValue={asset.asset_tag}
+              size={140}
+              extraFields={[
+                { label: 'Serial No.', value: asset.serial_number },
+                { label: 'Status',     value: LABEL[asset.status] || asset.status },
+                { label: 'Location',   value: asset.location_description },
+                { label: 'Assigned',   value: asset.assigned_to_name },
+              ]}
+            />
+          </div>
+
+          {/* Right — Asset Specs */}
+          <div className="p-6 overflow-y-auto max-h-[70vh]">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">Asset Specifications</p>
+            <div className="space-y-1">
+              {specs.map(({ label, value }) => (
+                <div key={label} className="flex items-start gap-3 rounded-lg px-3 py-2 odd:bg-gray-50">
+                  <span className="w-28 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-gray-400 pt-0.5">
+                    {label}
+                  </span>
+                  <span className={`flex-1 text-xs font-semibold break-all
+                    ${label === 'Asset Tag' ? 'font-mono text-sm font-black text-[#0f2d6b]' : 'text-gray-800'}
+                    ${label === 'Status' ? (asset.status === 'in_use' ? 'text-green-700' : asset.status === 'under_repair' ? 'text-amber-700' : asset.status === 'lost' ? 'text-red-700' : 'text-gray-700') : ''}
+                    ${label === 'Warranty' && daysLeft !== null && daysLeft < 0 ? 'text-red-600' : ''}
+                    ${label === 'Warranty' && daysLeft !== null && daysLeft >= 0 && daysLeft <= 90 ? 'text-amber-600' : ''}
+                  `}>
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

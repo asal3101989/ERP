@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS boq_items (
   chapter_no VARCHAR(10),
   chapter_name VARCHAR(200),
   item_no VARCHAR(20) NOT NULL,
+  sr_no VARCHAR(100),
   description TEXT NOT NULL,
   unit VARCHAR(20) NOT NULL,      -- CUM, SQM, RMT, KG, NOS, LS
   quantity NUMERIC(12,3) NOT NULL,
@@ -212,7 +213,18 @@ CREATE TABLE IF NOT EXISTS ra_bills (
   payment_ref VARCHAR(50),
   remarks TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Extra fields for contractor billing
+  contractor_name VARCHAR(200),
+  contractor_gstin VARCHAR(15),
+  contractor_pan VARCHAR(10),
+  work_description TEXT,
+  price_escalation NUMERIC(15,2) DEFAULT 0,
+  certified_by UUID REFERENCES users(id),
+  certified_date TIMESTAMPTZ,
+  client_tds_amount NUMERIC(15,2) DEFAULT 0,
+  amount_received NUMERIC(15,2) DEFAULT 0,
+  company_id UUID REFERENCES companies(id)
 );
 
 CREATE TABLE IF NOT EXISTS ra_bill_items (
@@ -326,6 +338,22 @@ CREATE TABLE IF NOT EXISTS invoices (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS invoice_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
+  material_name VARCHAR(200),
+  unit VARCHAR(20),
+  quantity_on_grn NUMERIC(12,3),
+  quantity_invoiced NUMERIC(12,3) NOT NULL,
+  rate_on_po NUMERIC(12,2),
+  rate_invoiced NUMERIC(12,2) NOT NULL,
+  tax_percent NUMERIC(5,2) DEFAULT 18,
+  tax_amount NUMERIC(15,2) DEFAULT 0,
+  net_amount NUMERIC(15,2),
+  sort_order INTEGER DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS payments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   project_id UUID REFERENCES projects(id),
@@ -340,6 +368,7 @@ CREATE TABLE IF NOT EXISTS payments (
   payment_mode VARCHAR(20) CHECK (payment_mode IN ('cash','cheque','bank_transfer','upi','other')),
   reference_number VARCHAR(50),
   bank_name VARCHAR(100),
+  cost_head VARCHAR(100),
   status VARCHAR(20) DEFAULT 'success' CHECK (status IN ('pending','success','failed','refunded')),
   remarks TEXT,
   created_by UUID REFERENCES users(id),
@@ -356,6 +385,33 @@ CREATE TABLE IF NOT EXISTS budget_items (
   remarks TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS retention_releases (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id        UUID NOT NULL,
+  project_id        UUID NOT NULL,
+  release_number    TEXT NOT NULL,
+  contractor_name   TEXT NOT NULL,
+  release_date      DATE NOT NULL,
+  milestone         TEXT NOT NULL DEFAULT 'partial',
+  release_amount    NUMERIC(15,2) NOT NULL,
+  remarks           TEXT,
+  status            TEXT NOT NULL DEFAULT 'pending',
+  approved_by       UUID,
+  approved_at       TIMESTAMPTZ,
+  rejection_remarks TEXT,
+  payment_date      DATE,
+  payment_ref       TEXT,
+  created_by        UUID NOT NULL,
+  created_at        TIMESTAMPTZ DEFAULT now(),
+  updated_at        TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS retention_release_seq (
+  company_id UUID PRIMARY KEY,
+  fiscal_year TEXT NOT NULL,
+  last_number INTEGER NOT NULL DEFAULT 0
 );
 
 -- ============================================
@@ -457,6 +513,8 @@ CREATE TABLE IF NOT EXISTS inventory (
   site_location VARCHAR(100),
   opening_stock NUMERIC(12,3) DEFAULT 0,
   closing_stock NUMERIC(12,3) DEFAULT 0,
+  unit_rate NUMERIC(12,2) DEFAULT 0,
+  category VARCHAR(100),
   minimum_level NUMERIC(12,3) DEFAULT 0,
   reorder_level NUMERIC(12,3) DEFAULT 0,
   last_updated TIMESTAMPTZ DEFAULT NOW(),

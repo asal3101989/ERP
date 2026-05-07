@@ -67,13 +67,13 @@ export default function SnagListPage() {
 
   const { data: snags = [], isLoading } = useQuery({
     queryKey: ['snags', projectId],
-    queryFn: () => snagAPI.list({ project_id: projectId }).then(r => r.data.data),
+    queryFn: () => snagAPI.list({ project_id: projectId }).then(r => r.data?.data ?? r.data ?? []).catch(() => []),
     enabled: !!projectId,
   });
 
   const { data: stats } = useQuery({
     queryKey: ['snags-stats', projectId],
-    queryFn: () => snagAPI.getStats({ project_id: projectId }).then(r => r.data.data),
+    queryFn: () => snagAPI.getStats({ project_id: projectId }).then(r => r.data?.data ?? r.data ?? []).catch(() => []),
     enabled: !!projectId,
   });
 

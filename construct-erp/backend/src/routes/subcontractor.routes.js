@@ -1,124 +1,13 @@
 // src/routes/subcontractor.routes.js
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const ctrl = require('../controllers/subcontractor.controller');
 const { authenticate, authorize } = require('../middleware/auth');
-const multer = require('multer');
-const { extractTextFromPDF } = require('../utils/pdf-ocr');
+const { query, withTransaction } = require('../config/database');
+const { extractWO } = require('../services/woExtraction.service');
 
-// ── Work Order PDF Parser ─────────────────────────────────────────────────────
-const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
-
-const WO_UNITS = ['day', 'hrs', 'hours', 'month', 'ls', 'nos', 'sqm', 'sqft', 'rmt', 'mt', 'kg', 'ltr', 'litre', 'point', 'cum', 'set'];
-
-function parseNumW(s) { return parseFloat(String(s || '').replace(/[,\s₹]/g, '')) || 0; }
-function parseDateW(s) {
-  if (!s) return '';
-  const p = s.split(/[\.\-\/]/);
-  return p.length === 3 ? `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}` : '';
-}
-
-function parseWOText(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const full  = lines.join(' ');
-  const get   = (rx, def = '') => { const m = full.match(rx); return m ? m[1].trim() : def; };
-
-  // ── Header ──
-  const woNumber    = get(/Work\s*Order\s*No\s*[:\s]*([A-Z0-9\-]+)/i);
-  const rawDate     = get(/Work\s*Order\s*Date\s*[:\s]*([\d]{1,2}[\.\-\/][\d]{1,2}[\.\-\/][\d]{4})/i);
-  const woDate      = parseDateW(rawDate);
-  const referenceNo = get(/Reference\s*No\s*[:\s]*([A-Z0-9\-]+)/i);
-  const narration   = get(/Narration[:\s]*([^\n]+)/i);
-  const paymentTerms = get(/Payment\s*[:]\s*([^\n]{5,100})/i, 'Against RA Bills - within 20 days');
-
-  // ── Project name: look for "Project Name" label ──
-  const projIdx = lines.findIndex(l => /Project\s*Name/i.test(l));
-  let projectRaw = '';
-  if (projIdx >= 0) {
-    // May be on same line after the label, or next line
-    const sameLine = lines[projIdx].replace(/Project\s*Name\s*/i, '').trim();
-    projectRaw = sameLine || (lines[projIdx + 1] || '').trim();
-  }
-  if (!projectRaw) projectRaw = get(/Project\s*Name\s*[:\s]*([A-Z][^\n]{1,30})/i);
-
-  // ── Contractor name ──
-  let vendorName = '';
-  // Look for "M/s. NAME" pattern - could be standalone line or after "Contractor"
-  const mvsIdx = lines.findIndex(l => /^M\/s\./i.test(l));
-  if (mvsIdx >= 0) {
-    vendorName = lines[mvsIdx].replace(/^M\/s\.?\s*/i, '').trim();
-  } else {
-    // Try inline after "Contractor"
-    const contrLine = lines.find(l => /Contractor\s+M\/s\./i.test(l));
-    if (contrLine) {
-      const cm = contrLine.match(/M\/s\.?\s*([A-Z][A-Z\s\.]+?)(?:\s{2,}|\d|$)/i);
-      if (cm) vendorName = cm[1].trim();
-    }
-  }
-
-  // ── Vendor PAN ──
-  const panLine  = lines.find(l => /[A-Z]{5}[0-9]{4}[A-Z]/i.test(l) && !/GST/i.test(l));
-  const vendorPAN = panLine ? (panLine.match(/([A-Z]{5}[0-9]{4}[A-Z])/)?.[1] || '') : '';
-
-  // ── GST rate ──
-  const gstStr  = get(/GST\s*@\s*([\d]+)\s*%/i, '18');
-  const gstRate = parseInt(gstStr) || 18;
-
-  // ── Line items: scan each line for a UOM keyword then grab numbers ──
-  const items = [];
-  const seen  = new Set();
-  const uomRx = new RegExp(`\\b(${WO_UNITS.join('|')})\\b`, 'i');
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const uomMatch = line.match(uomRx);
-    if (!uomMatch) continue;
-
-    const uom    = uomMatch[0];
-    const uomPos = line.toLowerCase().indexOf(uom.toLowerCase());
-    const after  = line.slice(uomPos + uom.length);
-
-    // Pull numbers from this line + next 2 lines
-    const numStr     = [after, lines[i+1] || '', lines[i+2] || ''].join(' ');
-    const nums       = numStr.match(/[\d,]+\.?\d*/g) || [];
-    const validNums  = nums.map(parseNumW).filter(n => n > 0);
-    if (validNums.length < 2) continue;
-
-    const qty  = validNums[0];
-    const rate = validNums[1];
-    if (qty < 0.01 || rate < 1) continue;
-
-    const key = `${qty}-${rate}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    // Description: text before UOM on this line, strip leading sl number
-    let desc = line.slice(0, uomPos).replace(/^\d+\s*/, '').trim();
-    if (!desc) desc = (lines[i - 1] || '').replace(/^\d+\s*/, '').trim();
-    if (!desc) desc = `Item ${items.length + 1}`;
-
-    items.push({ description: desc, unit: uom, quantity: qty, rate, remarks: '' });
-  }
-
-  // ── Grand / Net total ──
-  const grandTotal = parseNumW(get(/Net\s*Total\s*([\d,]+)/i, get(/TOTAL\s*([\d,]+)/i, '0')));
-
-  return { woNumber, woDate, referenceNo, vendorName, vendorPAN, projectRaw, narration, paymentTerms, items, grandTotal, gstRate };
-}
-
-// POST /subcontractors/work-orders/parse-pdf  (must be BEFORE the :id catch-all)
-router.post('/work-orders/parse-pdf', authenticate, memUpload.single('pdf'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'No PDF file uploaded' });
-    const { text, method } = await extractTextFromPDF(req.file.buffer);
-    const parsed = parseWOText(text);
-    parsed._method = method;
-    res.json({ success: true, data: parsed });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-// ─────────────────────────────────────────────────────────────────────────────
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 router.use(authenticate);
 
@@ -140,5 +29,77 @@ router.post('/bills', authorize('super_admin', 'admin', 'accountant'), ctrl.crea
 router.get('/bills', ctrl.getBills);
 router.get('/bills/:id', ctrl.getBill);
 router.patch('/bills/:id', authorize('super_admin', 'admin', 'accountant'), ctrl.updateBill);
+
+// POST /subcontractors/work-orders/import/preview
+router.post('/work-orders/import/preview', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No PDF file uploaded' });
+    if (req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'Only PDF files are supported' });
+    const result = await extractWO(req.file.buffer);
+    res.json(result);
+  } catch (err) {
+    console.error('[WO Import Preview]:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to parse PDF' });
+  }
+});
+
+// POST /subcontractors/work-orders/import/confirm
+router.post('/work-orders/import/confirm', async (req, res) => {
+  try {
+    const { project_id, vendor_id, header = {}, items = [] } = req.body;
+    if (!project_id || !vendor_id) return res.status(400).json({ error: 'Project and Vendor are required' });
+
+    const result = await withTransaction(async (client) => {
+      const d = new Date();
+      const ymd = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      const wo_number = header.wo_number || `WO-${ymd}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // Calculate total from items
+      let total_value = parseFloat(header.total_value) || 0;
+      const processedItems = (items || []).map(it => ({
+        description: it.description || 'Item',
+        unit: it.unit || 'LS',
+        quantity: parseFloat(it.quantity) || 0,
+        rate: parseFloat(it.rate) || 0,
+        remarks: it.remarks || '',
+      }));
+      if (!total_value && processedItems.length) {
+        total_value = processedItems.reduce((s, it) => s + it.quantity * it.rate, 0);
+      }
+
+      const woRow = await client.query(
+        `INSERT INTO work_orders
+           (project_id, vendor_id, wo_number, wo_date, subject, scope_of_work,
+            start_date, end_date, total_value, terms_conditions, status, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'draft',$11) RETURNING id, wo_number`,
+        [
+          project_id, vendor_id, wo_number,
+          header.wo_date || new Date().toISOString().slice(0,10),
+          header.subject || 'Imported Work Order',
+          header.scope_of_work || '',
+          header.start_date || null, header.end_date || null,
+          total_value, header.terms_conditions || '',
+          req.user.id,
+        ]
+      );
+      const wo_id = woRow.rows[0].id;
+
+      for (const it of processedItems) {
+        await client.query(
+          `INSERT INTO work_order_items (wo_id, description, unit, quantity, rate, remarks)
+           VALUES ($1,$2,$3,$4,$5,$6)`,
+          [wo_id, it.description, it.unit, it.quantity, it.rate, it.remarks]
+        );
+      }
+
+      return woRow.rows[0];
+    });
+
+    res.json({ success: true, wo_number: result.wo_number, id: result.id });
+  } catch (err) {
+    console.error('[WO Import Confirm]:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to save Work Order' });
+  }
+});
 
 module.exports = router;

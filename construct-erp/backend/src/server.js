@@ -56,7 +56,6 @@ const bookingRoutes = require('./routes/booking.routes');
 const reportRoutes = require('./routes/report.routes');
 const uploadRoutes        = require('./routes/upload.routes');
 const syncRoutes          = require('./routes/sync.routes');
-const aiRoutes            = require('./routes/ai.routes');
 const notificationsRoutes = require('./routes/notifications.routes');
 const indentRoutes = require('./routes/indent.routes');
 const quotationRoutes = require('./routes/quotation.routes');
@@ -263,9 +262,6 @@ app.use(`${API}/dqs/transmittals`,     dqsTransmittalRoutes);
 
 // DQS Sync (no JWT — key-based, for cross-app data sharing)
 app.use(`${API}/sync`, syncRoutes);
-
-// AI Assistant
-app.use(`${API}/ai`, aiRoutes);
 
 // Notifications (live alerts from all modules)
 app.use(`${API}/notifications`, notificationsRoutes);

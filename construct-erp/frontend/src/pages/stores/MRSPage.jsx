@@ -171,10 +171,12 @@ export default function MRSPage() {
       dayjs(m.created_at).format('DD/MM/YYYY'), m.raised_by_name,
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    link.href = url;
     link.download = `MRS_Log_${dayjs().format('YYYY-MM-DD')}.csv`;
     link.click();
+    URL.revokeObjectURL(url);
     toast.success('Exporting MRS log…');
   };
 
@@ -614,8 +616,25 @@ export default function MRSPage() {
                       onChange={e => setFormData(p => ({ ...p, department: e.target.value }))}
                     >
                       <option value="Projects">Projects</option>
+                      <option value="Civil">Civil</option>
+                      <option value="Structural">Structural</option>
+                      <option value="MEP">MEP (Mechanical/Electrical/Plumbing)</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Plumbing">Plumbing</option>
+                      <option value="HVAC">HVAC</option>
+                      <option value="Finishing">Finishing</option>
+                      <option value="Safety">Safety / HSE</option>
+                      <option value="QA/QC">QA / QC</option>
+                      <option value="Procurement">Procurement</option>
+                      <option value="Stores">Stores</option>
+                      <option value="Site Office">Site Office</option>
                       <option value="Admin">Admin</option>
+                      <option value="HR">HR</option>
+                      <option value="Finance">Finance</option>
+                      <option value="IT">IT</option>
                       <option value="Maintenance">Maintenance</option>
+                      <option value="Security">Security</option>
+                      <option value="Other">Other</option>
                     </select>
                   </Field>
                   <Field label="HO Project Name">

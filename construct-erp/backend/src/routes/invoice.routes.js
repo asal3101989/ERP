@@ -5,6 +5,23 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { query, withTransaction } = require('../config/database');
 router.use(authenticate);
 
+// Ensure invoice_items table exists (idempotent)
+query(`CREATE TABLE IF NOT EXISTS invoice_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
+  material_name VARCHAR(200),
+  unit VARCHAR(20),
+  quantity_on_grn NUMERIC(12,3),
+  quantity_invoiced NUMERIC(12,3) NOT NULL,
+  rate_on_po NUMERIC(12,2),
+  rate_invoiced NUMERIC(12,2) NOT NULL,
+  tax_percent NUMERIC(5,2) DEFAULT 18,
+  tax_amount NUMERIC(15,2) DEFAULT 0,
+  net_amount NUMERIC(15,2),
+  sort_order INTEGER DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+)`).catch(() => {});
+
 // GET /invoices — List with vendor & project data
 router.get('/', async (req, res) => {
   try {

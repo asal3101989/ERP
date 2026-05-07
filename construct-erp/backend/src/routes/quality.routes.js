@@ -66,7 +66,7 @@ router.get('/rfi', async (req, res) => {
 
 router.post('/rfi', async (req, res) => {
     const { project_id, checklist_id, drawing_id, location, activity_name, scheduled_at, inspection_type } = req.body;
-    const count = (await query('SELECT COUNT(*) FROM quality_rfis')).rows[0].count;
+    const count = (await query('SELECT COUNT(*) FROM quality_rfis q JOIN projects p ON q.project_id = p.id WHERE p.company_id = $1', [req.user.company_id])).rows[0].count;
     const num = `RFI-${dayjs().year()}-${String(parseInt(count) + 1).padStart(4, '0')}`;
     const r = await query(
         `INSERT INTO quality_rfis (project_id, rfi_number, checklist_id, drawing_id, location, activity_name, scheduled_at, inspection_type, raised_by, status)
@@ -85,6 +85,15 @@ router.patch('/rfi/:id/sign', async (req, res) => {
     const r = await query(
         'UPDATE quality_rfis SET signatures=$1 WHERE id=$2 RETURNING *',
         [JSON.stringify(sigs), req.params.id]
+    );
+    res.json({ data: r.rows[0] });
+});
+
+router.patch('/rfi/:id/attachments', async (req, res) => {
+    const { attachments } = req.body; // array of { url, name, size }
+    const r = await query(
+        'UPDATE quality_rfis SET attachments=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
+        [JSON.stringify(attachments || []), req.params.id]
     );
     res.json({ data: r.rows[0] });
 });
@@ -116,16 +125,25 @@ router.get('/ncr', async (req, res) => {
 });
 
 router.post('/ncr', async (req, res) => {
-    const { project_id, rfi_id, title, description, assigned_to, priority, issue_type } = req.body;
-    const count = (await query('SELECT COUNT(*) FROM quality_ncrs')).rows[0].count;
+    const { project_id, rfi_id, title, description, assigned_to, priority, issue_type, severity } = req.body;
+    const count = (await query('SELECT COUNT(*) FROM quality_ncrs q JOIN projects p ON q.project_id = p.id WHERE p.company_id = $1', [req.user.company_id])).rows[0].count;
     const num = `NCR-${dayjs().year()}-${String(parseInt(count) + 1).padStart(4, '0')}`;
     
     const r = await query(
-        `INSERT INTO quality_ncrs (project_id, ncr_number, rfi_id, title, description, raised_by, assigned_to, priority, issue_type, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'open') RETURNING *`,
-        [project_id, num, rfi_id || null, title, description, req.user.id, assigned_to || null, priority || 'medium', issue_type || 'quality']
+        `INSERT INTO quality_ncrs (project_id, ncr_number, rfi_id, title, description, raised_by, assigned_to, priority, issue_type, severity, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'open') RETURNING *`,
+        [project_id, num, rfi_id || null, title, description, req.user.id, assigned_to || null, priority || 'medium', issue_type || 'quality', severity || 'minor']
     );
     res.status(201).json({ data: r.rows[0] });
+});
+
+router.patch('/ncr/:id/attachments', async (req, res) => {
+    const { attachments } = req.body;
+    const r = await query(
+        'UPDATE quality_ncrs SET attachments=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
+        [JSON.stringify(attachments || []), req.params.id]
+    );
+    res.json({ data: r.rows[0] });
 });
 
 router.patch('/ncr/:id/rca', authorize('admin', 'hse_officer'), async (req, res) => {
@@ -179,9 +197,18 @@ router.get('/lab-tests', async (req, res) => {
     res.json({ data: r.rows });
 });
 
+router.patch('/lab-tests/:id/attachments', async (req, res) => {
+    const { attachments } = req.body;
+    const r = await query(
+        'UPDATE quality_lab_tests SET attachments=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
+        [JSON.stringify(attachments || []), req.params.id]
+    );
+    res.json({ data: r.rows[0] });
+});
+
 router.post('/lab-tests', async (req, res) => {
     const { project_id, material_name, test_name, lab_name, request_date, status, result } = req.body;
-    const count = (await query('SELECT COUNT(*) FROM quality_lab_tests')).rows[0].count;
+    const count = (await query('SELECT COUNT(*) FROM quality_lab_tests l JOIN projects p ON l.project_id = p.id WHERE p.company_id = $1', [req.user.company_id])).rows[0].count;
     const num = `LT-${dayjs().year()}-${String(parseInt(count) + 1).padStart(4, '0')}`;
 
     const r = await query(

@@ -6,40 +6,6 @@ const { query } = require('../config/database');
 
 router.use(authenticate);
 
-// ─── Table init ──────────────────────────────────────────────────────────────
-async function initTable() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS retention_releases (
-      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      company_id        UUID NOT NULL,
-      project_id        UUID NOT NULL,
-      release_number    TEXT NOT NULL,
-      contractor_name   TEXT NOT NULL,
-      release_date      DATE NOT NULL,
-      milestone         TEXT NOT NULL DEFAULT 'partial',
-      release_amount    NUMERIC(15,2) NOT NULL,
-      remarks           TEXT,
-      status            TEXT NOT NULL DEFAULT 'pending',
-      approved_by       UUID,
-      approved_at       TIMESTAMPTZ,
-      rejection_remarks TEXT,
-      payment_date      DATE,
-      payment_ref       TEXT,
-      created_by        UUID NOT NULL,
-      created_at        TIMESTAMPTZ DEFAULT now(),
-      updated_at        TIMESTAMPTZ DEFAULT now()
-    )
-  `);
-  // Release-number sequence
-  await query(`
-    CREATE TABLE IF NOT EXISTS retention_release_seq (
-      company_id UUID PRIMARY KEY,
-      fiscal_year TEXT NOT NULL,
-      last_number INTEGER NOT NULL DEFAULT 0
-    )
-  `);
-}
-initTable().catch(console.error);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 async function nextReleaseNumber(company_id) {

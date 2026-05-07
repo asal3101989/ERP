@@ -8,6 +8,7 @@ import {
   FlaskConical, TrendingUp, Search, Download
 } from 'lucide-react';
 import { qualityAPI, projectAPI } from '../../api/client';
+import AttachmentPanel from '../../components/quality/AttachmentPanel';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 
@@ -35,6 +36,8 @@ function ResultBadge({ status }) {
 
 export default function LabTestPage() {
   const [showForm, setShowForm] = useState(false);
+  const [newAttachments, setNewAttachments] = useState([]);
+  const [selectedTest, setSelectedTest] = useState(null);
   const [search, setSearch] = useState('');
   const qc = useQueryClient();
   const { register, handleSubmit, reset } = useForm();
@@ -53,14 +56,24 @@ export default function LabTestPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: (d) => qualityAPI.createLabTest(d),
+    mutationFn: (d) => qualityAPI.createLabTest({ ...d, attachments: newAttachments }),
     onSuccess: () => {
       toast.success('Lab sample recorded');
       reset();
       setShowForm(false);
+      setNewAttachments([]);
       qc.invalidateQueries(['quality-lab']);
     },
     onError: () => toast.error('Failed to record sample'),
+  });
+
+  const attachMut = useMutation({
+    mutationFn: ({ id, attachments }) => qualityAPI.updateLabTestAttachments(id, attachments),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries(['quality-lab']);
+      setSelectedTest(prev => prev ? { ...prev, attachments: vars.attachments } : prev);
+      toast.success('Attachments saved');
+    },
   });
 
   const arr = Array.isArray(tests) ? tests : [];
@@ -182,18 +195,63 @@ export default function LabTestPage() {
                   <ResultBadge status={t.result_status} />
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    title="Download certificate"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      title="View attachments"
+                      onClick={() => setSelectedTest(t)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Attachments Detail Modal */}
+      {selectedTest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[85vh]">
+            <div className="px-6 py-4 bg-indigo-600 flex items-center justify-between">
+              <div>
+                <span className="text-base font-semibold text-white">Lab Test Attachments</span>
+                <p className="text-xs text-indigo-200 mt-0.5">{selectedTest.test_number} — {selectedTest.material_type}</p>
+              </div>
+              <button onClick={() => setSelectedTest(null)} className="text-indigo-200 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <div className="mb-4 grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-slate-500">Test Name</p>
+                  <p className="text-sm font-semibold text-slate-800">{selectedTest.test_name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Lab</p>
+                  <p className="text-sm font-semibold text-slate-800">{selectedTest.lab_name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Status</p>
+                  <ResultBadge status={selectedTest.result_status} />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Result Value</p>
+                  <p className="text-sm font-semibold text-slate-800">{selectedTest.result_value || '—'}</p>
+                </div>
+              </div>
+              <AttachmentPanel
+                attachments={selectedTest?.attachments || []}
+                onUpdate={(atts) => attachMut.mutate({ id: selectedTest.id, attachments: atts })}
+                label="Test Certificates & Reports"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showForm && (

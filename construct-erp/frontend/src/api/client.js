@@ -110,6 +110,8 @@ export const subcontractorAPI = {
   getWorkOrder:      (id)     => api.get(`/subcontractors/work-orders/${id}`),
   createWorkOrder:   (data)   => api.post('/subcontractors/work-orders', data),
   updateWorkOrder:   (id, d)  => api.patch(`/subcontractors/work-orders/${id}`, d),
+  importWOPreview:   (file)   => { const fd = new FormData(); fd.append('file', file); return api.post('/subcontractors/work-orders/import/preview', fd, { headers: { 'Content-Type': undefined } }); },
+  importWOConfirm:   (data)   => api.post('/subcontractors/work-orders/import/confirm', data),
   // Measurements
   getMeasurements:   (params) => api.get('/subcontractors/measurements', { params }),
   recordMeasurement: (data)   => api.post('/subcontractors/measurements', data),
@@ -193,6 +195,8 @@ export const poAPI = {
   create:  (data)     => api.post('/purchase-orders', data),
   approve: (id, stage, data) => api.patch(`/purchase-orders/${id}/${stage}`, data),
   receive: (id, data) => api.patch(`/purchase-orders/${id}/receive`, data),
+  importPreview: (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/purchase-orders/import/preview', fd, { headers: { 'Content-Type': undefined } }); },
+  importConfirm: (data) => api.post('/purchase-orders/import/confirm', data),
 };
 
 export const poAmendmentAPI = {
@@ -267,6 +271,13 @@ export const planningAPI = {
   updateDPR:      (id, d) => api.put(`/planning/dpr/${id}`, d),
   deleteDPR:      (id)    => api.delete(`/planning/dpr/${id}`),
   approveDPR:     (id)    => api.patch(`/planning/dpr/${id}/approve`),
+  importDPR:      (file, projectId, overwrite = true) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('project_id', projectId);
+    fd.append('overwrite', overwrite ? 'true' : 'false');
+    return api.post('/planning/dpr/import', fd, { headers: { 'Content-Type': undefined } });
+  },
 
   // Activities
   listActivities:  (p)     => api.get('/planning/activities', { params: p }),
@@ -373,6 +384,7 @@ export const itAssetAPI = {
   list:   (params) => api.get('/it-assets', { params }),
   create: (data)   => api.post('/it-assets', data),
   update: (id, d)  => api.put(`/it-assets/${id}`, d),
+  import: (rows)   => api.post('/it-assets/import', { rows }),
 };
 
 export const itTicketAPI = {
@@ -404,16 +416,18 @@ export const qualityAPI = {
   createChecklist: (data)   => api.post('/quality/checklists', data),
   
   // RFI
-  listRFI:    (params) => api.get('/quality/rfi', { params }),
-  createRFI:  (data)   => api.post('/quality/rfi', data),
-  inspectRFI: (id, d)  => api.patch(`/quality/rfi/${id}/inspect`, d),
-  signRFI:    (id, d)  => api.patch(`/quality/rfi/${id}/sign`, d),
-  
+  listRFI:           (params) => api.get('/quality/rfi', { params }),
+  createRFI:         (data)   => api.post('/quality/rfi', data),
+  inspectRFI:        (id, d)  => api.patch(`/quality/rfi/${id}/inspect`, d),
+  signRFI:           (id, d)  => api.patch(`/quality/rfi/${id}/sign`, d),
+  updateRFIAttachments: (id, attachments) => api.patch(`/quality/rfi/${id}/attachments`, { attachments }),
+
   // NCR
-  listNCR:   (params) => api.get('/quality/ncr', { params }),
-  createNCR: (data)   => api.post('/quality/ncr', data),
-  saveRCA:   (id, d)  => api.patch(`/quality/ncr/${id}/rca`, d),
-  verifyNCR: (id, d)  => api.patch(`/quality/ncr/${id}/verify`, d),
+  listNCR:           (params) => api.get('/quality/ncr', { params }),
+  createNCR:         (data)   => api.post('/quality/ncr', data),
+  saveRCA:           (id, d)  => api.patch(`/quality/ncr/${id}/rca`, d),
+  verifyNCR:         (id, d)  => api.patch(`/quality/ncr/${id}/verify`, d),
+  updateNCRAttachments: (id, attachments) => api.patch(`/quality/ncr/${id}/attachments`, { attachments }),
 
   // Drawings
   listDrawings:   (params) => api.get('/quality/drawings', { params }),
@@ -427,6 +441,7 @@ export const qualityAPI = {
   // Lab Tests
   listLabTests:   (params) => api.get('/quality/lab-tests', { params }),
   createLabTest:  (data)   => api.post('/quality/lab-tests', data),
+  updateLabTestAttachments: (id, attachments) => api.patch(`/quality/lab-tests/${id}/attachments`, { attachments }),
 };
 
 export const mrsAPI = {

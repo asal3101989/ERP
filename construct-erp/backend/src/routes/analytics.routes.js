@@ -248,6 +248,10 @@ router.get('/executive', async (req, res) => {
       docParams.push(filters.dateTo);
     }
 
+    const safeQuery = async (sql, params) => {
+      try { return await query(sql, params); } catch { return { rows: [] }; }
+    };
+
     const [
       projectOptionsRes,
       scopedProjectsRes,
@@ -262,21 +266,21 @@ router.get('/executive', async (req, res) => {
       ncrsRes,
       documentsRes,
     ] = await Promise.all([
-      query(
+      safeQuery(
         `SELECT p.id, p.name, p.project_code, p.type, p.status
          FROM projects p
          WHERE p.company_id = $1
          ORDER BY p.name ASC`,
         [req.user.company_id]
       ),
-      query(
+      safeQuery(
         `SELECT p.id, p.name, p.project_code, p.type, p.status, p.city, p.contract_value, p.progress_pct, p.created_at
          FROM projects p
          WHERE ${scope.where}
          ORDER BY p.created_at DESC`,
         scope.params
       ),
-      query(
+      safeQuery(
         `SELECT rb.id, rb.project_id, rb.bill_number, rb.bill_date, rb.created_at, rb.status, rb.net_payable, rb.gross_amount, COALESCE(rb.net_payable, rb.gross_amount) as bill_value, p.name as project_name
          FROM ra_bills rb
          JOIN projects p ON rb.project_id = p.id
@@ -285,7 +289,7 @@ router.get('/executive', async (req, res) => {
          ORDER BY rb.bill_date DESC, rb.created_at DESC`,
         raParams
       ),
-      query(
+      safeQuery(
         `SELECT pay.id, pay.project_id, pay.payment_date, pay.created_at, pay.payment_type, pay.entity_name, pay.amount, pay.net_amount, p.name as project_name
          FROM payments pay
          JOIN projects p ON pay.project_id = p.id
@@ -294,8 +298,8 @@ router.get('/executive', async (req, res) => {
          ORDER BY pay.payment_date DESC, pay.created_at DESC`,
         paymentParams
       ),
-      query(
-        `SELECT po.id, po.project_id, po.po_number, po.po_date, po.created_at, po.status, po.grand_total, po.total_value, po.po_value, COALESCE(po.grand_total, po.total_value, po.po_value) as order_value, p.name as project_name
+      safeQuery(
+        `SELECT po.id, po.project_id, po.po_number, po.po_date, po.created_at, po.status, COALESCE(po.grand_total, po.po_value, 0) as order_value, p.name as project_name
          FROM purchase_orders po
          JOIN projects p ON po.project_id = p.id
          WHERE ${projectScopedClause('po')}
@@ -303,7 +307,7 @@ router.get('/executive', async (req, res) => {
          ORDER BY po.po_date DESC, po.created_at DESC`,
         poParams
       ),
-      query(
+      safeQuery(
         `SELECT inv.id, inv.project_id, inv.material_name, inv.closing_stock, inv.minimum_level, inv.reorder_level, p.name as project_name
          FROM inventory inv
          JOIN projects p ON inv.project_id = p.id
@@ -312,7 +316,7 @@ router.get('/executive', async (req, res) => {
          ORDER BY inv.material_name ASC`,
         scope.params
       ),
-      query(
+      safeQuery(
         `SELECT w.id, w.project_id, w.name, w.skill_type, w.is_active, p.name as project_name
          FROM workers w
          JOIN projects p ON w.project_id = p.id
@@ -320,7 +324,7 @@ router.get('/executive', async (req, res) => {
          ORDER BY w.created_at DESC`,
         scope.params
       ),
-      query(
+      safeQuery(
         `SELECT i.id, i.project_id, i.incident_date, i.created_at, i.status, i.incident_type, i.severity, p.name as project_name
          FROM incidents i
          JOIN projects p ON i.project_id = p.id
@@ -329,7 +333,7 @@ router.get('/executive', async (req, res) => {
          ORDER BY i.incident_date DESC, i.created_at DESC`,
         incidentParams
       ),
-      query(
+      safeQuery(
         `SELECT pe.id, pe.project_id, pe.valid_from, pe.valid_to, pe.status, pe.permit_type, p.name as project_name
          FROM permits pe
          JOIN projects p ON pe.project_id = p.id
@@ -337,7 +341,7 @@ router.get('/executive', async (req, res) => {
          ORDER BY pe.valid_from DESC`,
         scope.params
       ),
-      query(
+      safeQuery(
         `SELECT q.id, q.project_id, q.created_at, q.status, q.rfi_number, q.activity_name, p.name as project_name
          FROM quality_rfis q
          JOIN projects p ON q.project_id = p.id
@@ -346,7 +350,7 @@ router.get('/executive', async (req, res) => {
          ORDER BY q.created_at DESC`,
         qParams
       ),
-      query(
+      safeQuery(
         `SELECT n.id, n.project_id, n.created_at, n.status, n.ncr_number, n.description as title, p.name as project_name
          FROM quality_ncrs n
          JOIN projects p ON n.project_id = p.id
@@ -355,7 +359,7 @@ router.get('/executive', async (req, res) => {
          ORDER BY n.created_at DESC`,
         qParams
       ),
-      query(
+      safeQuery(
         `SELECT d.id, d.project_id, d.file_name, d.module, d.created_at, p.name as project_name
          FROM documents d
          LEFT JOIN projects p ON d.project_id = p.id
@@ -363,9 +367,7 @@ router.get('/executive', async (req, res) => {
            AND (
              d.project_id IS NULL OR
              d.project_id IN (
-               SELECT p.id
-               FROM projects p
-               WHERE ${scope.where}
+               SELECT p.id FROM projects p WHERE ${scope.where}
              )
            )
          ${docDateFilters.length ? ` AND ${docDateFilters.join(' AND ')}` : ''}

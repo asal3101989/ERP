@@ -8,7 +8,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
   CloudRain, Sun, Cloud, Printer, Eye, Edit2,
   Wrench, BarChart2, ClipboardList, Flag, TrendingUp,
-  Trash2, ChevronDown, ChevronUp,
+  Trash2, ChevronDown, ChevronUp, Upload,
 } from 'lucide-react';
 import { planningAPI, projectAPI, subcontractorAPI, vendorAPI } from '../../api/client';
 import useAuthStore from '../../store/authStore';
@@ -272,248 +272,32 @@ function DPRViewPanel({ dpr, project, onClose, onEdit, qc }) {
                 {approveMut.isPending ? 'Approving…' : 'Approve'}
               </button>
             )}
-            {d.status === 'draft' && (
-              <button
-                onClick={() => onEdit(d)}
-                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-1"
-              >
-                <Edit2 className="w-3 h-3" /> Edit
-              </button>
-            )}
+            <button
+              onClick={() => onEdit(d)}
+              className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-1"
+            >
+              <Edit2 className="w-3 h-3" /> Edit
+            </button>
+            <button
+              onClick={() => { if (window.confirm('Delete this DPR?')) deleteMut.mutate(d.id); }}
+              disabled={deleteMut.isPending}
+              className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" /> Delete
+            </button>
             <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-md text-slate-400">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        {/* Scrollable body — only the print template */}
+        <div className="flex-1 overflow-y-auto">
           <DPRPrintTemplate dpr={d} project={project} />
-
-          {/* Project Info */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <InfoCell label="Report Date" value={dayjs(d.report_date).format('DD MMM YYYY')} />
-            <InfoCell label="Weather" value={
-              <div className="flex items-center gap-1.5">
-                <WeatherIcon value={d.weather} />
-                {WEATHER_OPTIONS.find(w => w.value === d.weather)?.label || d.weather}
-              </div>
-            } />
-            <InfoCell label="Site Conditions" value={d.site_conditions} />
-            <InfoCell label="Rain Log" value={d.rain_log || 'Nil'} />
-          </div>
-
-          {/* Work Progress */}
-          {d.work_items?.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <BarChart2 className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-bold text-slate-800">Work Progress</h3>
-              </div>
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      {['Activity Description', 'Unit', 'BOQ Qty', 'Planned', 'Achieved', 'Cumulative', 'Remarks'].map(h => (
-                        <th key={h} className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {d.work_items.map((row, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 text-slate-800 font-medium">{row.description || '—'}</td>
-                        <td className="px-3 py-2 text-slate-600">{row.unit}</td>
-                        <td className="px-3 py-2 text-slate-600">{row.boq_qty || '—'}</td>
-                        <td className="px-3 py-2 text-slate-600">{row.planned || '—'}</td>
-                        <td className="px-3 py-2 font-semibold text-indigo-700">{row.achieved || '—'}</td>
-                        <td className="px-3 py-2 text-slate-600">{row.cumulative || '—'}</td>
-                        <td className="px-3 py-2 text-slate-400">{row.remarks || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Concrete Consumption */}
-          {d.concrete_today?.some(c => c.qty) && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Package className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-bold text-slate-800">Concrete Consumption Today</h3>
-              </div>
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      {['Grade', 'Supplier', 'Qty (Cum)'].map(h => (
-                        <th key={h} className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {d.concrete_today.filter(c => c.qty).map((c, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 font-semibold text-slate-800">{c.grade}</td>
-                        <td className="px-3 py-2 text-slate-600">{c.supplier || '—'}</td>
-                        <td className="px-3 py-2 font-bold text-indigo-700">{c.qty}</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-indigo-50 border-t-2 border-indigo-200">
-                      <td className="px-3 py-2 font-bold text-indigo-800" colSpan={2}>Total</td>
-                      <td className="px-3 py-2 font-bold text-indigo-800">
-                        {d.concrete_today.reduce((s, c) => s + (Number(c.qty) || 0), 0).toFixed(2)} Cum
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Labour */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Staff */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-bold text-slate-800">Staff ({totalStaff} total)</h3>
-              </div>
-              <div className="rounded-lg border border-slate-200 overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-3 py-2 text-left font-semibold text-slate-500">Category</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-500">Nos</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {(d.staff || []).filter(s => s.nos).map((s, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 text-slate-700">{s.category}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-slate-800">{s.nos}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Direct Workers */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-bold text-slate-800">
-                  Direct Workers (Day: {totalDirect.day} | Night: {totalDirect.night})
-                </h3>
-              </div>
-              <div className="rounded-lg border border-slate-200 overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-3 py-2 text-left font-semibold text-slate-500">Category</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-500">Day</th>
-                      <th className="px-3 py-2 text-right font-semibold text-slate-500">Night</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {(d.direct_workers || []).filter(w => w.day || w.night).map((w, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 text-slate-700">{w.category}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-slate-800">{w.day || '—'}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-slate-800">{w.night || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* Plant & Machinery */}
-          {d.plant_items?.some(p => p.nos) && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Wrench className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-bold text-slate-800">Plant & Machinery</h3>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {d.plant_items.filter(p => p.nos).map((p, i) => (
-                  <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
-                    <span className="text-xs text-slate-600">{p.item}</span>
-                    <span className="text-xs font-bold text-slate-800 ml-2">{p.nos}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Steel */}
-          {d.steel?.some(s => s.receipts_today || s.available || s.consumption) && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Package className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-bold text-slate-800">Steel – Material Report</h3>
-              </div>
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      {['Dia', 'Receipts Today', 'Till Date', 'Available', 'Consumption'].map(h => (
-                        <th key={h} className="px-3 py-2 text-right first:text-left font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {d.steel.filter(s => s.receipts_today || s.available || s.consumption).map((s, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 font-semibold text-slate-800">{s.dia}</td>
-                        <td className="px-3 py-2 text-right text-slate-600">{s.receipts_today || '—'}</td>
-                        <td className="px-3 py-2 text-right text-slate-600">{s.receipts_till_date || '—'}</td>
-                        <td className="px-3 py-2 text-right text-slate-600">{s.available || '—'}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-indigo-700">{s.consumption || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Constraints & Footer */}
-          {(d.constraints || d.rfi) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {d.constraints && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <div className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">Constraints</div>
-                  <p className="text-xs text-amber-800 leading-relaxed">{d.constraints}</p>
-                </div>
-              )}
-              {d.rfi && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">RFI / Open Issues</div>
-                  <p className="text-xs text-blue-800 leading-relaxed">{d.rfi}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <InfoCell label="Prepared By" value={d.prepared_by} />
-            <InfoCell label="Approved By" value={d.approved_by} />
-          </div>
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-100 bg-slate-50 px-5 py-3 flex items-center justify-between flex-shrink-0">
-          <button
-            onClick={() => { if (window.confirm('Delete this DPR?')) deleteMut.mutate(d.id); }}
-            className="flex items-center gap-1.5 px-3 py-2 text-red-600 text-xs font-medium hover:bg-red-50 rounded-lg"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> Delete
-          </button>
+        <div className="border-t border-slate-100 bg-slate-50 px-5 py-3 flex justify-end flex-shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-200 rounded-lg">
             Close
           </button>
@@ -1013,6 +797,7 @@ export default function DPRPage() {
   const [showModal, setShowModal]   = useState(false);
   const [selected, setSelected]     = useState(null);  // DPR to view
   const [editDPR, setEditDPR]       = useState(null);  // DPR to edit
+  const importInputRef = useRef(null);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -1026,6 +811,28 @@ export default function DPRPage() {
   });
 
   const selectedProject = projects.find(p => p.id === projectId);
+
+  const importMut = useMutation({
+    mutationFn: file => planningAPI.importDPR(file, projectId),
+    onSuccess: (res) => {
+      const summary = res.data?.summary;
+      const action = summary?.mode === 'updated' ? 'updated' : 'imported';
+      toast.success(`DPR ${action} for ${summary?.report_date || 'selected date'}`);
+      qc.invalidateQueries({ queryKey: ['dpr-list'] });
+      if (importInputRef.current) importInputRef.current.value = '';
+    },
+    onError: e => {
+      const message = e?.response?.data?.error || e?.message || 'DPR import failed';
+      toast.error(message);
+      if (importInputRef.current) importInputRef.current.value = '';
+    },
+  });
+
+  const handleImportFile = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    importMut.mutate(file);
+  };
 
   const filtered = useMemo(() => {
     let list = dprs;
@@ -1078,12 +885,28 @@ export default function DPRPage() {
             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           {projectId && canCreate && (
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-all shadow-sm"
-            >
-              <Plus className="w-4 h-4" /> New DPR
-            </button>
+            <>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleImportFile}
+                className="hidden"
+              />
+              <button
+                onClick={() => importInputRef.current?.click()}
+                disabled={importMut.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-50 transition-all shadow-sm"
+              >
+                <Upload className="w-4 h-4" /> {importMut.isPending ? 'Importing...' : 'Import Excel'}
+              </button>
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-all shadow-sm"
+              >
+                <Plus className="w-4 h-4" /> New DPR
+              </button>
+            </>
           )}
         </div>
       </div>

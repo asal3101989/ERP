@@ -1,287 +1,237 @@
-// src/pages/finance/TDSPage.jsx — Zoho Books style
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Download, FileText, ArrowDownCircle, ArrowUpCircle, RefreshCw, Search } from 'lucide-react';
-import api from '../../api/client';
+import { Download, FileSignature, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import api, { reportAPI } from '../../api/client';
 import dayjs from 'dayjs';
+import { clsx } from 'clsx';
+import DataToolbar from '../../components/common/DataToolbar';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const inr = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(v || 0));
+const fmt  = v => `₹${Number(v || 0).toLocaleString('en-IN')}`;
 
-const TDS_SECTIONS = {
-  '194C': 'Contractors & Sub-contractors',
-  '194I': 'Rent',
-  '194J': 'Professional / Technical Services',
-  '194A': 'Interest',
-  '194H': 'Commission / Brokerage',
-  '194Q': 'Purchase of Goods',
-};
+function download26Q(records) {
+  const rows = [
+    ['Payee', 'PAN', 'Section', 'Payment Amount', 'TDS Rate %', 'TDS Amount', 'Payment Date', 'Reference'].join(','),
+    ...records.map(r => [
+      `"${r.entity_name || ''}"`,
+      r.entity_pan || '',
+      r.tds_section || '194C',
+      r.amount || 0,
+      r.tds_rate || 2,
+      r.tds_deducted || 0,
+      r.payment_date ? dayjs(r.payment_date).format('DD-MM-YYYY') : '',
+      `"${r.reference_number || ''}"`,
+    ].join(',')),
+  ].join('\n');
+  const blob = new Blob([rows], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Form_26Q_${dayjs().format('YYYY-MM')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function TDSPage() {
-  const [activeTab, setActiveTab] = useState('outgoing');
-  const [search, setSearch]       = useState('');
-  const [section, setSection]     = useState('');
+  const [activeTab, setActiveTab] = useState('outgoing'); // 'outgoing' | 'incoming'
 
-  const { data: raw, refetch, isFetching } = useQuery({
+  const { data: raw } = useQuery({
     queryKey: ['tds'],
-    queryFn: () => api.get('/tds').then(r => r.data).catch(() => ({ outgoing: [], incoming: [] })),
+    queryFn: () => api.get('/tds').then(r => r.data),
   });
 
   const outgoing = raw?.outgoing || [];
   const incoming = raw?.incoming || [];
 
-  // ── KPIs ────────────────────────────────────────────────────────────────────
-  const totalOutTDS    = outgoing.reduce((s, r) => s + Number(r.tds_amount || 0), 0);
-  const depositedOut   = outgoing.filter(r => r.deposited).reduce((s, r) => s + Number(r.tds_amount || 0), 0);
+  // KPIs
+  const totalOutTDS   = outgoing.reduce((s, r) => s + Number(r.tds_amount || 0), 0);
+  const totalInTDS    = incoming.reduce((s, r) => s + Number(r.tds_amount || 0), 0);
+  const depositedOut  = outgoing.filter(r => r.deposited).reduce((s, r) => s + Number(r.tds_amount || 0), 0);
   const pendingDeposit = totalOutTDS - depositedOut;
-  const totalInTDS     = incoming.reduce((s, r) => s + Number(r.tds_amount || 0), 0);
-  const netPosition    = totalOutTDS - totalInTDS;
 
-  // ── Active records with filtering ───────────────────────────────────────────
-  const allRecords = activeTab === 'outgoing' ? outgoing : incoming;
-  const records = allRecords.filter(r => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || (r.payee_name || '').toLowerCase().includes(q) || (r.pan || '').toLowerCase().includes(q);
-    const matchSection = !section || r.section === section;
-    return matchSearch && matchSection;
-  });
-
-  // ── CSV export (Form 26Q style) ─────────────────────────────────────────────
-  const exportCSV = () => {
-    const src = activeTab === 'outgoing' ? outgoing : incoming;
-    const headers = activeTab === 'outgoing'
-      ? ['Payee', 'PAN', 'Section', 'Project', 'Payment Amount', 'TDS Rate %', 'TDS Amount', 'Net Paid', 'Payment Date', 'Challan No', 'Deposited']
-      : ['Client', 'PAN', 'Section', 'Project', 'Bill Gross', 'TDS Rate %', 'TDS by Client', 'Amount Received', 'Receipt Date', 'UTR/Ref', 'Form 16A'];
-    const rows = [
-      headers,
-      ...src.map(r => [
-        r.payee_name, r.pan || '', r.section, r.project_name || '',
-        r.invoice_amount, r.tds_rate, r.tds_amount, r.net_paid,
-        r.payment_date ? dayjs(r.payment_date).format('DD-MM-YYYY') : '',
-        r.challan_number || '', r.deposited ? 'Yes' : 'No',
-      ]),
-    ];
-    const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `Form_26Q_${activeTab}_${dayjs().format('YYYYMMDD')}.csv`;
-    a.click();
-  };
+  const records = activeTab === 'outgoing' ? outgoing : incoming;
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto bg-slate-50 min-h-screen text-[0.94rem]">
 
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">TDS Register</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            TDS deducted by us (payable) · TDS deducted by client (receivable credit via 26AS)
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={refetch}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
-          >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            Download Form 26Q
-          </button>
-        </div>
-      </div>
-
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <p className="text-xs font-medium text-gray-500 mb-2">TDS Deducted by Us</p>
-          <p className="text-xl font-bold text-red-600 font-mono">{inr(totalOutTDS)}</p>
-          <p className="text-xs text-gray-400 mt-1">{outgoing.length} vendor / labour payments</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <p className="text-xs font-medium text-gray-500 mb-2">Pending Deposit to Govt</p>
-          <p className="text-xl font-bold text-orange-600 font-mono">{inr(pendingDeposit)}</p>
-          <p className="text-xs text-gray-400 mt-1">Via Form 281 / GSTR challan</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <p className="text-xs font-medium text-gray-500 mb-2">TDS by Client (26AS)</p>
-          <p className="text-xl font-bold text-green-600 font-mono">{inr(totalInTDS)}</p>
-          <p className="text-xs text-gray-400 mt-1">{incoming.length} RA bill receipts</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <p className="text-xs font-medium text-gray-500 mb-2">Net TDS Position</p>
-          <p className={`text-xl font-bold font-mono ${netPosition > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {inr(Math.abs(netPosition))}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">{netPosition > 0 ? 'Net payable to govt' : 'Net credit available'}</p>
-        </div>
-      </div>
-
-      {/* ── Tab bar ── */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div className="border-b border-gray-200">
-          <nav className="flex">
-            <button
-              onClick={() => setActiveTab('outgoing')}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'outgoing'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <ArrowUpCircle className="h-4 w-4" />
-              TDS Deducted by Us
-              <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                activeTab === 'outgoing' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-              }`}>{outgoing.length}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('incoming')}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'incoming'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <ArrowDownCircle className="h-4 w-4" />
-              TDS by Client (RA Bills)
-              <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                activeTab === 'incoming' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-              }`}>{incoming.length}</span>
-            </button>
-          </nav>
-        </div>
-
-        {/* Context banner */}
-        <div className={`px-5 py-3 text-xs font-medium border-b ${
-          activeTab === 'outgoing'
-            ? 'bg-red-50 border-red-100 text-red-700'
-            : 'bg-green-50 border-green-100 text-green-700'
-        }`}>
-          {activeTab === 'outgoing'
-            ? 'We are the deductor — must deposit with govt via Form 281 and file quarterly Form 26Q by the 31st of the month following quarter end.'
-            : 'Client is the deductor — they issue Form 16A. This appears as credit in our 26AS statement and reduces our advance tax liability.'}
-        </div>
-
-        {/* Filters */}
-        <div className="px-5 py-3 flex flex-wrap gap-3 border-b border-gray-100">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search payee or PAN…"
-              className="pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-56"
-            />
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+            <FileSignature className="w-6 h-6 text-indigo-600" />
           </div>
-          <select
-            value={section}
-            onChange={e => setSection(e.target.value)}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Sections</option>
-            {Object.entries(TDS_SECTIONS).map(([code, label]) => (
-              <option key={code} value={code}>{code} — {label}</option>
-            ))}
-          </select>
-          {(search || section) && (
-            <button
-              onClick={() => { setSearch(''); setSection(''); }}
-              className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg bg-white"
-            >
-              Clear
-            </button>
-          )}
-          <span className="ml-auto text-xs text-gray-400 self-center">{records.length} records</span>
+          <div>
+            <h1 className="text-[1.25rem] md:text-[1.5rem] font-black text-slate-900 uppercase tracking-tight italic">TDS Register</h1>
+            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+              TDS deducted by us (payable) · TDS deducted by client (receivable credit)
+            </p>
+          </div>
         </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => download26Q(outgoing)}
+            className="px-4 py-2.5 bg-white border border-slate-200 text-indigo-600 hover:border-indigo-300 font-black uppercase text-[9px] tracking-widest rounded-xl transition-all shadow-sm flex items-center gap-2 italic"
+          >
+            <Download className="w-3.5 h-3.5" /> Download Form 26Q
+          </button>
+          <DataToolbar data={records} fileName="TDS_Register_Export" hideAdd />
+        </div>
+      </div>
 
-        {/* Table */}
+      {/* KPIs — two sides */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white border border-red-100 rounded-[1.5rem] p-4 text-center shadow-sm">
+          <div className="text-[9px] font-black text-red-300 uppercase tracking-widest mb-2 italic">We Deduct (Payable)</div>
+          <div className="text-[1.4rem] font-black text-red-500 font-mono tracking-tighter italic">{fmt(totalOutTDS)}</div>
+          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">TDS on Vendor / Labour Payments</div>
+        </div>
+        <div className="bg-white border border-amber-100 rounded-[1.5rem] p-4 text-center shadow-sm">
+          <div className="text-[9px] font-black text-amber-300 uppercase tracking-widest mb-2 italic">We Deduct (Payable)</div>
+          <div className="text-[1.4rem] font-black text-amber-500 font-mono tracking-tighter italic">{fmt(pendingDeposit)}</div>
+          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">Pending Deposit to Govt</div>
+        </div>
+        <div className="bg-white border border-emerald-100 rounded-[1.5rem] p-4 text-center shadow-sm">
+          <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-2 italic">Client Deducts (Credit)</div>
+          <div className="text-[1.4rem] font-black text-emerald-600 font-mono tracking-tighter italic">{fmt(totalInTDS)}</div>
+          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">TDS Deducted by Client (26AS Credit)</div>
+        </div>
+        <div className="bg-white border border-indigo-100 rounded-[1.5rem] p-4 text-center shadow-sm">
+          <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2 italic">Net TDS Position</div>
+          <div className={clsx('text-[1.4rem] font-black font-mono tracking-tighter italic',
+            totalOutTDS > totalInTDS ? 'text-red-600' : 'text-emerald-600')}>
+            {fmt(Math.abs(totalOutTDS - totalInTDS))}
+          </div>
+          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 italic">
+            {totalOutTDS > totalInTDS ? 'Net Payable to Govt' : 'Net Credit Available'}
+          </div>
+        </div>
+      </div>
+
+      {/* Tab switcher */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab('outgoing')}
+          className={clsx(
+            'flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
+            activeTab === 'outgoing'
+              ? 'bg-red-500 text-white shadow-md'
+              : 'bg-white border border-slate-200 text-slate-500 hover:text-slate-900'
+          )}
+        >
+          <ArrowUpCircle size={14} />
+          TDS Deducted by Us — Vendor / Labour / Sub-con
+          <span className={clsx('ml-1 px-2 py-0.5 rounded-full text-[9px] font-black',
+            activeTab === 'outgoing' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500')}>
+            {outgoing.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('incoming')}
+          className={clsx(
+            'flex items-center gap-2 px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all',
+            activeTab === 'incoming'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'bg-white border border-slate-200 text-slate-500 hover:text-slate-900'
+          )}
+        >
+          <ArrowDownCircle size={14} />
+          TDS Deducted by Client — RA Bills
+          <span className={clsx('ml-1 px-2 py-0.5 rounded-full text-[9px] font-black',
+            activeTab === 'incoming' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500')}>
+            {incoming.length}
+          </span>
+        </button>
+      </div>
+
+      {/* Context banner */}
+      <div className={clsx('rounded-2xl px-6 py-4 text-[11px] font-bold border',
+        activeTab === 'outgoing'
+          ? 'bg-red-50 border-red-200 text-red-700'
+          : 'bg-emerald-50 border-emerald-200 text-emerald-700')}>
+        {activeTab === 'outgoing'
+          ? '⚠ These are TDS amounts WE deducted from vendor/labour/subcontractor payments. We are the deductor — must deposit with govt via Form 281 and file Form 26Q.'
+          : '✓ These are TDS amounts the CLIENT deducted from our RA bill receipts. Client is the deductor — they issue Form 16A. This appears as credit in our 26AS statement.'}
+      </div>
+
+      {/* Table */}
+      <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
                 {(activeTab === 'outgoing'
-                  ? ['Payee', 'PAN', 'Section', 'Project', 'Payment Amt', 'TDS Rate', 'TDS Deducted', 'Net Paid', 'Date', 'Challan #', 'Status']
-                  : ['Client', 'PAN', 'Section', 'Project', 'Bill Gross', 'TDS Rate', 'TDS by Client', 'Amt Received', 'Date', 'UTR / Ref', 'Form 16A']
-                ).map((h) => (
-                  <th key={h} className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide whitespace-nowrap ${
-                    ['Payment Amt', 'TDS Deducted', 'Net Paid', 'Bill Gross', 'TDS by Client', 'Amt Received'].includes(h) ? 'text-right' : 'text-left'
-                  }`}>{h}</th>
+                  ? ['Payee', 'PAN', 'Section', 'Project', 'Payment Amount', 'TDS Rate', 'TDS Deducted', 'Net Paid', 'Payment Date', 'Challan #', 'Deposited']
+                  : ['Client', 'PAN', 'Section', 'Project', 'Bill Gross', 'TDS Rate', 'TDS by Client', 'Amount Received', 'Receipt Date', 'UTR / Ref', 'Form 16A']
+                ).map((h, i) => (
+                  <th key={i} className={clsx(
+                    'py-5 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest italic whitespace-nowrap',
+                    ['Payment Amount','TDS Deducted','Net Paid','Bill Gross','TDS by Client','Amount Received'].includes(h) ? 'text-right' : ''
+                  )}>{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100">
               {records.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">{r.payee_name}</div>
-                    <div className="text-xs text-gray-500">{r.payee_type}</div>
+                <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="p-4 pl-6">
+                    <div className="font-black text-slate-900 text-sm uppercase tracking-tight italic">{r.payee_name}</div>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{r.payee_type}</div>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-blue-600 font-medium">{r.pan || '—'}</td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                  <td className="p-4 font-mono text-xs font-black text-indigo-600 tracking-widest">{r.pan || '—'}</td>
+                  <td className="p-4">
+                    <span className="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest italic shadow-sm bg-indigo-50 text-indigo-600 border border-indigo-200">
                       {r.section}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-600 max-w-[130px] truncate">{r.project_name || '—'}</td>
-                  <td className="px-4 py-3 text-right font-mono text-gray-700">{inr(r.invoice_amount)}</td>
-                  <td className="px-4 py-3 text-right text-gray-600">{r.tds_rate}%</td>
-                  <td className="px-4 py-3 text-right font-mono font-semibold text-red-600">{inr(r.tds_amount)}</td>
-                  <td className="px-4 py-3 text-right font-mono font-semibold text-green-600">{inr(r.net_paid)}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                  <td className="p-4 font-bold text-slate-600 uppercase text-[10px] tracking-widest max-w-[120px] truncate">{r.project_name}</td>
+                  <td className="p-4 text-right font-mono font-black text-slate-700 tracking-tighter italic">{fmt(r.invoice_amount)}</td>
+                  <td className="p-4 text-right font-mono font-bold text-slate-600">{r.tds_rate}%</td>
+                  <td className="p-4 text-right font-mono font-black text-red-500 text-sm tracking-tighter italic bg-red-50/30">{fmt(r.tds_amount)}</td>
+                  <td className="p-4 text-right font-mono font-black text-emerald-600 text-base tracking-tighter italic bg-emerald-50/30">{fmt(r.net_paid)}</td>
+                  <td className="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">
                     {r.payment_date ? dayjs(r.payment_date).format('DD MMM YYYY') : '—'}
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-700">{r.challan_number || '—'}</td>
-                  <td className="px-4 py-3">
+                  <td className="p-4 font-mono font-black text-slate-600 text-[10px] tracking-widest">
+                    {r.challan_number || <span className="text-slate-400 italic font-normal">—</span>}
+                  </td>
+                  <td className="p-4">
                     {activeTab === 'outgoing' ? (
                       r.deposited
-                        ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">Deposited</span>
-                        : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending</span>
+                        ? <span className="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest italic shadow-sm bg-emerald-50 text-emerald-600 border border-emerald-200">Deposited</span>
+                        : <span className="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest italic shadow-sm bg-amber-50 text-amber-600 border border-amber-200">Pending</span>
                     ) : (
                       r.deposited
-                        ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">Received</span>
-                        : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700">Pending 16A</span>
+                        ? <span className="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest italic shadow-sm bg-emerald-50 text-emerald-600 border border-emerald-200">Received</span>
+                        : <span className="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest italic shadow-sm bg-violet-50 text-violet-600 border border-violet-200">Pending 16A</span>
                     )}
                   </td>
                 </tr>
               ))}
               {records.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-14 text-center">
-                    <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-400 text-sm">
-                      {search || section
-                        ? 'No records match the filter'
-                        : activeTab === 'outgoing'
-                          ? 'No outgoing TDS recorded yet — payments with TDS will appear here'
-                          : 'No client TDS entries yet — mark RA bills as received with TDS'
-                      }
-                    </p>
+                  <td colSpan={11} className="py-24 text-center">
+                    <FileSignature className="w-10 h-10 text-slate-300 mx-auto mb-4" />
+                    <span className="font-black text-slate-400 uppercase tracking-[0.3em] italic block">
+                      {activeTab === 'outgoing' ? 'No outgoing TDS recorded yet' : 'No client TDS entries yet — mark RA bills as received'}
+                    </span>
                   </td>
                 </tr>
               )}
             </tbody>
             {records.length > 0 && (
               <tfoot>
-                <tr className="bg-gray-50 border-t border-gray-200 font-semibold text-sm">
-                  <td colSpan={4} className="px-4 py-3 text-gray-700">
-                    Total ({records.length} records)
+                <tr className="bg-slate-50 border-t border-slate-200">
+                  <td colSpan={4} className="p-5 pl-6 text-slate-900 font-black uppercase tracking-widest text-[10px] italic">
+                    Total ({records.length} entries)
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-gray-800">
-                    {inr(records.reduce((s, r) => s + Number(r.invoice_amount || 0), 0))}
+                  <td className="p-5 text-right text-slate-700 font-mono font-black text-base italic tracking-tighter">
+                    {fmt(records.reduce((s, r) => s + Number(r.invoice_amount || 0), 0))}
                   </td>
-                  <td className="px-4 py-3" />
-                  <td className="px-4 py-3 text-right font-mono text-red-600">
-                    {inr(records.reduce((s, r) => s + Number(r.tds_amount || 0), 0))}
+                  <td className="p-5 bg-slate-100" />
+                  <td className="p-5 text-right text-red-500 font-mono font-black text-xl italic tracking-tighter bg-red-50/50">
+                    {fmt(records.reduce((s, r) => s + Number(r.tds_amount || 0), 0))}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-green-600">
-                    {inr(records.reduce((s, r) => s + Number(r.net_paid || 0), 0))}
+                  <td className="p-5 text-right text-emerald-600 font-mono font-black text-xl italic tracking-tighter bg-emerald-50/50">
+                    {fmt(records.reduce((s, r) => s + Number(r.net_paid || 0), 0))}
                   </td>
                   <td colSpan={3} />
                 </tr>
@@ -289,33 +239,6 @@ export default function TDSPage() {
             )}
           </table>
         </div>
-      </div>
-
-      {/* ── TDS Section Reference ── */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">TDS Section Reference — Construction</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {[
-            { section: '194C', rate: '1% / 2%', desc: 'Contracts — individuals / others', note: 'Limit: ₹30,000 / ₹1L per year' },
-            { section: '194I', rate: '10%', desc: 'Rent — land, building, plant', note: 'Limit: ₹2.4L per year' },
-            { section: '194J', rate: '10%', desc: 'Professional / Technical fees', note: 'Limit: ₹30,000 per year' },
-            { section: '194A', rate: '10%', desc: 'Interest other than securities', note: 'Limit: ₹40,000 (banks)' },
-            { section: '194H', rate: '5%', desc: 'Commission / Brokerage', note: 'Limit: ₹15,000 per year' },
-            { section: '194Q', rate: '0.1%', desc: 'Purchase of goods (turnover > ₹10Cr)', note: 'Buyer deducts on > ₹50L' },
-          ].map(s => (
-            <div key={s.section} className="border border-gray-100 rounded-lg p-3 bg-gray-50">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">Sec {s.section}</span>
-                <span className="text-sm font-bold text-gray-900">{s.rate}</span>
-              </div>
-              <p className="text-xs font-medium text-gray-700">{s.desc}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{s.note}</p>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-gray-400 mt-3">
-          * TDS must be deposited by 7th of the following month (March: 30th April). Quarterly returns (Form 26Q) due 31st of month following quarter end.
-        </p>
       </div>
     </div>
   );

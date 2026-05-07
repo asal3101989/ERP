@@ -72,10 +72,11 @@ function FormField({ label, children }) {
 const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all placeholder:text-slate-400';
 
 export default function VendorList() {
-  const [showForm, setShowForm]   = useState(false);
+  const [showForm, setShowForm]     = useState(false);
+  const [editVendor, setEditVendor] = useState(null); // null = create mode, object = edit mode
   const [filterType, setFilterType] = useState('all');
-  const [search, setSearch]       = useState('');
-  const [expanded, setExpanded]   = useState(null);
+  const [search, setSearch]         = useState('');
+  const [expanded, setExpanded]     = useState(null);
   const qc = useQueryClient();
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: { credit_days: 30 },
@@ -86,15 +87,45 @@ export default function VendorList() {
     queryFn: () => vendorAPI.list().then(r => r.data?.data || []).catch(() => []),
   });
 
+  const openCreate = () => { setEditVendor(null); reset({ credit_days: 30 }); setShowForm(true); };
+  const openEdit   = v  => {
+    setEditVendor(v);
+    reset({
+      name: v.name, trade_name: v.trade_name, vendor_type: v.vendor_type,
+      contact_person: v.contact_person, phone: v.phone, email: v.email,
+      website_url: v.website_url, credit_days: v.credit_days || 30,
+      gstin: v.gstin, pan: v.pan, trade_license: v.trade_license,
+      msme_reg: v.msme_reg, address: v.address, city: v.city,
+      pincode: v.pincode, state: v.state,
+      bank_name: v.bank_name, bank_branch: v.bank_branch,
+      ifsc_code: v.ifsc_code || v.bank_ifsc,
+      account_number: v.account_number || v.bank_account,
+      notes: v.notes,
+    });
+    setShowForm(true);
+  };
+  const closeForm = () => { reset(); setShowForm(false); setEditVendor(null); };
+
   const createMut = useMutation({
     mutationFn: d => vendorAPI.create(d),
     onSuccess: () => {
       toast.success('Vendor registered successfully');
-      reset(); setShowForm(false);
+      closeForm();
       qc.invalidateQueries({ queryKey: ['vendors'] });
-      qc.invalidateQueries({ queryKey: ['dqs-vendors'] }); // sync DQS bill lookup
+      qc.invalidateQueries({ queryKey: ['tqs-vendors'] });
     },
     onError: e => toast.error(e?.response?.data?.error || 'Registration failed'),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: d => vendorAPI.update(editVendor.id, d),
+    onSuccess: () => {
+      toast.success('Vendor updated successfully');
+      closeForm();
+      qc.invalidateQueries({ queryKey: ['vendors'] });
+      qc.invalidateQueries({ queryKey: ['tqs-vendors'] });
+    },
+    onError: e => toast.error(e?.response?.data?.error || 'Update failed'),
   });
 
   const deleteMut = useMutation({
@@ -109,9 +140,16 @@ export default function VendorList() {
     onError: e => toast.error(e?.response?.data?.error || 'Import failed'),
   });
 
+  // Normalise legacy mixed-case vendor_type values to canonical snake_case keys
+  const normalizeType = t => ({
+    'Sub-contractor':   'subcontractor',
+    'Labour Contractor':'labour_contractor',
+    'Service Provider': 'service_provider',
+  })[t] || t;
+
   const allVendors = data || [];
   const vendors = allVendors.filter(v => {
-    if (filterType !== 'all' && v.vendor_type !== filterType) return false;
+    if (filterType !== 'all' && normalizeType(v.vendor_type) !== filterType) return false;
     if (search && !`${v.name} ${v.vendor_code} ${v.city} ${v.contact_person}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -123,10 +161,10 @@ export default function VendorList() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-            <Building2 className="w-3.5 h-3.5" /> Shared · Procurement &amp; DQS Tracker
+            <Building2 className="w-3.5 h-3.5" /> Shared · Procurement &amp; TQS Tracker
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Vendor Master</h1>
-          <p className="text-sm text-slate-400 mt-0.5">{allVendors.length} vendors · shared across Procurement &amp; DQS Tracker</p>
+          <p className="text-sm text-slate-400 mt-0.5">{allVendors.length} vendors · shared across Procurement &amp; TQS Tracker</p>
         </div>
         <div className="flex items-center gap-3">
           <DataToolbar
@@ -135,9 +173,10 @@ export default function VendorList() {
             onImport={f => importMut.mutate(f)}
             templateName="Vendor_Import_Template"
             templateData={[{ name: 'ABC Trading Co', vendor_type: 'material_supplier', gstin: '27AABCS1234A1Z5', pan: 'AABCS1234A', contact_person: 'John Doe', phone: '9876543210', city: 'Mumbai', state: 'Maharashtra', website_url: 'https://example.com', credit_days: '30' }]}
+            hideAdd
           />
           <button
-            onClick={() => setShowForm(true)}
+            onClick={openCreate}
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" /> Register Vendor
@@ -149,10 +188,10 @@ export default function VendorList() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         {[
           { label: 'Total',     val: allVendors.length,                                                  color: 'text-slate-900',   bg: 'bg-slate-100' },
-          { label: 'Material',  val: allVendors.filter(v => v.vendor_type==='material_supplier').length,  color: 'text-blue-700',    bg: 'bg-blue-50' },
-          { label: 'Sub-Con',   val: allVendors.filter(v => v.vendor_type==='subcontractor').length,       color: 'text-purple-700',  bg: 'bg-purple-50' },
-          { label: 'Labour',    val: allVendors.filter(v => v.vendor_type==='labour_contractor').length,   color: 'text-amber-700',   bg: 'bg-amber-50' },
-          { label: 'Equipment', val: allVendors.filter(v => v.vendor_type==='equipment_supplier').length,  color: 'text-emerald-700', bg: 'bg-emerald-50' },
+          { label: 'Material',  val: allVendors.filter(v => normalizeType(v.vendor_type)==='material_supplier').length,  color: 'text-blue-700',    bg: 'bg-blue-50' },
+          { label: 'Sub-Con',   val: allVendors.filter(v => normalizeType(v.vendor_type)==='subcontractor').length,       color: 'text-purple-700',  bg: 'bg-purple-50' },
+          { label: 'Labour',    val: allVendors.filter(v => normalizeType(v.vendor_type)==='labour_contractor').length,   color: 'text-amber-700',   bg: 'bg-amber-50' },
+          { label: 'Equipment', val: allVendors.filter(v => normalizeType(v.vendor_type)==='equipment_supplier').length,  color: 'text-emerald-700', bg: 'bg-emerald-50' },
         ].map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-4 text-center shadow-sm">
             <div className={clsx('text-2xl font-bold font-mono', s.color)}>{s.val}</div>
@@ -174,18 +213,18 @@ export default function VendorList() {
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Filter className="w-3.5 h-3.5 text-slate-400" />
-          {['all', ...Object.keys(TYPES)].map(t => (
+          {[{ value: 'all', label: 'All Types' }, ...VENDOR_TYPE_OPTIONS].map(t => (
             <button
-              key={t}
-              onClick={() => setFilterType(t)}
+              key={t.value}
+              onClick={() => setFilterType(t.value)}
               className={clsx(
                 'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-                filterType === t
+                filterType === t.value
                   ? 'bg-indigo-600 text-white border-indigo-600'
                   : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
               )}
             >
-              {t === 'all' ? 'All Types' : TYPES[t].label}
+              {t.label}
             </button>
           ))}
         </div>
@@ -265,7 +304,7 @@ export default function VendorList() {
                       >
                         {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                       </button>
-                      <TableActions disableEdit onDelete={() => deleteMut.mutate(v.id)} recordName={v.name} />
+                      <TableActions onEdit={() => openEdit(v)} onDelete={() => deleteMut.mutate(v.id)} recordName={v.name} />
                     </div>
                   </div>
 
@@ -317,15 +356,15 @@ export default function VendorList() {
             {/* Modal Header */}
             <div className="flex items-center justify-between p-5 border-b border-slate-100">
               <div>
-                <h2 className="text-base font-semibold text-slate-900">Register Vendor</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Add a new vendor to the master ledger</p>
+                <h2 className="text-base font-semibold text-slate-900">{editVendor ? 'Edit Vendor' : 'Register Vendor'}</h2>
+                <p className="text-xs text-slate-400 mt-0.5">{editVendor ? `Editing: ${editVendor.name}` : 'Add a new vendor to the master ledger'}</p>
               </div>
-              <button onClick={() => { reset(); setShowForm(false); }} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 transition-all">
+              <button onClick={closeForm} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 transition-all">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit(d => createMut.mutate(d))} className="p-5 space-y-6 max-h-[75vh] overflow-y-auto">
+            <form onSubmit={handleSubmit(d => editVendor ? updateMut.mutate(d) : createMut.mutate(d))} className="p-5 space-y-6 max-h-[75vh] overflow-y-auto">
 
               {/* Section: Basic */}
               <Section icon={<Shield className="w-4 h-4 text-indigo-500" />} title="Basic Information">
@@ -430,13 +469,15 @@ export default function VendorList() {
 
               {/* Footer Buttons */}
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { reset(); setShowForm(false); }}
+                <button type="button" onClick={closeForm}
                   className="flex-1 py-2.5 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-200 transition-all">
                   Cancel
                 </button>
-                <button type="submit" disabled={createMut.isPending}
+                <button type="submit" disabled={createMut.isPending || updateMut.isPending}
                   className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 shadow-sm transition-all disabled:opacity-60">
-                  {createMut.isPending ? 'Registering…' : 'Register Vendor'}
+                  {editVendor
+                    ? (updateMut.isPending ? 'Saving…' : 'Save Changes')
+                    : (createMut.isPending ? 'Registering…' : 'Register Vendor')}
                 </button>
               </div>
             </form>
