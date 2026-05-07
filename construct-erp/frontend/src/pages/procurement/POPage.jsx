@@ -21,8 +21,8 @@ const STATUS_CONFIG = {
   // Current statuses
   draft:           { label: 'Draft',           short: 'Draft',        color: 'bg-slate-50 text-slate-600 border-slate-200',      dot: 'bg-slate-400',   icon: FileText,     stage: 1 },
   verified_audit:  { label: 'Audit Verified',  short: 'Audit OK',     color: 'bg-blue-50 text-blue-700 border-blue-200',        dot: 'bg-blue-500',    icon: UserCheck,    stage: 2 },
-  released_mgmt:   { label: 'Dir. Released',   short: 'Released',     color: 'bg-violet-50 text-violet-700 border-violet-200',  dot: 'bg-violet-500',  icon: Building2,    stage: 3 },
-  approved:        { label: 'MD Authorized',   short: 'Authorized',   color: 'bg-emerald-50 text-emerald-700 border-emerald-200',dot: 'bg-emerald-500', icon: CheckCircle2, stage: 4 },
+  released_mgmt:   { label: 'Dir. Approved',   short: 'Dir. OK',      color: 'bg-violet-50 text-violet-700 border-violet-200',  dot: 'bg-violet-500',  icon: Building2,    stage: 3 },
+  approved:        { label: 'Released',        short: 'Released',     color: 'bg-emerald-50 text-emerald-700 border-emerald-200',dot: 'bg-emerald-500', icon: CheckCircle2, stage: 4 },
   sent:            { label: 'Sent to Vendor',  short: 'Sent',         color: 'bg-sky-50 text-sky-700 border-sky-200',           dot: 'bg-sky-500',     icon: Activity,     stage: 5 },
   part_received:   { label: 'Part Received',   short: 'Part Rcvd',    color: 'bg-cyan-50 text-cyan-700 border-cyan-200',        dot: 'bg-cyan-500',    icon: Package,      stage: 6 },
   fully_received:  { label: 'Fully Received',  short: 'Received',     color: 'bg-green-50 text-green-700 border-green-200',     dot: 'bg-green-500',   icon: Check,        stage: 7 },
@@ -1382,7 +1382,7 @@ export default function POPage() {
   const stats = [
     { key: 'draft',          label: 'Draft',        icon: FileText,     dot: 'bg-slate-400' },
     { key: 'verified_audit', label: 'Audit OK',     icon: UserCheck,    dot: 'bg-blue-400' },
-    { key: 'approved',       label: 'Authorized',   icon: CheckCircle2, dot: 'bg-emerald-400' },
+    { key: 'approved',       label: 'Released',     icon: CheckCircle2, dot: 'bg-emerald-400' },
     { key: 'fully_received', label: 'Received',     icon: Package,      dot: 'bg-green-400' },
   ];
 
@@ -1462,8 +1462,8 @@ export default function POPage() {
             ['all',            'All'],
             ['draft',          'Draft'],
             ['verified_audit', 'Audit OK'],
-            ['released_mgmt',  'Released'],
-            ['approved',       'Authorized'],
+            ['released_mgmt',  'Dir. OK'],
+            ['approved',       'Released'],
             ['rejected',       'Rejected'],
           ].map(([val, lbl]) => (
             <button key={val} onClick={() => setStatusFilter(val)}
