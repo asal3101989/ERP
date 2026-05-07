@@ -426,7 +426,7 @@ export default function UsersPage() {
               </div>
               <div className="col-span-2 mt-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block border-b border-slate-100 pb-2">Module Access Permissions</label>
-                {['admin', 'super_admin'].includes(form.role) ? (
+                {['admin', 'super_admin', 'managing_director'].includes(form.role) ? (
                   <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-100">
                     Administrator role has unrestricted access to all modules automatically.
                   </div>
@@ -526,7 +526,7 @@ export default function UsersPage() {
               </div>
               <div className="col-span-2 mt-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block border-b border-slate-100 pb-2">Module Access Permissions</label>
-                {['admin', 'super_admin'].includes(form.role) ? (
+                {['admin', 'super_admin', 'managing_director'].includes(form.role) ? (
                   <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-100">
                     Administrator role has unrestricted access to all modules automatically.
                   </div>
