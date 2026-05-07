@@ -9,68 +9,107 @@ const router = express.Router();
 // ── PDF Parse Helper ──────────────────────────────────────────────────────────
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
+const PO_UNITS = ['cum', 'mt', 'nos', 'kg', 'sqm', 'rmt', 'bags', 'ltr', 'litre', 'ls', 'sqft', 'point', 'month', 'day', 'hrs', 'set'];
+
+function parseNum(s) {
+  if (!s) return 0;
+  return parseFloat(String(s).replace(/[,\s₹]/g, '')) || 0;
+}
+
+function parseDate(s) {
+  if (!s) return '';
+  const parts = s.split(/[\.\-\/]/);
+  if (parts.length === 3) {
+    const [d, m, y] = parts;
+    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+  return '';
+}
+
 function parsePOText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const full  = lines.join(' ');
+  const get   = (rx, def = '') => { const m = full.match(rx); return m ? m[1].trim() : def; };
 
-  const get = (regex, def = '') => { const m = full.match(regex); return m ? m[1].trim() : def; };
+  // ── Header ──
+  const poNumber   = get(/PO No[:\s]*([A-Z0-9\-]+)/i);
+  const rawDate    = get(/Date[:\s]*([\d]{1,2}[\.\-\/][\d]{1,2}[\.\-\/][\d]{4})/i);
+  const poDate     = parseDate(rawDate);
+  const projectRaw = get(/Project[:\s]*([A-Z][^\n]{1,40}?)(?:\s{2,}|PO No|Date)/i);
+  const narration  = get(/Narration[:\s]*([^\n]+)/i);
+  const paymentTerms = get(/Payment\s*[:]\s*([^\n]{5,80})/i, '30 days from date of supply');
 
-  // Header fields
-  const poNumber   = get(/PO No[:\s]+([A-Z0-9\-]+)/i);
-  const rawDate    = get(/Date[:\s]+([\d]{2}[\.\-\/][\d]{2}[\.\-\/][\d]{4})/i);
-  const projectRaw = get(/Project[:\s]+([^\n]+?)(?:PO No|Date|$)/i);
-
-  // Parse date DD.MM.YYYY → YYYY-MM-DD
-  let poDate = '';
-  if (rawDate) {
-    const [d, m, y] = rawDate.split(/[\.\-\/]/);
-    poDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-  }
-
-  // Vendor — text after "To," and before "DELIVERY"
-  const toIdx = lines.findIndex(l => /^To,?$/i.test(l));
+  // ── Vendor: look for "To," then next non-empty line ──
   let vendorName = '';
   let vendorGST  = '';
+  const toIdx = lines.findIndex(l => /^To,?$/i.test(l));
   if (toIdx >= 0) {
     vendorName = (lines[toIdx + 1] || '').replace(/^M\/s\.?\s*/i, '').trim();
-    const gstLine = lines.slice(toIdx, toIdx + 10).find(l => /GST[:\s]+[0-9A-Z]{15}/i.test(l));
-    if (gstLine) vendorGST = gstLine.match(/([0-9A-Z]{15})/)?.[1] || '';
+    const gstLine = lines.slice(toIdx, toIdx + 12).find(l => /GST\s*[:\s]*[0-9A-Z]{15}/i.test(l));
+    if (gstLine) { const gm = gstLine.match(/([0-9A-Z]{15})/); if (gm) vendorGST = gm[1]; }
+  }
+  if (!vendorName) {
+    // fallback: look for M/s. anywhere
+    const mvsLine = lines.find(l => /^M\/s\./i.test(l));
+    if (mvsLine) vendorName = mvsLine.replace(/^M\/s\.?\s*/i, '').trim();
   }
 
-  // Narration
-  const narration = get(/Narration[:\s]+([^\n]+)/i);
+  // ── GST rate ──
+  const cgstM = full.match(/CGST\s*@\s*([\d]+)\s*%/i);
+  const gstRate = cgstM ? String(parseInt(cgstM[1]) * 2) : '18';
 
-  // Payment terms
-  const paymentTerms = get(/Payment\s*[:\s]+([^\n]+)/i, '30 days from date of supply');
-
-  // Line items — look for rows with: description, UOM, number, number, number
-  // Pattern: optional SL, description text, optional mix design, UOM (Cum/MT/Nos/etc), qty, rate, amount
+  // ── Line items: scan line-by-line for UOM keyword + numbers ──
+  // pdf-parse may put each column on its own line, so we merge nearby lines.
   const items = [];
-  const itemRx = /(\d+)\s+([\w\s\/\-]+?)\s+([\w\s\+]+?Kgs[\w\s\+]*?)?\s*(Cum|MT|Nos|KG|SQM|RMT|Bags|Ltr|Litre|LS)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/gi;
-  let m;
-  while ((m = itemRx.exec(full)) !== null) {
-    const qty  = parseFloat(m[5].replace(/,/g,''));
-    const rate = parseFloat(m[6].replace(/,/g,''));
-    if (!qty || !rate) continue;
-    items.push({
-      material_name: m[2].trim() + (m[3] ? ` (${m[3].trim()})` : ''),
-      unit:          m[4],
-      quantity:      qty,
-      rate:          rate,
-      gst_rate:      '18',   // default; user can adjust
-      hsn_code:      '',
-    });
+  const seen  = new Set();
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Find a UOM in this line
+    const uomMatch = line.match(new RegExp(`\\b(${PO_UNITS.join('|')})\\b`, 'i'));
+    if (!uomMatch) continue;
+
+    const uom     = uomMatch[0];
+    const uomPos  = line.toLowerCase().indexOf(uom.toLowerCase());
+    const afterUOM = line.slice(uomPos + uom.length);
+
+    // Extract numbers after UOM (in this line and next 2 lines)
+    const numStr = [afterUOM, lines[i+1] || '', lines[i+2] || ''].join(' ');
+    const nums   = numStr.match(/[\d,]+\.?\d*/g) || [];
+    const validNums = nums.map(n => parseNum(n)).filter(n => n > 0);
+    if (validNums.length < 2) continue;
+
+    const qty  = validNums[0];
+    const rate = validNums[1];
+
+    // Skip if rate is unrealistically small (e.g., a percentage like 9)
+    if (rate < 1) continue;
+    // Skip duplicate item (same qty+rate)
+    const key = `${qty}-${rate}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    // Description: everything before the UOM on this line, or previous line
+    let desc = line.slice(0, uomPos).trim();
+    // Remove leading sl number
+    desc = desc.replace(/^\d+\s*/, '').trim();
+    // If description is empty or just mix-design, look at previous line
+    if (!desc || /^\d+\s*kgs/i.test(desc)) {
+      desc = (lines[i - 1] || '').replace(/^\d+\s*/, '').trim();
+    }
+    // Append mix design if it's in a sub-line pattern
+    const mixLine = (lines[i - 1] || '');
+    if (/kgs\s*(cement|ggbs|fly\s*ash)/i.test(mixLine) && !desc.toLowerCase().includes('kgs')) {
+      desc = `${desc} (${mixLine.trim()})`;
+    }
+    if (!desc) desc = `Item ${items.length + 1}`;
+
+    items.push({ material_name: desc, unit: uom, quantity: qty, rate, gst_rate: gstRate, hsn_code: '' });
   }
 
-  // GST rate from text (CGST @ 9% → 18%)
-  const cgstMatch = full.match(/CGST\s*@\s*([\d]+)%/i);
-  if (cgstMatch) {
-    const gstRate = String(parseInt(cgstMatch[1]) * 2);
-    items.forEach(it => { it.gst_rate = gstRate; });
-  }
-
-  // Grand total
-  const grandTotal = parseFloat(get(/Grand Total\s+([\d,]+)/i, '0').replace(/,/g,'')) || 0;
+  // ── Grand total ──
+  const grandTotal = parseNum(get(/Grand Total\s*([\d,]+)/i, get(/Net\s*Total\s*([\d,]+)/i, '0')));
 
   return { poNumber, poDate, vendorName, vendorGST, projectRaw, narration, paymentTerms, items, grandTotal };
 }
