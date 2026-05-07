@@ -7,7 +7,7 @@ import {
   ShoppingCart, Plus, X, Check, Clock, Search, Download,
   Printer, AlertCircle, ChevronRight, Trash2, Activity,
   Package, Building2, Calendar, BadgeCheck, FileText,
-  CheckCircle2, UserCheck, Landmark, XCircle, Upload, FileUp,
+  CheckCircle2, UserCheck, Landmark, XCircle, Upload, FileUp, Pencil,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -706,9 +706,21 @@ const STAGE_LABELS = {
 };
 
 /* ─── Detail Slide-over ─── */
-function PODetailPanel({ po, detailedPO, onClose, onApprove, onReject, isApproving, isRejecting, user }) {
-  const [sigModal, setSigModal] = useState(null); // { stage }
+function PODetailPanel({ po, detailedPO, onClose, onApprove, onReject, isApproving, isRejecting, user, onRenumbered }) {
+  const [sigModal, setSigModal]       = useState(null);
+  const [editingNum, setEditingNum]   = useState(false);
+  const [newPoNum, setNewPoNum]       = useState('');
   const liveStatus = detailedPO?.status ?? po.status;
+
+  const renumberMut = useMutation({
+    mutationFn: (display) => poAPI.renumber(po.id, display),
+    onSuccess: (res) => {
+      toast.success('PO number updated!');
+      setEditingNum(false);
+      onRenumbered?.(res.data.data);   // refresh the list entry
+    },
+    onError: (e) => toast.error(e?.response?.data?.error || 'Update failed'),
+  });
   const currentAction = STAGE_ACTIONS.find(a => a.reqStatus === liveStatus);
   const cfg = STATUS_CONFIG[liveStatus] || STATUS_CONFIG.draft;
   const signatures = detailedPO?.signatures || {};
@@ -722,11 +734,38 @@ function PODetailPanel({ po, detailedPO, onClose, onApprove, onReject, isApprovi
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0">
               <ShoppingCart className="w-4 h-4 text-amber-600" />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-900 font-mono">{po.serial_no_formatted || po.po_number}</p>
+              {editingNum ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    value={newPoNum}
+                    onChange={e => setNewPoNum(e.target.value.toUpperCase())}
+                    onKeyDown={e => { if (e.key === 'Enter') renumberMut.mutate(newPoNum); if (e.key === 'Escape') setEditingNum(false); }}
+                    placeholder={po.serial_no_formatted || po.po_number}
+                    className="h-7 w-52 bg-white border border-indigo-400 rounded px-2 text-xs font-mono font-bold text-slate-900 outline-none"
+                  />
+                  <button onClick={() => renumberMut.mutate(newPoNum)} disabled={renumberMut.isPending || !newPoNum.trim()}
+                    className="h-7 px-2 rounded bg-indigo-600 text-white text-xs font-bold disabled:opacity-40">
+                    {renumberMut.isPending ? '…' : '✓'}
+                  </button>
+                  <button onClick={() => setEditingNum(false)} className="h-7 px-2 rounded border border-slate-200 text-xs text-slate-500">✕</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-bold text-slate-900 font-mono">{po.serial_no_formatted || po.po_number}</p>
+                  <button
+                    onClick={() => { setNewPoNum(po.serial_no_formatted || po.po_number); setEditingNum(true); }}
+                    title="Edit PO number"
+                    className="w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
               <p className="text-xs text-slate-400 mt-0.5">{po.vendor_name} · {fmt(po.po_date)}</p>
             </div>
           </div>
@@ -1399,6 +1438,10 @@ export default function POPage() {
           isApproving={approveMutation.isPending}
           isRejecting={rejectMutation.isPending}
           user={user}
+          onRenumbered={(updated) => {
+            qc.invalidateQueries(['po-list']);
+            setSelectedPO(prev => prev ? { ...prev, serial_no_formatted: updated.serial_no_formatted } : prev);
+          }}
         />
       )}
 
