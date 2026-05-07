@@ -445,6 +445,7 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   released_mgmt_at TIMESTAMPTZ,
   authorized_md_by UUID REFERENCES users(id),
   authorized_md_at TIMESTAMPTZ,
+  signatures JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
