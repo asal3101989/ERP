@@ -254,9 +254,9 @@ router.post('/', async (req, res) => {
         `INSERT INTO purchase_orders (
           project_id, vendor_id, po_number, po_date, delivery_date,
           terms_conditions, notes, bank_details,
-          status, created_by, mrs_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-        [project_id, vendor_id, po_number, po_date || null, delivery_date || null, terms_conditions || null, notes || null, bank_details || null, 'pending', req.user.id, mrs_id || null]
+          status, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [project_id, vendor_id, po_number, po_date || null, delivery_date || null, terms_conditions || null, notes || null, bank_details || null, 'pending', req.user.id]
       );
       const poId = headerRes.rows[0].id;
 
