@@ -6,6 +6,24 @@ const multer = require('multer');
 const { extractTextFromPDF } = require('../utils/pdf-ocr');
 const router = express.Router();
 
+// ── Auto-migrate: fix purchase_orders status check constraint ────────────────
+(async () => {
+  try {
+    await query(`ALTER TABLE purchase_orders DROP CONSTRAINT IF EXISTS purchase_orders_status_check`);
+    await query(`
+      ALTER TABLE purchase_orders ADD CONSTRAINT purchase_orders_status_check
+      CHECK (status IN (
+        'draft','pending','verified_audit','verified_procurement',
+        'checked_finance','released_mgmt','approved','sent',
+        'part_received','fully_received','cancelled','rejected'
+      ))
+    `);
+    console.log('[PO] Status constraint migrated OK');
+  } catch (e) {
+    console.error('[PO] Status constraint migration error:', e.message);
+  }
+})();
+
 // ── PDF Parse Helper ──────────────────────────────────────────────────────────
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
