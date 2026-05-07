@@ -121,10 +121,18 @@ function SectionHeader({ title, badge }) {
 }
 
 function DataTable({ columns, rows, emptyText = 'No data' }) {
+  const hasWidths = columns.some(c => c.width);
   return (
     <table className="dpr-data-table">
+      {hasWidths && (
+        <colgroup>
+          {columns.map(col => <col key={col.key} style={col.width ? { width: col.width } : {}} />)}
+        </colgroup>
+      )}
       <thead>
-        <tr>{columns.map(col => <th key={col.key}>{col.label}</th>)}</tr>
+        <tr>{columns.map(col => (
+          <th key={col.key} className={col.align === 'right' ? 'right' : ''}>{col.label}</th>
+        ))}</tr>
       </thead>
       <tbody>
         {rows.length === 0 && (
@@ -356,14 +364,18 @@ export default function DPRPrintTemplate({ dpr, project }) {
           font-weight: 800;
           letter-spacing: .35px;
           text-transform: uppercase;
-          overflow-wrap: anywhere;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .dpr-data-table td {
           border-bottom: 1px solid ${C.mutedDark};
           color: ${C.text};
           padding: 3px 5px;
           vertical-align: middle;
-          overflow-wrap: anywhere;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .dpr-data-table td.right,
         .dpr-data-table th.right {
@@ -452,14 +464,14 @@ export default function DPRPrintTemplate({ dpr, project }) {
               <SectionHeader title="Work Progress" badge="Activities" />
               <DataTable
                 columns={[
-                  { key: 'idx', label: '#', render: (_, idx) => idx + 1 },
-                  { key: 'description', label: 'Activity Description' },
-                  { key: 'unit', label: 'Unit', render: row => <Tag color={C.blue}>{row.unit || '-'}</Tag> },
-                  { key: 'boq_qty', label: 'BOQ Qty', align: 'right', render: row => fmt(row.boq_qty) },
-                  { key: 'planned', label: 'Planned', align: 'right', render: row => fmt(row.planned) },
-                  { key: 'achieved', label: 'Achieved', align: 'right', render: row => fmt(row.achieved) },
-                  { key: 'cumulative', label: 'Cum Qty', align: 'right', render: row => fmt(row.cumulative) },
-                  { key: 'progress', label: 'Cum %', align: 'right', render: row => pct(row.cumulative, row.boq_qty) },
+                  { key: 'idx',        label: '#',                   width: '5%',  render: (_, idx) => idx + 1 },
+                  { key: 'description',label: 'Activity Description', width: '32%' },
+                  { key: 'unit',       label: 'Unit',                 width: '9%',  render: row => <Tag color={C.blue}>{row.unit || '-'}</Tag> },
+                  { key: 'boq_qty',    label: 'BOQ Qty',              width: '11%', align: 'right', render: row => fmt(row.boq_qty) },
+                  { key: 'planned',    label: 'Planned',              width: '11%', align: 'right', render: row => fmt(row.planned) },
+                  { key: 'achieved',   label: 'Achieved',             width: '11%', align: 'right', render: row => fmt(row.achieved) },
+                  { key: 'cumulative', label: 'Cum Qty',              width: '11%', align: 'right', render: row => fmt(row.cumulative) },
+                  { key: 'progress',   label: 'Cum %',                width: '10%', align: 'right', render: row => pct(row.cumulative, row.boq_qty) },
                 ]}
                 rows={workRows}
                 emptyText="No work progress rows"
@@ -472,10 +484,10 @@ export default function DPRPrintTemplate({ dpr, project }) {
               <SectionHeader title="Daily Labour Register" badge="Workforce" />
               <DataTable
                 columns={[
-                  { key: 'category', label: 'Direct Workers' },
-                  { key: 'day', label: 'Day', align: 'right', render: row => fmt(row.day, 0) },
-                  { key: 'night', label: 'Night', align: 'right', render: row => fmt(row.night, 0) },
-                  { key: 'total', label: 'Total', align: 'right', render: row => fmt((Number(row.day) || 0) + (Number(row.night) || 0), 0) },
+                  { key: 'category', label: 'Direct Workers', width: '52%' },
+                  { key: 'day',   label: 'Day',   width: '16%', align: 'right', render: row => fmt(row.day, 0) },
+                  { key: 'night', label: 'Night', width: '16%', align: 'right', render: row => fmt(row.night, 0) },
+                  { key: 'total', label: 'Total', width: '16%', align: 'right', render: row => fmt((Number(row.day) || 0) + (Number(row.night) || 0), 0) },
                 ]}
                 rows={labourRows}
                 emptyText="No direct labour rows"
@@ -486,10 +498,10 @@ export default function DPRPrintTemplate({ dpr, project }) {
               <SectionHeader title="Subcontractors" badge="SC" />
               <DataTable
                 columns={[
-                  { key: 'name', label: 'Name / Work', render: row => row.name || row.work || '-' },
-                  { key: 'day', label: 'Day', align: 'right', render: row => fmt(row.day, 0) },
-                  { key: 'night', label: 'Night', align: 'right', render: row => fmt(row.night, 0) },
-                  { key: 'total', label: 'Total', align: 'right', render: row => fmt((Number(row.day) || 0) + (Number(row.night) || 0), 0) },
+                  { key: 'name',  label: 'Name / Work', width: '52%', render: row => row.name || row.work || '-' },
+                  { key: 'day',   label: 'Day',   width: '16%', align: 'right', render: row => fmt(row.day, 0) },
+                  { key: 'night', label: 'Night', width: '16%', align: 'right', render: row => fmt(row.night, 0) },
+                  { key: 'total', label: 'Total', width: '16%', align: 'right', render: row => fmt((Number(row.day) || 0) + (Number(row.night) || 0), 0) },
                 ]}
                 rows={subRows}
                 emptyText="No subcontractor rows"
@@ -502,8 +514,8 @@ export default function DPRPrintTemplate({ dpr, project }) {
               <SectionHeader title="Plant & Machinery" badge="Equipment" />
               <DataTable
                 columns={[
-                  { key: 'item', label: 'Equipment' },
-                  { key: 'nos', label: 'Nos', align: 'right', render: row => fmt(row.nos, 0) },
+                  { key: 'item', label: 'Equipment', width: '78%' },
+                  { key: 'nos',  label: 'Nos',       width: '22%', align: 'right', render: row => fmt(row.nos, 0) },
                 ]}
                 rows={plantRows}
                 emptyText="No plant rows"
@@ -514,11 +526,11 @@ export default function DPRPrintTemplate({ dpr, project }) {
               <SectionHeader title="Material Reconciliation" badge="Steel" />
               <DataTable
                 columns={[
-                  { key: 'dia', label: 'Material', render: row => row.dia || '-' },
-                  { key: 'receipts_today', label: 'Receipt', align: 'right', render: row => fmt(row.receipts_today) },
-                  { key: 'receipts_till_date', label: 'Till Date', align: 'right', render: row => fmt(row.receipts_till_date) },
-                  { key: 'available', label: 'Stock', align: 'right', render: row => fmt(row.available) },
-                  { key: 'consumption', label: 'Consumed', align: 'right', render: row => fmt(row.consumption) },
+                  { key: 'dia',                label: 'Material', width: '28%', render: row => row.dia || '-' },
+                  { key: 'receipts_today',     label: 'Today',    width: '18%', align: 'right', render: row => fmt(row.receipts_today) },
+                  { key: 'receipts_till_date', label: 'Till Date',width: '18%', align: 'right', render: row => fmt(row.receipts_till_date) },
+                  { key: 'available',          label: 'Stock',    width: '18%', align: 'right', render: row => fmt(row.available) },
+                  { key: 'consumption',        label: 'Consumed', width: '18%', align: 'right', render: row => fmt(row.consumption) },
                 ]}
                 rows={materialRows}
                 emptyText="No material rows"
