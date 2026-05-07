@@ -127,7 +127,7 @@ const navGroups = [
       { to: '/dqs',                  icon: LayoutDashboard, label: 'DQS Dashboard' },
       { to: '/dqs/bills',            icon: FileText,        label: 'Bills' },
       { to: '/dqs/transmittal',      icon: Send,            label: 'Transmittal' },
-      { to: '/dqs/vendors',          icon: Users,           label: 'Vendors' },
+      { to: '/procurement/vendors',   icon: Users,           label: 'Vendors' },
       { to: '/dqs/material-tracker', icon: Package,         label: 'Material Tracker' },
       { to: '/dqs/analytics',        icon: TrendingUp,      label: 'Analytics' },
       { to: '/dqs/reports',          icon: BarChart3,       label: 'Reports' },

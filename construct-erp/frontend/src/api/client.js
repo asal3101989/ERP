@@ -542,13 +542,6 @@ export const dqsTrackerAPI = {
   delete: (id)     => api.delete(`/dqs/material-tracker/${id}`),
 };
 
-export const dqsVendorsAPI = {
-  list:   (params) => api.get('/dqs/vendors', { params }),
-  create: (data)   => api.post('/dqs/vendors', data),
-  update: (id, d)  => api.put(`/dqs/vendors/${id}`, d),
-  delete: (id)     => api.delete(`/dqs/vendors/${id}`),
-};
-
 export const dqsTransmittalAPI = {
   list:         (params) => api.get('/dqs/transmittals', { params }),
   get:          (id)     => api.get(`/dqs/transmittals/${id}`),

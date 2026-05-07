@@ -131,7 +131,6 @@ const DQSPaymentCertPrint   = lazy(() => import('./pages/dqs/DQSPaymentCertPrint
 const DQSMaterialTrackerPage = lazy(() => import('./pages/dqs/DQSMaterialTrackerPage'));
 const DQSReportsPage        = lazy(() => import('./pages/dqs/DQSReportsPage'));
 const DQSAnalyticsPage      = lazy(() => import('./pages/dqs/DQSAnalyticsPage'));
-const DQSVendorsPage        = lazy(() => import('./pages/dqs/DQSVendorsPage'));
 const DQSTransmittalPage    = lazy(() => import('./pages/dqs/DQSTransmittalPage'));
 const QSRABillPrint         = lazy(() => import('./pages/dqs/QSRABillPrint'));
 const QAQCReportsPage       = lazy(() => import('./pages/quality/QAQCReportsPage'));
@@ -340,7 +339,6 @@ export default function App() {
                 <Route path="dqs/material-tracker" element={<DQSMaterialTrackerPage />} />
                 <Route path="dqs/reports"          element={<DQSReportsPage />} />
                 <Route path="dqs/analytics"        element={<DQSAnalyticsPage />} />
-                <Route path="dqs/vendors"          element={<DQSVendorsPage />} />
                 <Route path="dqs/transmittal"      element={<DQSTransmittalPage />} />
 
                 {/* Reports & Strategic Analytics */}

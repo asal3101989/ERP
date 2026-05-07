@@ -70,7 +70,6 @@ const normsRoutes         = require('./routes/norms.routes');
 const documentsRoutes     = require('./routes/documents.routes');
 const dqsBillsRoutes         = require('./routes/dqs-bills.routes');
 const dqsTrackerRoutes       = require('./routes/dqs-tracker.routes');
-const dqsVendorsRoutes       = require('./routes/dqs-vendors.routes');
 const dqsTransmittalRoutes   = require('./routes/dqs-transmittal.routes');
 const tdsRoutes           = require('./routes/tds.routes');
 const hrMastersRoutes     = require('./routes/hr-masters.routes');
@@ -260,7 +259,6 @@ app.use(`${API}/documents`, documentsRoutes);
 // DQS Invoice Tracker
 app.use(`${API}/dqs/bills`, dqsBillsRoutes);
 app.use(`${API}/dqs/material-tracker`, dqsTrackerRoutes);
-app.use(`${API}/dqs/vendors`,          dqsVendorsRoutes);
 app.use(`${API}/dqs/transmittals`,     dqsTransmittalRoutes);
 
 // DQS Sync (no JWT — key-based, for cross-app data sharing)
