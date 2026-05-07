@@ -705,6 +705,113 @@ const STAGE_LABELS = {
   'authorize-md': 'MD Authorization',
 };
 
+/* ─── Bills Against PO ─── */
+function POBillsSection({ poId, grandTotal }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['po-bills', poId],
+    queryFn: () => poAPI.getBills(poId).then(r => r.data),
+    enabled: !!poId,
+  });
+
+  const bills   = data?.data    || [];
+  const summary = data?.summary || {};
+
+  const inrFmt = v => `₹${Math.round(Number(v || 0)).toLocaleString('en-IN')}`;
+  const fmt    = d => d ? dayjs(d).format('DD MMM YY') : '—';
+
+  const STATUS_CLR = {
+    pending: 'bg-amber-100 text-amber-700',
+    stores: 'bg-blue-100 text-blue-700',
+    document_controller: 'bg-cyan-100 text-cyan-700',
+    qs: 'bg-indigo-100 text-indigo-700',
+    accounts: 'bg-purple-100 text-purple-700',
+    procurement: 'bg-orange-100 text-orange-700',
+    paid: 'bg-emerald-100 text-emerald-700',
+  };
+
+  const poTotal = parseFloat(grandTotal || 0);
+  const invoiced = parseFloat(summary.total_invoiced || 0);
+  const pct = poTotal > 0 ? Math.min(100, (invoiced / poTotal) * 100) : 0;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 bg-gradient-to-r from-violet-600 to-violet-700 flex items-center justify-between">
+        <span className="text-xs font-bold text-white uppercase tracking-wider">Bills Against This PO</span>
+        <span className="text-[11px] text-violet-200">{bills.length} invoice{bills.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {isLoading ? (
+        <div className="p-4 text-xs text-slate-400">Loading bills…</div>
+      ) : bills.length === 0 ? (
+        <div className="p-6 text-center">
+          <FileText className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+          <p className="text-xs text-slate-400">No bills linked to this PO yet</p>
+          <p className="text-[10px] text-slate-300 mt-0.5">Bills are linked from the DQS Tracker</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary strip */}
+          <div className="grid grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
+            {[
+              { label: 'Total Invoiced', value: inrFmt(summary.total_invoiced), color: 'text-slate-800' },
+              { label: 'QS Certified',   value: inrFmt(summary.total_certified), color: 'text-indigo-700' },
+              { label: 'Paid',           value: inrFmt(summary.total_paid),      color: 'text-emerald-600' },
+              { label: 'Outstanding',    value: inrFmt(summary.outstanding),     color: summary.outstanding > 0 ? 'text-red-600' : 'text-slate-400' },
+            ].map(s => (
+              <div key={s.label} className="px-3 py-2.5 text-center">
+                <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">{s.label}</p>
+                <p className={`text-xs font-bold ${s.color}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Progress bar — invoiced vs PO value */}
+          {poTotal > 0 && (
+            <div className="px-4 py-2 border-b border-slate-100">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                <span>Invoiced {pct.toFixed(0)}% of PO value</span>
+                <span>{inrFmt(invoiced)} / {inrFmt(poTotal)}</span>
+              </div>
+              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-violet-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          )}
+
+          {/* Bill rows */}
+          <div className="divide-y divide-slate-50">
+            {bills.map(b => (
+              <a key={b.id} href={`/dqs/bills/${b.id}`}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors group">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-700">{b.inv_number || b.sl_number}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${STATUS_CLR[b.workflow_status] || 'bg-slate-100 text-slate-500'}`}>
+                      {(b.workflow_status || 'pending').replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{fmt(b.inv_date)} · {b.vendor_name}</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-xs font-bold text-slate-800">{inrFmt(b.total_amount)}</p>
+                  {parseFloat(b.balance_to_pay) > 0 && (
+                    <p className="text-[10px] text-red-500 font-semibold">Due: {inrFmt(b.balance_to_pay)}</p>
+                  )}
+                  {parseFloat(b.balance_to_pay) === 0 && parseFloat(b.paid_amount) > 0 && (
+                    <p className="text-[10px] text-emerald-500 font-semibold">Paid ✓</p>
+                  )}
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
+              </a>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ─── Detail Slide-over ─── */
 function PODetailPanel({ po, detailedPO, onClose, onApprove, onReject, isApproving, isRejecting, user, onRenumbered }) {
   const [sigModal, setSigModal]       = useState(null);
@@ -911,6 +1018,9 @@ function PODetailPanel({ po, detailedPO, onClose, onApprove, onReject, isApprovi
               <p className="text-sm text-slate-600">{po.notes}</p>
             </div>
           )}
+
+          {/* Bills Against This PO */}
+          <POBillsSection poId={po.id} grandTotal={po.grand_total} />
 
           {/* Action panel */}
           {currentAction && (

@@ -196,6 +196,7 @@ export const poAPI = {
   approve:   (id, stage, data) => api.patch(`/purchase-orders/${id}/${stage}`, data),
   receive:   (id, data)      => api.patch(`/purchase-orders/${id}/receive`, data),
   renumber:  (id, display)   => api.patch(`/purchase-orders/${id}/renumber`, { po_number_display: display }),
+  getBills:  (id)            => api.get(`/purchase-orders/${id}/bills`),
   importPreview: (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/purchase-orders/import/preview', fd, { headers: { 'Content-Type': undefined } }); },
   importConfirm: (data) => api.post('/purchase-orders/import/confirm', data),
 };

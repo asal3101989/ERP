@@ -343,8 +343,47 @@ router.patch('/:id/reject', async (req, res) => {
   }
 });
 
+// GET /purchase-orders/:id/bills — all DQS bills linked to this PO
+// NOTE: declared before /:id/:stage to avoid wildcard clash
+router.get('/:id/bills', async (req, res) => {
+  try {
+    const { rows } = await query(`
+      SELECT
+        b.id,
+        b.sl_number,
+        b.inv_number,
+        b.inv_date,
+        b.vendor_name,
+        b.basic_amount,
+        b.gst_amount,
+        b.total_amount,
+        b.workflow_status,
+        COALESCE(u.certified_net,  0)  AS certified_net,
+        COALESCE(u.paid_amount,    0)  AS paid_amount,
+        COALESCE(u.balance_to_pay, 0)  AS balance_to_pay,
+        u.payment_status
+      FROM dqs_bills b
+      LEFT JOIN dqs_bill_updates u ON u.bill_id = b.id
+      WHERE b.po_id = $1
+        AND b.is_deleted = FALSE
+      ORDER BY b.inv_date ASC NULLS LAST
+    `, [req.params.id]);
+
+    const summary = rows.reduce((s, r) => ({
+      total_invoiced:  s.total_invoiced  + parseFloat(r.total_amount  || 0),
+      total_certified: s.total_certified + parseFloat(r.certified_net || 0),
+      total_paid:      s.total_paid      + parseFloat(r.paid_amount   || 0),
+      outstanding:     s.outstanding     + parseFloat(r.balance_to_pay|| 0),
+    }), { total_invoiced: 0, total_certified: 0, total_paid: 0, outstanding: 0 });
+
+    res.json({ data: rows, summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // PATCH /purchase-orders/:id/renumber — update PO display number
-// NOTE: must be declared BEFORE /:id/:stage to avoid being swallowed by that wildcard
+// NOTE: declared before /:id/:stage to avoid wildcard clash
 router.patch('/:id/renumber', async (req, res) => {
   try {
     const { po_number_display } = req.body;
