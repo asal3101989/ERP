@@ -673,7 +673,17 @@ export default function StoreLedgerPage() {
           </div>
 
           {/* ── Stock Report Table (Excel columns) ─────────────── */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3.5 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Inventory Register</p>
+                <h2 className="text-sm font-black text-slate-900 mt-0.5">Stock position by material</h2>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">{filteredSummary.length} visible</span>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">{inventoryData.length} total</span>
+              </div>
+            </div>
             {invLoading ? (
               <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -683,21 +693,21 @@ export default function StoreLedgerPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-800 text-white">
+                    <tr className="bg-slate-50 border-b border-slate-100">
                       {/* Matches Excel columns exactly */}
-                      <th className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider w-12">SL NO</th>
-                      <th className="px-3 py-3 text-left   text-xs font-bold uppercase tracking-wider">CATEGORY</th>
-                      <th className="px-3 py-3 text-left   text-xs font-bold uppercase tracking-wider">MATERIAL DESCRIPTION</th>
-                      <th className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider w-16">UNIT</th>
-                      <th className="px-3 py-3 text-right  text-xs font-bold uppercase tracking-wider">OPENING STOCK</th>
-                      <th className="px-3 py-3 text-right  text-xs font-bold uppercase tracking-wider">CLOSING STOCK</th>
-                      <th className="px-3 py-3 text-right  text-xs font-bold uppercase tracking-wider">RATE (₹)</th>
-                      <th className="px-3 py-3 text-right  text-xs font-bold uppercase tracking-wider bg-rose-700">TOTAL ISSUED STOCK VALUE</th>
-                      <th className="px-3 py-3 text-right  text-xs font-bold uppercase tracking-wider bg-slate-700">OPENING STOCK VALUE TOTAL</th>
-                      <th className="px-3 py-3 text-right  text-xs font-bold uppercase tracking-wider bg-indigo-700">CLOSING STOCK VALUE TOTAL</th>
-                      <th className="px-3 py-3 text-right  text-xs font-bold uppercase tracking-wider bg-amber-700">GST @18%</th>
-                      <th className="px-3 py-3 text-right  text-xs font-bold uppercase tracking-wider bg-emerald-700">GRAND TOTAL</th>
-                      <th className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider w-10"></th>
+                      <th className="px-3 py-3 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest w-12">SL NO</th>
+                      <th className="px-3 py-3 text-left   text-[10px] font-black text-slate-500 uppercase tracking-widest">CATEGORY</th>
+                      <th className="px-3 py-3 text-left   text-[10px] font-black text-slate-500 uppercase tracking-widest">MATERIAL DESCRIPTION</th>
+                      <th className="px-3 py-3 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest w-16">UNIT</th>
+                      <th className="px-3 py-3 text-right  text-[10px] font-black text-slate-500 uppercase tracking-widest">OPENING STOCK</th>
+                      <th className="px-3 py-3 text-right  text-[10px] font-black text-slate-500 uppercase tracking-widest">CLOSING STOCK</th>
+                      <th className="px-3 py-3 text-right  text-[10px] font-black text-slate-500 uppercase tracking-widest">RATE (₹)</th>
+                      <th className="px-3 py-3 text-right  text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100">TOTAL ISSUED STOCK VALUE</th>
+                      <th className="px-3 py-3 text-right  text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100">OPENING STOCK VALUE TOTAL</th>
+                      <th className="px-3 py-3 text-right  text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100">CLOSING STOCK VALUE TOTAL</th>
+                      <th className="px-3 py-3 text-right  text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100">GST @18%</th>
+                      <th className="px-3 py-3 text-right  text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100">GRAND TOTAL</th>
+                      <th className="px-3 py-3 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest w-10"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -799,14 +809,14 @@ export default function StoreLedgerPage() {
                   {/* ── Totals footer ─────────────────────────────── */}
                   {filteredSummary.length > 0 && (
                     <tfoot>
-                      <tr className="bg-slate-800 text-white font-bold text-xs">
+                      <tr className="bg-slate-50 border-t border-slate-200 font-bold text-xs text-slate-600">
                         <td colSpan={7} className="px-3 py-3 text-right uppercase tracking-wide">TOTALS</td>
-                        <td className="px-3 py-3 text-right font-mono bg-rose-900">₹{inr(totalIssuedValue)}</td>
-                        <td className="px-3 py-3 text-right font-mono bg-slate-700">₹{inr(totalOpeningValue)}</td>
-                        <td className="px-3 py-3 text-right font-mono bg-indigo-900">₹{inr(totalClosingValue)}</td>
-                        <td className="px-3 py-3 text-right font-mono bg-amber-900">₹{inr(totalGST)}</td>
-                        <td className="px-3 py-3 text-right font-mono bg-emerald-900">₹{inr(totalGrandTotal)}</td>
-                        <td className="bg-slate-800" />
+                        <td className="px-3 py-3 text-right font-mono text-rose-700 bg-rose-50">₹{inr(totalIssuedValue)}</td>
+                        <td className="px-3 py-3 text-right font-mono bg-slate-100">₹{inr(totalOpeningValue)}</td>
+                        <td className="px-3 py-3 text-right font-mono text-indigo-700 bg-indigo-50">₹{inr(totalClosingValue)}</td>
+                        <td className="px-3 py-3 text-right font-mono text-amber-700 bg-amber-50">₹{inr(totalGST)}</td>
+                        <td className="px-3 py-3 text-right font-mono text-emerald-700 bg-emerald-50">₹{inr(totalGrandTotal)}</td>
+                        <td className="bg-slate-50" />
                       </tr>
                     </tfoot>
                   )}
@@ -911,15 +921,15 @@ export default function StoreLedgerPage() {
 
           {/* Monthly Register table */}
           {movTab === 'register' && (
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-800 text-white">
+                    <tr className="bg-slate-50 border-b border-slate-100">
                       {['#','Material','Unit','Opening','Received','+Total','Issued','Closing','Receive vs Issue'].map((h, i) => (
-                        <th key={h} className={clsx('px-3 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap',
+                        <th key={h} className={clsx('px-3 py-3 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap',
                           i >= 3 ? 'text-right' : 'text-left',
-                          i === 5 && 'bg-emerald-700', i === 7 && 'bg-indigo-700'
+                          (i === 5 || i === 7) && 'bg-slate-100'
                         )}>{h}</th>
                       ))}
                     </tr>
@@ -983,13 +993,13 @@ export default function StoreLedgerPage() {
                   </tbody>
                   {!movLoading && movFiltered.length > 0 && (
                     <tfoot>
-                      <tr className="bg-slate-800 text-white text-xs font-bold">
+                      <tr className="bg-slate-50 border-t border-slate-200 text-xs font-bold text-slate-600">
                         <td colSpan={3} className="px-3 py-2.5 uppercase tracking-wide">Totals ({movFiltered.length} items)</td>
                         <td className="px-3 py-2.5 text-right font-mono">{movFiltered.reduce((s,r) => s + parseFloat(r.opening_stock||0), 0).toFixed(2)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono text-emerald-300">+{movFiltered.reduce((s,r) => s + parseFloat(r.received_qty||0), 0).toFixed(2)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono bg-emerald-800">{movFiltered.reduce((s,r) => s + parseFloat(r.total_qty||0), 0).toFixed(2)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono text-emerald-600">+{movFiltered.reduce((s,r) => s + parseFloat(r.received_qty||0), 0).toFixed(2)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono bg-emerald-50">{movFiltered.reduce((s,r) => s + parseFloat(r.total_qty||0), 0).toFixed(2)}</td>
                         <td className="px-3 py-2.5 text-right font-mono text-rose-300">−{movFiltered.reduce((s,r) => s + parseFloat(r.issued_qty||0), 0).toFixed(2)}</td>
-                        <td className="px-3 py-2.5 text-right font-mono bg-indigo-800">{movFiltered.reduce((s,r) => s + parseFloat(r.closing_stock||0), 0).toFixed(2)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono bg-indigo-50">{movFiltered.reduce((s,r) => s + parseFloat(r.closing_stock||0), 0).toFixed(2)}</td>
                         <td />
                       </tr>
                     </tfoot>
@@ -1001,13 +1011,13 @@ export default function StoreLedgerPage() {
 
           {/* Valuation table */}
           {movTab === 'valuation' && (
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-800 text-white">
+                    <tr className="bg-slate-50 border-b border-slate-100">
                       {['#','Material Description','Unit','Closing Stock','Rate (₹)','Stock Value (₹)'].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap">{h}</th>
+                        <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1065,12 +1075,12 @@ export default function StoreLedgerPage() {
                   </p>
                 </div>
               )}
-              <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-800 text-white">
+                    <tr className="bg-slate-50 border-b border-slate-100">
                       {['Material','Category','Unit','Opening Stock','Closing Stock','Last Issued'].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider">{h}</th>
+                        <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">{h}</th>
                       ))}
                     </tr>
                   </thead>

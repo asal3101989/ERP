@@ -156,16 +156,26 @@ export default function IssuePage() {
       {isLoading ? (
         <div className="space-y-2">{[1,2,3,4].map(n => <div key={n} className="h-16 bg-slate-200 animate-pulse rounded-xl" />)}</div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Issue Register</p>
+              <h2 className="text-sm font-black text-slate-900 mt-0.5">Material issue control list</h2>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+              <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">{minList.length} visible</span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">{allMINs.length} total</span>
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">MIN Document</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Work Activity</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Recipient</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-5 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">MIN Document</th>
+                  <th className="px-5 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Work Activity</th>
+                  <th className="px-5 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Recipient</th>
+                  <th className="px-5 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
+                  <th className="px-5 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -229,8 +239,10 @@ export default function IssuePage() {
                 {minList.length === 0 && (
                   <tr>
                     <td colSpan={5} className="py-16 text-center">
-                      <Box className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-                      <p className="text-sm font-medium text-slate-400">
+                      <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mb-3">
+                        <Box className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <p className="text-sm font-black text-slate-700">
                         {search || statusFilter !== 'all' ? 'No results match your filters' : 'No material issue notes yet'}
                       </p>
                       {(search || statusFilter !== 'all') && (

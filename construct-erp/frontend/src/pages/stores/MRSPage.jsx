@@ -308,13 +308,23 @@ export default function MRSPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-4 py-3.5 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Request Register</p>
+            <h2 className="text-sm font-black text-slate-900 mt-0.5">Material requisition control list</h2>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+            <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">{filtered.length} visible</span>
+            <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">{allMRS.length} total</span>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 {['MRS Serial No', 'Project', 'Department', 'Required By', 'Priority', 'Status', 'Raised By', 'Date', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -360,9 +370,17 @@ export default function MRSPage() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={9} className="py-16 text-center">
-                    <Package className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-slate-400">No requisitions found</p>
-                    <p className="text-xs text-slate-300 mt-1">Adjust your filters or create a new requisition</p>
+                    <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mb-3">
+                      <Package className="w-5 h-5 text-slate-400" />
+                    </div>
+                    <p className="text-sm font-black text-slate-700">No requisitions found</p>
+                    <p className="text-xs text-slate-400 mt-1">Adjust your filters or create a new requisition</p>
+                    <button
+                      onClick={() => setShowForm(true)}
+                      className="mt-4 inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-700 transition"
+                    >
+                      <Plus size={13} /> New Requisition
+                    </button>
                   </td>
                 </tr>
               )}
