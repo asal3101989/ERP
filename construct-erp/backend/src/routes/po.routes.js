@@ -233,8 +233,11 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const {
-      project_id, vendor_id, po_date, delivery_date, status,
-      terms_conditions, notes, bank_details, items, mrs_id
+      project_id, vendor_id, po_date, delivery_date,
+      po_ref_no, po_req_no, approval_no, delivery_address,
+      narration, terms_conditions, notes, bank_details,
+      cgst_rate, sgst_rate, igst_rate, gst_inclusive,
+      items
     } = req.body;
 
     if (!project_id || !vendor_id || !items?.length) {
@@ -253,10 +256,19 @@ router.post('/', async (req, res) => {
       const headerRes = await client.query(
         `INSERT INTO purchase_orders (
           project_id, vendor_id, po_number, po_date, delivery_date,
-          terms_conditions, notes, bank_details,
+          po_ref_no, po_req_no, approval_no, delivery_address,
+          narration, terms_conditions, notes, bank_details,
+          cgst_rate, sgst_rate, igst_rate, gst_inclusive,
           status, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-        [project_id, vendor_id, po_number, po_date || null, delivery_date || null, terms_conditions || null, notes || null, bank_details || null, 'pending', req.user.id]
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+        [
+          project_id, vendor_id, po_number, po_date || null, delivery_date || null,
+          po_ref_no || null, po_req_no || null, approval_no || null, delivery_address || null,
+          narration || null, terms_conditions || null, notes || null, bank_details || null,
+          parseFloat(cgst_rate) || 9, parseFloat(sgst_rate) || 9, parseFloat(igst_rate) || 0,
+          gst_inclusive === true || gst_inclusive === 'true',
+          'pending', req.user.id
+        ]
       );
       const poId = headerRes.rows[0].id;
 
@@ -267,12 +279,17 @@ router.post('/', async (req, res) => {
         const item = items[i];
         const basic = parseFloat(item.quantity) * parseFloat(item.rate);
         const gst   = basic * (parseFloat(item.gst_rate || 0) / 100);
-        
+
         await client.query(
           `INSERT INTO po_items (
-            po_id, material_name, hsn_code, quantity, unit, rate, gst_rate, sort_order
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [poId, item.material_name, item.hsn_code || null, item.quantity, item.unit, item.rate, item.gst_rate || 0, i + 1]
+            po_id, material_name, mix_design, hsn_code,
+            quantity, unit, rate, gst_rate, req_date, sort_order
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [
+            poId, item.material_name, item.mix_design || null, item.hsn_code || null,
+            item.quantity, item.unit, item.rate, item.gst_rate || 0,
+            item.req_date || null, i + 1
+          ]
         );
         subTotal += basic;
         totalGst += gst;
@@ -280,14 +297,15 @@ router.post('/', async (req, res) => {
 
       // 4. Update Header with totals & formatted serial
       const projRes = await client.query('SELECT project_code FROM projects WHERE id = $1', [project_id]);
-      const pCode = projRes.rows[0].project_code || 'PRJ';
+      const pCode = projRes.rows[0]?.project_code || 'PRJ';
       const serial_no_formatted = `BCIM-${pCode}-PO-${seq}`;
+      const grandTotal = gst_inclusive ? subTotal : subTotal + totalGst;
 
       const finalRes = await client.query(
-        `UPDATE purchase_orders 
+        `UPDATE purchase_orders
          SET sub_total = $1, total_gst = $2, grand_total = $3, serial_no_formatted = $4
          WHERE id = $5 RETURNING *`,
-        [subTotal, totalGst, subTotal + totalGst, serial_no_formatted, poId]
+        [subTotal, totalGst, grandTotal, serial_no_formatted, poId]
       );
 
       return finalRes.rows[0];

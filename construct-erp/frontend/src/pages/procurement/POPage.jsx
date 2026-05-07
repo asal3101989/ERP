@@ -150,84 +150,97 @@ function Field({ label, children }) {
 const INP = 'w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all';
 
 /* ─── New PO Modal ─── */
+const EMPTY_ITEM = { material_name:'', mix_design:'', hsn_code:'', unit:'Cum', quantity:'', rate:'', gst_rate:'18', req_date:'' };
+const TC_DEFAULT = `1. All Bills and DCs should contain the Reference of the Concerned PO.
+2. All materials supplied will be subject to inspections & test when received at our site.
+3. Final Bill shall be cleared after Certification by the Concerned Engg & on actual measurements taken at Site.
+4. If any Goods damaged or rejected must be replaced immediately at the suppliers own expenses.
+5. Payment: 30 Days from the date of supply.
+6. Lead Time: As per site requirement.
+7. Bill Requirement: Bill must carry PO number, GST number, HSN Code, Bill number, LUT details, Transporter challan.
+8. Quantity Certification: Quantity mentioned in the Order may be approximate; actual & mutually certified measurement will be accounted for payment.
+9. Price Escalation: Price is absolute frozen for this Order. No escalation will be entertained.
+10. TDS as applicable under Income Tax Laws shall be deducted at applicable rates.`;
+
 function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }) {
   const [form, setForm] = useState({
-    vendor_id:        prefill?.vendor_id    || '',
-    project_id:       prefill?.project_id   || '',
-    po_date:          prefill?.po_date      || dayjs().format('YYYY-MM-DD'),
+    vendor_id:        prefill?.vendor_id        || '',
+    project_id:       prefill?.project_id       || '',
+    po_date:          prefill?.po_date          || dayjs().format('YYYY-MM-DD'),
     delivery_date:    '',
-    notes:            prefill?.notes        || (prefill?.mrs_ref ? `Ref: CS / ${prefill.mrs_ref}` : ''),
-    terms_conditions: prefill?.terms_conditions || '',
-    narration:        prefill?.narration    || '',
-    po_ref:           prefill?.po_ref       || '',
+    po_ref_no:        prefill?.po_ref           || '',
+    po_req_no:        prefill?.po_req_no        || '',
+    approval_no:      '',
+    delivery_address: prefill?.delivery_address || '',
+    narration:        prefill?.narration        || '',
+    cgst_rate:        prefill?.cgst_rate        || '9',
+    sgst_rate:        prefill?.sgst_rate        || '9',
+    igst_rate:        '0',
+    gst_inclusive:    prefill?.gst_inclusive    ?? true,
+    terms_conditions: prefill?.terms_conditions || TC_DEFAULT,
+    notes:            prefill?.notes            || (prefill?.mrs_ref ? `Ref: CS / ${prefill.mrs_ref}` : ''),
   });
   const [items, setItems] = useState(
-    prefill?.items?.length
-      ? prefill.items
-      : [{ material_name: '', quantity: '', unit: 'Nos', rate: '', gst_rate: '18', hsn_code: '' }]
+    prefill?.items?.length ? prefill.items : [{ ...EMPTY_ITEM }]
   );
 
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const set     = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const setItem = (i, k, v) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [k]: v } : it));
-  const addItem = () => setItems(p => [...p, { material_name: '', quantity: '', unit: 'Nos', rate: '', gst_rate: '18', hsn_code: '' }]);
+  const addItem = () => setItems(p => [...p, { ...EMPTY_ITEM }]);
   const removeItem = i => setItems(p => p.filter((_, idx) => idx !== i));
 
-  const subTotal = items.reduce((s, it) => s + (parseFloat(it.quantity)||0)*(parseFloat(it.rate)||0), 0);
-  const totalGST = items.reduce((s, it) => s + (parseFloat(it.quantity)||0)*(parseFloat(it.rate)||0)*(parseFloat(it.gst_rate)||0)/100, 0);
+  const subTotal  = items.reduce((s, it) => s + (parseFloat(it.quantity)||0)*(parseFloat(it.rate)||0), 0);
+  const cgstAmt   = form.gst_inclusive ? 0 : subTotal * (parseFloat(form.cgst_rate)||0) / 100;
+  const sgstAmt   = form.gst_inclusive ? 0 : subTotal * (parseFloat(form.sgst_rate)||0) / 100;
+  const igstAmt   = form.gst_inclusive ? 0 : subTotal * (parseFloat(form.igst_rate)||0) / 100;
+  const grandTotal = subTotal + cgstAmt + sgstAmt + igstAmt;
 
   const handleSubmit = () => {
     if (!form.vendor_id)  return toast.error('Select a vendor');
     if (!form.project_id) return toast.error('Select a project');
     if (items.some(it => !it.material_name?.trim() || !it.quantity || !it.rate))
       return toast.error('All items need description, quantity and rate');
-    const notesAll = [form.narration, form.notes].filter(Boolean).join('\n');
-    onCreate({
-      ...form,
-      delivery_date:    form.delivery_date    || null,
-      notes:            notesAll              || null,
-      terms_conditions: form.terms_conditions || null,
-      items,
-      mrs_id: prefill?.mrs_id || null,
-    });
+    onCreate({ ...form, delivery_date: form.delivery_date || null, items });
   };
+
+  const TA = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all resize-none';
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white border border-slate-200 w-full max-w-4xl rounded-2xl flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
+      <div className="bg-white border border-slate-200 w-full max-w-5xl rounded-2xl flex flex-col max-h-[95vh] shadow-2xl overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0 bg-gradient-to-r from-amber-50 to-white">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
               <ShoppingCart className="w-4 h-4 text-amber-600" />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-900">Create Purchase Order</p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {prefill?.mrs_ref
-                  ? `Pre-filled from CS — ${prefill.mrs_ref} · ${prefill.vendor_name}`
-                  : '4-stage authorization workflow'}
+              <p className="text-sm font-bold text-slate-900">
+                {form.po_ref_no ? `Purchase Order — ${form.po_ref_no}` : 'Create Purchase Order'}
               </p>
+              <p className="text-xs text-slate-400 mt-0.5">BCIM-PUR-F-03 · 4-stage authorization workflow</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:border-slate-300 transition-all">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-all">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* CS banner */}
           {prefill?.mrs_ref && (
             <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
-              <ShoppingCart className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-              <span><strong>Pre-filled from approved CS</strong> — rates and quantities pulled from comparative statement. Review before submitting.</span>
+              <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span><strong>Pre-filled from CS</strong> — {prefill.mrs_ref} · {prefill.vendor_name}</span>
             </div>
           )}
 
-          {/* PO Details */}
-          <div className="border border-slate-200 rounded-xl p-5">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">PO Details</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {/* ── SECTION 1: PO HEADER ── */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
+              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Purchase Order Details</h3>
+            </div>
+            <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
               <Field label="Vendor *">
                 <select className={INP} value={form.vendor_id} onChange={e => set('vendor_id', e.target.value)}>
                   <option value="">Select vendor…</option>
@@ -240,107 +253,181 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </Field>
+              <Field label="PO No (Ref)">
+                <input className={INP} placeholder="e.g. POTQS001-A3" value={form.po_ref_no} onChange={e => set('po_ref_no', e.target.value)} />
+              </Field>
               <Field label="PO Date *">
                 <input type="date" className={INP} value={form.po_date} onChange={e => set('po_date', e.target.value)} />
               </Field>
-              <Field label="PDF / Ref PO No">
-                <input className={INP} placeholder="e.g. POTQS001-A3" value={form.po_ref} onChange={e => set('po_ref', e.target.value)} />
+              <Field label="PO Req No">
+                <input className={INP} placeholder="e.g. Mail / MR-018" value={form.po_req_no} onChange={e => set('po_req_no', e.target.value)} />
+              </Field>
+              <Field label="Approval No">
+                <input className={INP} placeholder="Approval reference" value={form.approval_no} onChange={e => set('approval_no', e.target.value)} />
               </Field>
               <Field label="Expected Delivery">
                 <input type="date" className={INP} value={form.delivery_date} onChange={e => set('delivery_date', e.target.value)} />
               </Field>
             </div>
+          </div>
 
-            {/* Narration */}
-            <div className="mt-4">
-              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Narration / Scope of Work</label>
-              <input className={INP} placeholder="e.g. Concrete for TQS Retaining wall work, Security cabin & Compound Wall work"
-                value={form.narration} onChange={e => set('narration', e.target.value)} />
+          {/* ── SECTION 2: DELIVERY ADDRESS ── */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
+              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Delivery Address</h3>
             </div>
-
-            {/* Terms & Conditions */}
-            <div className="mt-4">
-              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Terms &amp; Conditions</label>
-              <textarea
-                rows={6}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all resize-none"
-                placeholder="1. All Bills and DCs should contain PO reference&#10;2. Payment: 30 days from date of supply&#10;3. ..."
-                value={form.terms_conditions}
-                onChange={e => set('terms_conditions', e.target.value)}
-              />
-            </div>
-
-            {/* Notes */}
-            <div className="mt-4">
-              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Notes / Special Instructions</label>
-              <textarea
-                rows={2}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all resize-none"
-                placeholder="Additional notes, bank details, packing instructions…"
-                value={form.notes}
-                onChange={e => set('notes', e.target.value)}
-              />
+            <div className="p-4">
+              <textarea rows={3} className={TA}
+                placeholder="YNT 63, Survey No. 5/3 & 6/1, Mandalakunte Village, Chikkabommasandra, Yelahanka Hobli, Near Mother Dairy, Bangalore 560065&#10;Contact Person: Mr. Ananthan 73036 75533"
+                value={form.delivery_address} onChange={e => set('delivery_address', e.target.value)} />
             </div>
           </div>
 
-          {/* Line Items */}
-          <div className="border border-slate-200 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Line Items</h3>
+          {/* ── SECTION 3: LINE ITEMS ── */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Line Items</h3>
               <button onClick={addItem} className="flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-colors">
                 <Plus className="w-3 h-3" /> Add Row
               </button>
             </div>
-            <div className="grid gap-1.5 mb-2" style={{ gridTemplateColumns: '2fr 80px 70px 100px 90px 70px 32px' }}>
-              {['Description', 'HSN', 'Unit', 'Qty', 'Rate (₹)', 'GST%', ''].map(h => (
-                <div key={h} className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">{h}</div>
-              ))}
-            </div>
-            <div className="space-y-2">
-              {items.map((it, i) => (
-                <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: '2fr 80px 70px 100px 90px 70px 32px' }}>
-                  <input className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm outline-none focus:border-indigo-400 transition-all"
-                    placeholder="Material description" value={it.material_name} onChange={e => setItem(i, 'material_name', e.target.value)} />
-                  <input className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm outline-none focus:border-indigo-400 transition-all"
-                    placeholder="HSN" value={it.hsn_code} onChange={e => setItem(i, 'hsn_code', e.target.value)} />
-                  <select className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm outline-none focus:border-indigo-400 transition-all"
-                    value={it.unit} onChange={e => setItem(i, 'unit', e.target.value)}>
-                    {UNITS.map(u => <option key={u}>{u}</option>)}
-                  </select>
-                  <input type="number" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-right outline-none focus:border-indigo-400 transition-all"
-                    placeholder="0" value={it.quantity} onChange={e => setItem(i, 'quantity', e.target.value)} />
-                  <input type="number" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-right outline-none focus:border-indigo-400 transition-all"
-                    placeholder="0.00" value={it.rate} onChange={e => setItem(i, 'rate', e.target.value)} />
-                  <input type="number" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-center outline-none focus:border-indigo-400 transition-all"
-                    value={it.gst_rate} onChange={e => setItem(i, 'gst_rate', e.target.value)} />
-                  <button onClick={() => removeItem(i)} disabled={items.length === 1}
-                    className="w-8 h-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+            <div className="p-4 overflow-x-auto">
+              {/* Column headers */}
+              <div className="grid gap-2 mb-2 min-w-[900px]"
+                style={{ gridTemplateColumns: '32px 2fr 1.5fr 70px 70px 90px 90px 80px 70px 32px' }}>
+                {['#', 'Description', 'Mix Design', 'Unit', 'HSN', 'Qty', 'Rate (₹)', 'Req Date', 'GST%', ''].map(h => (
+                  <div key={h} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">{h}</div>
+                ))}
+              </div>
+              {/* Rows */}
+              <div className="space-y-2 min-w-[900px]">
+                {items.map((it, i) => (
+                  <div key={i} className="grid gap-2 items-center"
+                    style={{ gridTemplateColumns: '32px 2fr 1.5fr 70px 70px 90px 90px 80px 70px 32px' }}>
+                    <div className="text-xs text-slate-400 text-center">{i + 1}</div>
+                    <input className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm outline-none focus:border-indigo-400 transition-all"
+                      placeholder="M30 Grade Concrete" value={it.material_name} onChange={e => setItem(i, 'material_name', e.target.value)} />
+                    <input className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm outline-none focus:border-indigo-400 transition-all"
+                      placeholder="280 Kgs Cement + 70 Kgs GGBS" value={it.mix_design||''} onChange={e => setItem(i, 'mix_design', e.target.value)} />
+                    <select className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-1 text-sm outline-none focus:border-indigo-400 transition-all"
+                      value={it.unit} onChange={e => setItem(i, 'unit', e.target.value)}>
+                      {UNITS.map(u => <option key={u}>{u}</option>)}
+                    </select>
+                    <input className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs outline-none focus:border-indigo-400 transition-all"
+                      placeholder="HSN" value={it.hsn_code||''} onChange={e => setItem(i, 'hsn_code', e.target.value)} />
+                    <input type="number" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-right outline-none focus:border-indigo-400 transition-all"
+                      placeholder="0" value={it.quantity} onChange={e => setItem(i, 'quantity', e.target.value)} />
+                    <input type="number" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-right outline-none focus:border-indigo-400 transition-all"
+                      placeholder="0.00" value={it.rate} onChange={e => setItem(i, 'rate', e.target.value)} />
+                    <input type="date" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-1 text-xs outline-none focus:border-indigo-400 transition-all"
+                      value={it.req_date||''} onChange={e => setItem(i, 'req_date', e.target.value)} />
+                    <input type="number" className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-center outline-none focus:border-indigo-400 transition-all"
+                      value={it.gst_rate} onChange={e => setItem(i, 'gst_rate', e.target.value)} />
+                    <button onClick={() => removeItem(i)} disabled={items.length === 1}
+                      className="w-8 h-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 disabled:opacity-30 transition-all">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Totals */}
-            <div className="flex justify-end mt-4">
-              <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 min-w-[220px] space-y-2">
+            {/* ── Totals + GST ── */}
+            <div className="border-t border-slate-200 p-4 flex flex-col md:flex-row gap-4 items-start justify-between bg-slate-50/50">
+              {/* GST Settings */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">GST Settings</p>
+                <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                  <input type="checkbox" checked={form.gst_inclusive} onChange={e => set('gst_inclusive', e.target.checked)}
+                    className="rounded border-slate-300 text-indigo-600" />
+                  GST Inclusive in rate (as in PDF)
+                </label>
+                <div className="flex gap-2">
+                  <div>
+                    <p className="text-[10px] text-slate-400 mb-1">CGST %</p>
+                    <input type="number" className="w-16 h-8 bg-white border border-slate-200 rounded-lg px-2 text-xs text-center outline-none focus:border-indigo-400"
+                      value={form.cgst_rate} onChange={e => set('cgst_rate', e.target.value)} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 mb-1">SGST %</p>
+                    <input type="number" className="w-16 h-8 bg-white border border-slate-200 rounded-lg px-2 text-xs text-center outline-none focus:border-indigo-400"
+                      value={form.sgst_rate} onChange={e => set('sgst_rate', e.target.value)} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 mb-1">IGST %</p>
+                    <input type="number" className="w-16 h-8 bg-white border border-slate-200 rounded-lg px-2 text-xs text-center outline-none focus:border-indigo-400"
+                      value={form.igst_rate} onChange={e => set('igst_rate', e.target.value)} />
+                  </div>
+                </div>
+              </div>
+              {/* Totals */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4 min-w-[230px] space-y-2">
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>Sub Total</span><span className="font-semibold text-slate-800">{inr(subTotal)}</span>
                 </div>
-                <div className="flex justify-between text-xs text-slate-500">
-                  <span>GST</span><span className="font-semibold text-amber-600">{inr(totalGST)}</span>
-                </div>
+                {!form.gst_inclusive ? (<>
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>CGST @ {form.cgst_rate}%</span><span>{inr(cgstAmt)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>SGST @ {form.sgst_rate}%</span><span>{inr(sgstAmt)}</span>
+                  </div>
+                  {parseFloat(form.igst_rate) > 0 && (
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>IGST @ {form.igst_rate}%</span><span>{inr(igstAmt)}</span>
+                    </div>
+                  )}
+                </>) : (
+                  <div className="flex justify-between text-xs text-emerald-600">
+                    <span>CGST {form.cgst_rate}% + SGST {form.sgst_rate}%</span><span>Inclusive</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm font-bold text-slate-800 border-t border-slate-200 pt-2">
-                  <span>Grand Total</span><span className="text-indigo-700">{inr(subTotal + totalGST)}</span>
+                  <span>Grand Total</span><span className="text-indigo-700">{inr(grandTotal)}</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* ── SECTION 4: NARRATION ── */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
+              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Narration</h3>
+            </div>
+            <div className="p-4">
+              <textarea rows={2} className={TA}
+                placeholder="e.g. Concrete for TQS Retaining wall work, Security cabin & Compound Wall work"
+                value={form.narration} onChange={e => set('narration', e.target.value)} />
+            </div>
+          </div>
+
+          {/* ── SECTION 5: TERMS & CONDITIONS ── */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
+              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Terms &amp; Conditions</h3>
+            </div>
+            <div className="p-4">
+              <textarea rows={8} className={TA}
+                value={form.terms_conditions} onChange={e => set('terms_conditions', e.target.value)} />
+            </div>
+          </div>
+
+          {/* ── SECTION 6: SPECIAL NOTES ── */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
+              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Special Notes / Bank Details</h3>
+            </div>
+            <div className="p-4">
+              <textarea rows={2} className={TA}
+                placeholder="Additional instructions, bank details, packing notes…"
+                value={form.notes} onChange={e => set('notes', e.target.value)} />
             </div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 flex-shrink-0">
-          <span className="text-xs text-slate-400">{items.filter(it => it.material_name && it.quantity).length} item(s) ready</span>
+          <span className="text-xs text-slate-400">{items.filter(it => it.material_name && it.quantity).length} item(s) · Grand Total: <strong>{inr(grandTotal)}</strong></span>
           <div className="flex items-center gap-2">
             <button onClick={onClose} className="px-5 h-9 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-white transition-all">Cancel</button>
             <button onClick={handleSubmit} disabled={isPending}
