@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { dqsBillsAPI, projectAPI, dqsVendorsAPI, poAPI, inventoryAPI } from '../../api/client';
+import { dqsBillsAPI, projectAPI, vendorAPI, poAPI, inventoryAPI } from '../../api/client';
 import toast from 'react-hot-toast';
 import { FileText, Plus, Search, ChevronRight, X, ChevronUp, ChevronDown, Pencil, Trash2, AlertTriangle, Upload } from 'lucide-react';
 
@@ -76,8 +76,8 @@ function NewBillModal({ onClose, projects, defaultProjectId }) {
   const [showVendorList, setShowVendorList] = useState(false);
 
   const { data: vendors = [] } = useQuery({
-    queryKey: ['dqs-vendors'],
-    queryFn: () => dqsVendorsAPI.list().then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])),
+    queryKey: ['vendors'],
+    queryFn: () => vendorAPI.list().then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])),
     staleTime: 60000,
   });
 
