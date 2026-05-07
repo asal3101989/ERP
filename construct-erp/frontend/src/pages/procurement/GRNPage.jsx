@@ -287,9 +287,9 @@ export default function GRNPage() {
 
       {/* Detail Modal */}
       {selectedGRN && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
-           <div className="bg-white border border-slate-200 rounded-[3.5rem] w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-              <div className="flex items-center justify-between p-8 bg-slate-50 border-b border-slate-100 shrink-0">
+        <div className="fixed inset-0 z-50 bg-[#f4f6f9]">
+           <div className="bg-white border border-slate-200 w-full h-full flex flex-col overflow-hidden shadow-sm">
+              <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 shrink-0">
                  <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center shadow-sm"><Truck className="w-6 h-6 text-blue-600" /></div>
                     <div>
@@ -313,7 +313,8 @@ export default function GRNPage() {
                  </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-10 space-y-8 scrollbar-thin scrollbar-thumb-slate-200">
+              <div className="flex-1 overflow-y-auto p-6 bg-[#f4f6f9] scrollbar-thin scrollbar-thumb-slate-200">
+                 <div className="max-w-7xl mx-auto space-y-8">
                  
                  {/* Logistics Metadata */}
                  <div className="grid grid-cols-4 gap-5">
@@ -436,7 +437,7 @@ export default function GRNPage() {
                        </button>
                     </div>
                  )}
-              </div>
+                 </div>
 
               {/* Native Print - Invisible on Screen */}
               <div className="grn-print-zone">
@@ -462,9 +463,9 @@ export default function GRNPage() {
 
       {/* Inwarding Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
-          <div className="bg-white border border-slate-200 rounded-[3.5rem] w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-             <div className="flex items-center justify-between p-8 bg-slate-50 border-b border-slate-100 shrink-0">
+        <div className="fixed inset-0 z-[60] bg-[#f4f6f9]">
+          <div className="bg-white border border-slate-200 w-full h-full flex flex-col overflow-hidden shadow-sm">
+             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 shrink-0">
                 <div className="flex items-center gap-4">
                    <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center shadow-sm"><Plus className="w-6 h-6 text-blue-600" /></div>
                    <div>
@@ -475,7 +476,8 @@ export default function GRNPage() {
                 <button onClick={() => setShowForm(false)} className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all shadow-sm"><X className="w-6 h-6" /></button>
              </div>
 
-             <div className="flex-1 overflow-y-auto p-10 space-y-8 scrollbar-thin scrollbar-thumb-slate-200">
+             <div className="flex-1 overflow-y-auto p-6 bg-[#f4f6f9] scrollbar-thin scrollbar-thumb-slate-200">
+                <div className="max-w-7xl mx-auto space-y-8">
                 {/* PO Reconciliation */}
                 <div className="bg-white border-2 border-slate-200 border-dashed p-8 rounded-[2.5rem]">
                    <div className="flex items-center justify-between mb-5">
@@ -579,6 +581,7 @@ export default function GRNPage() {
                         </div>
                       ))}
                    </div>
+                </div>
                 </div>
              </div>
 

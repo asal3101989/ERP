@@ -88,17 +88,16 @@ function ImportModal({ projects, onClose, onDone }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="bg-slate-900 px-6 py-4 flex items-center justify-between flex-shrink-0">
+    <div className="fixed inset-0 z-50 bg-[#f4f6f9]">
+      <div className="relative bg-white shadow-sm w-full h-full flex flex-col overflow-hidden">
+        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
           <div>
-            <h2 className="text-lg font-black text-white flex items-center gap-2">
-              <FileSpreadsheet size={18} className="text-emerald-400" /> Import Stock from Excel
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <FileSpreadsheet size={18} className="text-emerald-500" /> Import Stock from Excel
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Columns: Category · Material Description · Unit · Opening Stock · Closing Stock · Rate</p>
+            <p className="text-xs text-slate-500 mt-0.5">Columns: Category · Material Description · Unit · Opening Stock · Closing Stock · Rate</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition"><X size={20} /></button>
+          <button onClick={onClose} className="w-9 h-9 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition flex items-center justify-center"><X size={20} /></button>
         </div>
         <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2 flex-shrink-0">
           {[['1','Upload File'],['2','Preview'],['3','Done']].map(([n, label], i) => (
@@ -113,7 +112,8 @@ function ImportModal({ projects, onClose, onDone }) {
             </React.Fragment>
           ))}
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-[#f4f6f9]">
+          <div className="max-w-7xl mx-auto">
           {step === 1 && (
             <div className="p-8 space-y-6">
               <div onClick={() => fileRef.current?.click()}
@@ -238,6 +238,7 @@ function ImportModal({ projects, onClose, onDone }) {
               <button onClick={onClose} className="bg-slate-900 text-white font-bold px-8 py-2.5 rounded-xl hover:bg-slate-800 transition">Close</button>
             </div>
           )}
+          </div>
         </div>
         {step === 2 && (
           <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between flex-shrink-0">
@@ -269,18 +270,19 @@ function IssueModal({ item, onClose }) {
   });
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="bg-slate-900 px-6 py-4 flex items-center justify-between">
+    <div className="fixed inset-0 bg-[#f4f6f9] z-50">
+      <div className="bg-white w-full h-full shadow-sm overflow-hidden flex flex-col">
+        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-base font-black text-white flex items-center gap-2">
-              <ArrowUpDown size={16} className="text-emerald-400" /> Issue Material
+            <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+              <ArrowUpDown size={16} className="text-emerald-500" /> Issue Material
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">{item.material_name}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{item.material_name}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition"><X size={18} /></button>
+          <button onClick={onClose} className="w-9 h-9 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition flex items-center justify-center"><X size={18} /></button>
         </div>
-        <div className="p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-6 bg-[#f4f6f9]">
+          <div className="max-w-3xl mx-auto space-y-5">
           {/* Stock info */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
             <div>
@@ -326,6 +328,7 @@ function IssueModal({ item, onClose }) {
               </button>
             </div>
           </form>
+          </div>
         </div>
       </div>
     </div>

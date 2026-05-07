@@ -100,17 +100,17 @@ function WOImportModal({ onClose, vendors, projects, onImported }) {
   const addItem = () => setItems(prev => [...prev, { description: '', unit: 'SQFT', quantity: 0, rate: 0, remarks: '' }]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-[#f4f6f9]">
+      <div className="bg-white shadow-sm w-full h-full flex flex-col overflow-hidden">
 
-        <div className="px-6 py-4 bg-slate-900 flex items-center justify-between flex-shrink-0">
+        <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between flex-shrink-0">
           <div>
-            <p className="text-base font-bold text-white">Import Work Order from PDF</p>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-base font-black text-slate-900">Import Work Order from PDF</p>
+            <p className="text-xs text-slate-500 mt-0.5">
               {step === 1 ? 'Upload your PDF file' : step === 2 ? 'Review & correct extracted data' : 'Import complete'}
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="flex border-b border-slate-100 flex-shrink-0">
@@ -122,7 +122,8 @@ function WOImportModal({ onClose, vendors, projects, onImported }) {
           ))}
         </div>
 
-        <div className="overflow-y-auto flex-1 p-6">
+        <div className="overflow-y-auto flex-1 p-6 bg-[#f4f6f9]">
+          <div className="max-w-7xl mx-auto">
 
           {step === 1 && (
             <div className="space-y-5">
@@ -244,6 +245,7 @@ function WOImportModal({ onClose, vendors, projects, onImported }) {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
@@ -456,8 +458,8 @@ export default function WorkOrderPage() {
 
       {/* Create WO Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white border border-slate-200 w-full max-w-4xl rounded-2xl flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[60] bg-[#f4f6f9]">
+          <div className="bg-white border border-slate-200 w-full h-full flex flex-col shadow-sm overflow-hidden">
 
             {/* Modal header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
@@ -476,7 +478,8 @@ export default function WorkOrderPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto p-6 bg-[#f4f6f9]">
+              <div className="max-w-7xl mx-auto space-y-5">
 
               {/* Header fields */}
               <div className="border border-slate-200 rounded-xl p-5">
@@ -593,6 +596,7 @@ export default function WorkOrderPage() {
                 />
               </div>
             </div>
+            </div>
 
             {/* Modal footer */}
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 shrink-0 flex gap-3">
@@ -622,24 +626,24 @@ export default function WorkOrderPage() {
 
       {/* WO Detail Side Panel */}
       {selectedWO && (
-        <div className="fixed inset-0 z-[60] flex">
-          <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedWO(null)} />
-          <div className="w-full max-w-xl bg-white shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[60] bg-[#f4f6f9] flex">
+          <div className="w-full h-full bg-white shadow-sm flex flex-col overflow-hidden">
 
-            <div className="bg-slate-900 px-6 py-4 flex items-start justify-between shrink-0">
+            <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-start justify-between shrink-0">
               <div>
-                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Work Order</div>
-                <h2 className="text-xl font-black text-white font-mono">{selectedWO.wo_number}</h2>
+                <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Procurement / Work Order</div>
+                <h2 className="text-xl font-black text-slate-900 font-mono">{selectedWO.wo_number}</h2>
                 <p className="text-sm text-slate-400 mt-0.5">{selectedWO.subject || '—'}</p>
               </div>
               <button onClick={() => setSelectedWO(null)}
-                className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all">
+                className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#f4f6f9]">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="flex-1 overflow-y-auto p-6 bg-[#f4f6f9]">
+              <div className="max-w-7xl mx-auto space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                 {[
                   ['Vendor', selectedWO.vendor_name],
                   ['Project', selectedWO.project_name],
@@ -660,6 +664,7 @@ export default function WorkOrderPage() {
                   <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{selectedWO.terms_conditions}</p>
                 </div>
               )}
+              </div>
             </div>
 
             <div className="px-5 py-4 border-t border-slate-100 bg-white shrink-0 flex gap-3">
