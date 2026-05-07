@@ -2,7 +2,7 @@
 // Finance Intelligence — 4 tabs: Vendor Ledger | Budget vs Actual | Project P&L | AP Aging
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { tqsBillsAPI, reportAPI, budgetAPI, projectAPI } from '../../api/client';
+import { dqsBillsAPI, reportAPI, budgetAPI, projectAPI } from '../../api/client';
 import {
   Users, BarChart3, TrendingUp, Clock, ChevronRight,
   AlertTriangle, CheckCircle2, IndianRupee, FileText, Building2
@@ -305,7 +305,7 @@ function ProjectPLTab() {
                         <span className={`text-xs font-bold ${mPct >= 15 ? 'text-emerald-600' : mPct >= 0 ? 'text-amber-600' : 'text-red-600'}`}>{pct(mPct)}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate-500">{r.ra_bill_count} / {r.tqs_bill_count}</td>
+                    <td className="px-3 py-3 text-xs text-slate-500">{r.ra_bill_count} / {r.dqs_bill_count}</td>
                     <td className="px-3 py-3 text-xs font-semibold text-slate-600">{pct(r.pct_billed)}</td>
                   </tr>
                 );
@@ -341,7 +341,7 @@ function ProjectPLTab() {
 function APAgingTab({ projects, projectId, setProjectId }) {
   const { data, isLoading } = useQuery({
     queryKey: ['ap-aging', projectId],
-    queryFn:  () => tqsBillsAPI.getAPAging(projectId ? { project_id: projectId } : {}).then(r => r.data?.data ?? []),
+    queryFn:  () => dqsBillsAPI.getAPAging(projectId ? { project_id: projectId } : {}).then(r => r.data?.data ?? []),
   });
 
   const rows = data || [];
@@ -431,7 +431,7 @@ function APAgingTab({ projects, projectId, setProjectId }) {
                 return (
                   <tr key={i} className={`hover:bg-slate-50/50 ${bucket === '90+' ? 'bg-red-50/20' : ''}`}>
                     <td className="px-3 py-3">
-                      <a href={`/tqs/bills/${r.id}`} className="text-indigo-600 font-mono text-xs hover:underline">{r.sl_number}</a>
+                      <a href={`/dqs/bills/${r.id}`} className="text-indigo-600 font-mono text-xs hover:underline">{r.sl_number}</a>
                     </td>
                     <td className="px-3 py-3 text-slate-700 text-xs font-medium max-w-[140px] truncate">{r.vendor_name}</td>
                     <td className="px-3 py-3 text-slate-500 text-xs max-w-[120px] truncate">{r.project_name}</td>

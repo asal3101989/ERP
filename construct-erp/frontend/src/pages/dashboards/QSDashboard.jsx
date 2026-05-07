@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { FileText, CheckCircle2, Clock, TrendingUp, ArrowRight } from 'lucide-react';
-import { tqsBillsAPI } from '../../api/client';
+import { dqsBillsAPI } from '../../api/client';
 import useAuthStore from '../../store/authStore';
 import { DashKPI, DashSection, DashTable, Badge, inr } from './DashKPI';
 import dayjs from 'dayjs';
@@ -20,12 +20,12 @@ export default function QSDashboard() {
 
   const { data: bills = [], isLoading: loadB } = useQuery({
     queryKey: ['qs-dash-bills'],
-    queryFn: () => tqsBillsAPI.list().then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])),
+    queryFn: () => dqsBillsAPI.list().then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])),
   });
 
   const { data: aging = [], isLoading: loadA } = useQuery({
     queryKey: ['qs-dash-aging'],
-    queryFn: () => tqsBillsAPI.getAPAging().then(r => r.data?.data ?? []),
+    queryFn: () => dqsBillsAPI.getAPAging().then(r => r.data?.data ?? []),
   });
 
   const pendingQS   = bills.filter(b => b.workflow_status === 'stores');
@@ -82,20 +82,20 @@ export default function QSDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <DashSection
           title="Bills Awaiting QS Certification"
-          action={<Link to="/tqs/bills?status=stores" className="text-xs text-indigo-600 flex items-center gap-1 hover:underline">All <ArrowRight className="w-3 h-3" /></Link>}
+          action={<Link to="/dqs/bills?status=stores" className="text-xs text-indigo-600 flex items-center gap-1 hover:underline">All <ArrowRight className="w-3 h-3" /></Link>}
         >
           <DashTable cols={pendingCols} rows={pendingQS.slice(0, 8)} empty="No bills awaiting certification" />
         </DashSection>
 
         <DashSection
           title="Recently Certified"
-          action={<Link to="/tqs/bills?status=qs" className="text-xs text-indigo-600 flex items-center gap-1 hover:underline">All <ArrowRight className="w-3 h-3" /></Link>}
+          action={<Link to="/dqs/bills?status=qs" className="text-xs text-indigo-600 flex items-center gap-1 hover:underline">All <ArrowRight className="w-3 h-3" /></Link>}
         >
           <DashTable cols={certCols} rows={thisMonth.slice(0, 8)} empty="No certified bills this month" />
         </DashSection>
       </div>
 
-      <DashSection title="AP Aging Summary" action={<Link to="/tqs/bills" className="text-xs text-indigo-600 flex items-center gap-1 hover:underline">Full Ledger <ArrowRight className="w-3 h-3" /></Link>}>
+      <DashSection title="AP Aging Summary" action={<Link to="/dqs/bills" className="text-xs text-indigo-600 flex items-center gap-1 hover:underline">Full Ledger <ArrowRight className="w-3 h-3" /></Link>}>
         <DashTable cols={agingCols} rows={aging.slice(0, 10)} empty="No outstanding amounts" />
       </DashSection>
     </div>

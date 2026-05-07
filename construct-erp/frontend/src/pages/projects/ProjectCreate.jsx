@@ -136,7 +136,7 @@ export default function ProjectCreate() {
           {/* 2. Client Details */}
           <Section icon={Briefcase} color="bg-indigo-50 text-indigo-600" title="Client Details">
             <Field label="Client Name *" error={errors.client_name?.message}>
-              <input {...register('client_name')} className={inputCls} placeholder="e.g. TQS Developers Pvt Ltd" />
+              <input {...register('client_name')} className={inputCls} placeholder="e.g. DQS Developers Pvt Ltd" />
             </Field>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Client GSTIN">

@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { DollarSign, Clock, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
-import { tqsBillsAPI, paymentAPI } from '../../api/client';
+import { dqsBillsAPI, paymentAPI } from '../../api/client';
 import useAuthStore from '../../store/authStore';
 import { DashKPI, DashSection, DashTable, Badge, inr } from './DashKPI';
 import dayjs from 'dayjs';
@@ -14,12 +14,12 @@ export default function AccountsDashboard() {
 
   const { data: bills = [], isLoading: loadB } = useQuery({
     queryKey: ['accts-dash-bills'],
-    queryFn: () => tqsBillsAPI.list().then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])),
+    queryFn: () => dqsBillsAPI.list().then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])),
   });
 
   const { data: aging = [], isLoading: loadA } = useQuery({
     queryKey: ['accts-dash-aging'],
-    queryFn: () => tqsBillsAPI.getAPAging().then(r => r.data?.data ?? []),
+    queryFn: () => dqsBillsAPI.getAPAging().then(r => r.data?.data ?? []),
   });
 
   const { data: payments = [], isLoading: loadPay } = useQuery({
@@ -94,7 +94,7 @@ export default function AccountsDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <DashSection
           title="Bills Ready for Payment"
-          action={<Link to="/tqs/bills?status=accounts" className="text-xs text-indigo-600 flex items-center gap-1 hover:underline">All <ArrowRight className="w-3 h-3" /></Link>}
+          action={<Link to="/dqs/bills?status=accounts" className="text-xs text-indigo-600 flex items-center gap-1 hover:underline">All <ArrowRight className="w-3 h-3" /></Link>}
         >
           <DashTable cols={readyCols} rows={readyForPayment.slice(0, 8)} empty="No bills awaiting payment" />
         </DashSection>

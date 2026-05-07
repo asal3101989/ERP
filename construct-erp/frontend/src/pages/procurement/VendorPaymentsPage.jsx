@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
-import { invoiceAPI, paymentAPI, vendorAPI, tqsBillsAPI } from '../../api/client';
+import { invoiceAPI, paymentAPI, vendorAPI, dqsBillsAPI } from '../../api/client';
 
 dayjs.extend(relativeTime);
 
@@ -81,9 +81,9 @@ export default function VendorPaymentsPage() {
     queryFn: () => paymentAPI.list().then(r => asArray(r.data)).catch(() => []),
   });
 
-  const tqsQuery = useQuery({
-    queryKey: ['procurement-vendor-payments-tqs-bills'],
-    queryFn: () => tqsBillsAPI.list().then(r => asArray(r.data)).catch(() => []),
+  const dqsQuery = useQuery({
+    queryKey: ['procurement-vendor-payments-dqs-bills'],
+    queryFn: () => dqsBillsAPI.list().then(r => asArray(r.data)).catch(() => []),
   });
 
   const paymentMut = useMutation({
@@ -101,7 +101,7 @@ export default function VendorPaymentsPage() {
   const vendors = vendorQuery.data || [];
   const invoices = invoiceQuery.data || [];
   const payments = paymentQuery.data || [];
-  const tqsBills = tqsQuery.data || [];
+  const dqsBills = dqsQuery.data || [];
 
   const vendorLookup = useMemo(() => {
     const map = new Map();
@@ -138,18 +138,18 @@ export default function VendorPaymentsPage() {
     });
   }, [invoices, payments, vendorLookup]);
 
-  const tqsWithPayments = useMemo(() => {
-    return tqsBills.map(bill => {
+  const dqsWithPayments = useMemo(() => {
+    return dqsBills.map(bill => {
       const vendor = vendorLookup.get(bill.vendor_id) || {};
       const invoiceTotal = Number(bill.certified_net ?? bill.total_amount ?? 0);
       const paidAmount = Number(bill.paid_amount ?? bill.total_paid ?? 0);
       const balance = Number(bill.balance_to_pay ?? Math.max(invoiceTotal - paidAmount, 0));
       const status = bill.payment_status || bill.workflow_status || (balance <= 0 ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Pending');
       return {
-        id: `tqs-${bill.id}`,
-        source_type: 'tqs',
-        source_label: 'TQS',
-        invoice_number: bill.inv_number || bill.sl_number || bill.bill_number || 'TQS Bill',
+        id: `dqs-${bill.id}`,
+        source_type: 'dqs',
+        source_label: 'DQS',
+        invoice_number: bill.inv_number || bill.sl_number || bill.bill_number || 'DQS Bill',
         po_number: bill.po_number || bill.poRef || '',
         vendor_id: bill.vendor_id || null,
         vendor_name: bill.vendor_name || vendor.name || '—',
@@ -161,7 +161,7 @@ export default function VendorPaymentsPage() {
         status_view: status,
         due_date: bill.inv_date || bill.received_date || bill.created_at || null,
         latest_payment: null,
-        tqs_bill: bill,
+        dqs_bill: bill,
         search_blob: [
           bill.inv_number,
           bill.sl_number,
@@ -174,9 +174,9 @@ export default function VendorPaymentsPage() {
         ].map(clean).join(' '),
       };
     });
-  }, [tqsBills, vendorLookup]);
+  }, [dqsBills, vendorLookup]);
 
-  const paymentLedger = useMemo(() => [...invoicesWithPayments, ...tqsWithPayments], [invoicesWithPayments, tqsWithPayments]);
+  const paymentLedger = useMemo(() => [...invoicesWithPayments, ...dqsWithPayments], [invoicesWithPayments, dqsWithPayments]);
 
   const filtered = useMemo(() => {
     const q = clean(search);
@@ -252,7 +252,7 @@ export default function VendorPaymentsPage() {
     });
   };
 
-  const loading = invoiceQuery.isLoading || paymentQuery.isLoading || vendorQuery.isLoading || tqsQuery.isLoading;
+  const loading = invoiceQuery.isLoading || paymentQuery.isLoading || vendorQuery.isLoading || dqsQuery.isLoading;
 
   return (
     <div className="p-6 md:p-7 max-w-7xl mx-auto min-h-screen bg-[#f4f6f9]">
@@ -380,7 +380,7 @@ export default function VendorPaymentsPage() {
                       <td className="px-4 py-3 align-top">
                         <span className={clsx(
                           'inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold border',
-                          inv.source_type === 'tqs' ? 'bg-violet-50 text-violet-700 border-violet-200' : 'bg-slate-50 text-slate-700 border-slate-200'
+                          inv.source_type === 'dqs' ? 'bg-violet-50 text-violet-700 border-violet-200' : 'bg-slate-50 text-slate-700 border-slate-200'
                         )}>
                           {inv.source_label || 'Finance'}
                         </span>
@@ -434,8 +434,8 @@ export default function VendorPaymentsPage() {
                             <CreditCard className="w-3.5 h-3.5" />
                             Record Payment
                           </button>
-                        ) : inv.source_type === 'tqs' ? (
-                          <span className="text-xs text-violet-600 font-semibold">Tracked in TQS</span>
+                        ) : inv.source_type === 'dqs' ? (
+                          <span className="text-xs text-violet-600 font-semibold">Tracked in DQS</span>
                         ) : (
                           <span className="text-xs text-slate-400">Settled</span>
                         )}

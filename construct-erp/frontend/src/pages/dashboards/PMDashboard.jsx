@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Briefcase, FileText, AlertTriangle, CalendarClock, ArrowRight } from 'lucide-react';
-import { projectAPI, tqsBillsAPI, raBillAPI } from '../../api/client';
+import { projectAPI, dqsBillsAPI, raBillAPI } from '../../api/client';
 import useAuthStore from '../../store/authStore';
 import { DashKPI, DashSection, DashTable, inr, Badge } from './DashKPI';
 import dayjs from 'dayjs';
@@ -34,7 +34,7 @@ export default function PMDashboard() {
 
   const { data: bills = [], isLoading: loadB } = useQuery({
     queryKey: ['pm-dash-bills'],
-    queryFn: () => tqsBillsAPI.list().then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])),
+    queryFn: () => dqsBillsAPI.list().then(r => Array.isArray(r.data) ? r.data : (r.data?.data ?? [])),
   });
 
   const active        = projects.filter(p => p.status === 'active').length;
@@ -90,7 +90,7 @@ export default function PMDashboard() {
 
         <DashSection
           title="Bills Pending Approval"
-          action={<Link to="/tqs/bills" className="text-xs text-indigo-600 flex items-center gap-1 hover:underline">All <ArrowRight className="w-3 h-3" /></Link>}
+          action={<Link to="/dqs/bills" className="text-xs text-indigo-600 flex items-center gap-1 hover:underline">All <ArrowRight className="w-3 h-3" /></Link>}
         >
           <DashTable cols={billCols} rows={pendingBills.slice(0, 8)} empty="No pending approvals" />
           {pendingBills.length > 0 && (

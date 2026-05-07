@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Clock3, Receipt, Wallet, ArrowRight, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { invoiceAPI, paymentAPI, projectAPI, tqsBillsAPI } from '../../api/client';
+import { invoiceAPI, paymentAPI, projectAPI, dqsBillsAPI } from '../../api/client';
 import dayjs from 'dayjs';
 
 const inr = v => `₹${Number(v || 0).toLocaleString('en-IN')}`;
@@ -38,9 +38,9 @@ export default function PaymentRunPage() {
     queryFn: () => invoiceAPI.list({ status: 'authorized' }).then(r => r.data).catch(() => null),
   });
 
-  const { data: tqsBillsRes } = useQuery({
-    queryKey: ['finance-payment-run-tqs', projectId],
-    queryFn: () => tqsBillsAPI.list({ status: 'accounts', ...(projectId !== 'all' ? { project_id: projectId } : {}) }).then(r => r.data).catch(() => null),
+  const { data: dqsBillsRes } = useQuery({
+    queryKey: ['finance-payment-run-dqs', projectId],
+    queryFn: () => dqsBillsAPI.list({ status: 'accounts', ...(projectId !== 'all' ? { project_id: projectId } : {}) }).then(r => r.data).catch(() => null),
   });
 
   const { data: paymentsRes } = useQuery({
@@ -50,16 +50,16 @@ export default function PaymentRunPage() {
 
   const projects = asArray(projectsRes?.data || projectsRes);
   const vendorInvoices = asArray(vendorInvoicesRes?.data || vendorInvoicesRes);
-  const tqsBills = asArray(tqsBillsRes?.data || tqsBillsRes);
+  const dqsBills = asArray(dqsBillsRes?.data || dqsBillsRes);
   const payments = asArray(paymentsRes?.data || paymentsRes);
 
   const invoiceQueue = vendorInvoices.filter(i => projectId === 'all' || i.project_id === projectId);
-  const tqsQueue = tqsBills.filter(b => projectId === 'all' || b.project_id === projectId);
+  const dqsQueue = dqsBills.filter(b => projectId === 'all' || b.project_id === projectId);
   const recent = payments.filter(p => projectId === 'all' || p.project_id === projectId).slice(0, 8);
 
   const totalQueued =
     invoiceQueue.reduce((s, i) => s + Number(i.net_amount || 0), 0) +
-    tqsQueue.reduce((s, b) => s + Number(b.certified_net || b.total_amount || 0), 0);
+    dqsQueue.reduce((s, b) => s + Number(b.certified_net || b.total_amount || 0), 0);
 
   const searchLower = search.toLowerCase();
   const recentFiltered = recent.filter(p =>
@@ -77,7 +77,7 @@ export default function PaymentRunPage() {
           </div>
           <div>
             <h1 className="text-[1.25rem] md:text-[1.5rem] font-black text-slate-900 uppercase tracking-tight italic">Payment Run</h1>
-            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Queue for vendor invoices and TQS bills ready for settlement</p>
+            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Queue for vendor invoices and DQS bills ready for settlement</p>
           </div>
         </div>
         <Link to="/finance/payments" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white font-black text-[9px] uppercase tracking-widest shadow-lg">
@@ -87,7 +87,7 @@ export default function PaymentRunPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card label="Invoices Ready" value={invoiceQueue.length} sub={inr(invoiceQueue.reduce((s, i) => s + Number(i.net_amount || 0), 0))} accent="indigo" />
-        <Card label="TQS Bills Ready" value={tqsQueue.length} sub={inr(tqsQueue.reduce((s, b) => s + Number(b.certified_net || b.total_amount || 0), 0))} accent="emerald" />
+        <Card label="DQS Bills Ready" value={dqsQueue.length} sub={inr(dqsQueue.reduce((s, b) => s + Number(b.certified_net || b.total_amount || 0), 0))} accent="emerald" />
         <Card label="Payment Run Value" value={inr(totalQueued)} sub="Current queue total" accent="amber" />
         <Card label="Recent Payments" value={recent.length} sub="Latest disbursements" accent="rose" />
       </div>
@@ -166,7 +166,7 @@ export default function PaymentRunPage() {
         <section className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h2 className="font-black text-slate-900 uppercase tracking-tight">TQS Bills Ready</h2>
+              <h2 className="font-black text-slate-900 uppercase tracking-tight">DQS Bills Ready</h2>
               <p className="text-xs text-slate-500 mt-1">Accounts stage bills awaiting payment run</p>
             </div>
             <Wallet className="w-5 h-5 text-emerald-500" />
@@ -181,7 +181,7 @@ export default function PaymentRunPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {tqsQueue.map(b => (
+                {dqsQueue.map(b => (
                   <tr key={b.id} className="hover:bg-slate-50/50">
                     <td className="px-4 py-3 font-mono text-emerald-600 font-black">{b.sl_number || '—'}</td>
                     <td className="px-4 py-3 text-slate-700">{b.project_name || '—'}</td>
@@ -190,10 +190,10 @@ export default function PaymentRunPage() {
                     <td className="px-4 py-3 font-mono text-slate-900 font-black">{inr(b.certified_net || b.total_amount)}</td>
                   </tr>
                 ))}
-                {!tqsQueue.length && (
+                {!dqsQueue.length && (
                   <tr>
                     <td colSpan={5} className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
-                      No TQS bills queued for payment
+                      No DQS bills queued for payment
                     </td>
                   </tr>
                 )}

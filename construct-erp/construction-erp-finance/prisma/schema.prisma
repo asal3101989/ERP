@@ -1,0 +1,963 @@
+// ============================================================
+// CONSTRUCTION ERP - FINANCE MODULE
+// Prisma Schema v1.0
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  ACCOUNTANT
+  PROJECT_MANAGER
+  PROCUREMENT_OFFICER
+  AUDITOR
+  READ_ONLY
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum BudgetCostHead {
+  MATERIAL
+  LABOR
+  EQUIPMENT
+  SUBCONTRACTOR
+  OVERHEAD
+  CONTINGENCY
+}
+
+enum InvoiceType {
+  VENDOR_INVOICE      // AP
+  CLIENT_INVOICE      // AR
+  PROFORMA
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_APPROVAL_L1
+  PENDING_APPROVAL_L2
+  PENDING_APPROVAL_L3
+  APPROVED
+  REJECTED
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+  DISPUTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REVERSED
+  CANCELLED
+}
+
+enum PaymentMode {
+  NEFT
+  RTGS
+  IMPS
+  CHEQUE
+  CASH
+  UPI
+  BANK_TRANSFER
+}
+
+enum JournalEntryType {
+  MANUAL
+  AUTO_AP          // From vendor invoice
+  AUTO_AR          // From client invoice
+  AUTO_PAYMENT     // From payment
+  AUTO_PAYROLL     // From payroll
+  AUTO_DEPRECIATION
+  OPENING_BALANCE
+  CLOSING_ENTRY
+  ADJUSTMENT
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum AccountSubType {
+  CURRENT_ASSET
+  FIXED_ASSET
+  CURRENT_LIABILITY
+  LONG_TERM_LIABILITY
+  CAPITAL
+  RETAINED_EARNINGS
+  OPERATING_REVENUE
+  OTHER_REVENUE
+  COST_OF_GOODS_SOLD
+  OPERATING_EXPENSE
+  DEPRECIATION
+  TAX
+}
+
+enum GSTType {
+  CGST
+  SGST
+  IGST
+  UTGST
+  EXEMPT
+  NIL_RATED
+  ZERO_RATED
+}
+
+enum TDSSection {
+  SEC_194C   // Contractors
+  SEC_194I   // Rent
+  SEC_194J   // Professional fees
+  SEC_194A   // Interest
+  SEC_192    // Salary
+  SEC_194Q   // Purchase of goods
+  NOT_APPLICABLE
+}
+
+enum WorkflowAction {
+  SUBMIT
+  APPROVE
+  REJECT
+  ESCALATE
+  RECALL
+  REQUEST_INFO
+}
+
+// ─────────────────────────────────────────────
+// CORE ENTITIES
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  employeeId    String?   @unique
+  email         String    @unique
+  passwordHash  String
+  fullName      String
+  role          UserRole
+  department    String?
+  phone         String?
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  approvalRules     ApprovalRule[]
+  workflowLogs      WorkflowLog[]
+  journalEntries    JournalEntry[]
+  createdInvoices   Invoice[]        @relation("InvoiceCreatedBy")
+  processedPayments Payment[]        @relation("PaymentProcessedBy")
+  auditLogs         AuditLog[]
+  budgetApprovals   BudgetRevision[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Project {
+  id              String        @id @default(uuid())
+  projectCode     String        @unique
+  name            String
+  description     String?
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id])
+  status          ProjectStatus @default(PLANNING)
+  startDate       DateTime
+  endDate         DateTime?
+  contractValue   Decimal       @db.Decimal(15, 2)
+  currency        String        @default("INR")
+  location        String?
+  projectManager  String?       // User ID
+  siteAddress     String?
+  gstRegistration String?       // Project-specific GST if applicable
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  budgets         Budget[]
+  invoices        Invoice[]
+  cashFlows       CashFlow[]
+  journalEntries  JournalEntry[]
+  payrollEntries  PayrollEntry[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([projectCode])
+  @@map("projects")
+}
+
+// ─────────────────────────────────────────────
+// CHART OF ACCOUNTS & GENERAL LEDGER
+// ─────────────────────────────────────────────
+
+model Account {
+  id              String          @id @default(uuid())
+  code            String          @unique  // e.g., 1001, 2001
+  name            String
+  description     String?
+  type            AccountType
+  subType         AccountSubType
+  parentId        String?
+  parent          Account?        @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children        Account[]       @relation("AccountHierarchy")
+  isActive        Boolean         @default(true)
+  isSystemAccount Boolean         @default(false)  // Cannot be deleted
+  openingBalance  Decimal         @default(0) @db.Decimal(15, 2)
+  currency        String          @default("INR")
+  taxCode         String?         // GST HSN/SAC code
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  debitEntries    JournalLineItem[] @relation("DebitAccount")
+  creditEntries   JournalLineItem[] @relation("CreditAccount")
+
+  @@index([code])
+  @@index([type])
+  @@index([parentId])
+  @@map("accounts")
+}
+
+model JournalEntry {
+  id              String           @id @default(uuid())
+  entryNumber     String           @unique  // JE-2024-00001
+  type            JournalEntryType
+  description     String
+  entryDate       DateTime
+  postingDate     DateTime
+  fiscalYear      Int
+  fiscalPeriod    Int              // 1-12
+  projectId       String?
+  project         Project?         @relation(fields: [projectId], references: [id])
+  referenceType   String?          // "INVOICE", "PAYMENT", "PAYROLL"
+  referenceId     String?          // FK to source document
+  isPosted        Boolean          @default(false)
+  isReversed      Boolean          @default(false)
+  reversalEntryId String?
+  totalDebit      Decimal          @db.Decimal(15, 2)
+  totalCredit     Decimal          @db.Decimal(15, 2)
+  createdById     String
+  createdBy       User             @relation(fields: [createdById], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  lineItems       JournalLineItem[]
+
+  @@index([entryDate])
+  @@index([projectId])
+  @@index([referenceType, referenceId])
+  @@index([fiscalYear, fiscalPeriod])
+  @@map("journal_entries")
+}
+
+model JournalLineItem {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  debitAccountId String?
+  debitAccount   Account?     @relation("DebitAccount", fields: [debitAccountId], references: [id])
+  creditAccountId String?
+  creditAccount  Account?     @relation("CreditAccount", fields: [creditAccountId], references: [id])
+  amount         Decimal      @db.Decimal(15, 2)
+  description    String?
+  costCenter     String?
+  projectId      String?
+  lineNo         Int
+
+  @@index([journalEntryId])
+  @@index([debitAccountId])
+  @@index([creditAccountId])
+  @@map("journal_line_items")
+}
+
+// ─────────────────────────────────────────────
+// BUDGET & COST CONTROL
+// ─────────────────────────────────────────────
+
+model Budget {
+  id              String     @id @default(uuid())
+  budgetCode      String     @unique  // BUD-2024-001
+  projectId       String
+  project         Project    @relation(fields: [projectId], references: [id])
+  version         Int        @default(1)
+  name            String
+  description     String?
+  totalBudget     Decimal    @db.Decimal(15, 2)
+  contingency     Decimal    @default(0) @db.Decimal(15, 2)
+  isApproved      Boolean    @default(false)
+  approvedAt      DateTime?
+  approvedBy      String?
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  lineItems       BudgetLineItem[]
+  revisions       BudgetRevision[]
+  costVariances   CostVariance[]
+
+  @@index([projectId])
+  @@map("budgets")
+}
+
+model BudgetLineItem {
+  id              String         @id @default(uuid())
+  budgetId        String
+  budget          Budget         @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  costHead        BudgetCostHead
+  description     String
+  boqReference    String?        // BOQ item reference
+  unit            String?        // m², kg, hours, etc.
+  quantity        Decimal?       @db.Decimal(10, 3)
+  unitRate        Decimal?       @db.Decimal(12, 2)
+  plannedAmount   Decimal        @db.Decimal(15, 2)
+  committedAmount Decimal        @default(0) @db.Decimal(15, 2)  // PO raised
+  actualAmount    Decimal        @default(0) @db.Decimal(15, 2)  // Invoiced/paid
+  varianceAmount  Decimal        @default(0) @db.Decimal(15, 2)  // planned - actual
+  variancePct     Decimal        @default(0) @db.Decimal(6, 2)
+  alertThreshold  Decimal        @default(90) @db.Decimal(5, 2)  // % to trigger alert
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([budgetId])
+  @@index([costHead])
+  @@map("budget_line_items")
+}
+
+model BudgetRevision {
+  id              String   @id @default(uuid())
+  budgetId        String
+  budget          Budget   @relation(fields: [budgetId], references: [id])
+  revisionNo      Int
+  reason          String
+  previousAmount  Decimal  @db.Decimal(15, 2)
+  revisedAmount   Decimal  @db.Decimal(15, 2)
+  approvedById    String
+  approvedBy      User     @relation(fields: [approvedById], references: [id])
+  approvedAt      DateTime @default(now())
+
+  @@map("budget_revisions")
+}
+
+model CostVariance {
+  id              String         @id @default(uuid())
+  budgetId        String
+  budget          Budget         @relation(fields: [budgetId], references: [id])
+  costHead        BudgetCostHead
+  reportDate      DateTime
+  plannedCost     Decimal        @db.Decimal(15, 2)
+  actualCost      Decimal        @db.Decimal(15, 2)
+  variance        Decimal        @db.Decimal(15, 2)
+  variancePct     Decimal        @db.Decimal(6, 2)
+  alertSent       Boolean        @default(false)
+  alertSentAt     DateTime?
+  createdAt       DateTime       @default(now())
+
+  @@map("cost_variances")
+}
+
+// ─────────────────────────────────────────────
+// VENDORS & CLIENTS
+// ─────────────────────────────────────────────
+
+model Vendor {
+  id                String    @id @default(uuid())
+  vendorCode        String    @unique  // VND-001
+  name              String
+  tradeName         String?
+  type              String    // SUPPLIER, SUBCONTRACTOR, CONSULTANT
+  email             String?
+  phone             String
+  address           String
+  city              String
+  state             String
+  pincode           String
+  country           String    @default("India")
+  // Tax details
+  gstNumber         String?   @unique
+  panNumber         String?
+  tanNumber         String?   // For TDS applicability
+  msmeRegistration  String?   // MSME registration number
+  isMsme            Boolean   @default(false)
+  // Bank details
+  bankAccounts      VendorBankAccount[]
+  // Credit terms
+  creditDays        Int       @default(30)
+  creditLimit       Decimal?  @db.Decimal(15, 2)
+  paymentTerms      String?
+  isActive          Boolean   @default(true)
+  blacklisted       Boolean   @default(false)
+  blacklistReason   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  invoices          Invoice[]
+  purchaseOrders    PurchaseOrder[]
+  tdsEntries        TDSEntry[]
+
+  @@index([vendorCode])
+  @@index([gstNumber])
+  @@map("vendors")
+}
+
+model VendorBankAccount {
+  id              String   @id @default(uuid())
+  vendorId        String
+  vendor          Vendor   @relation(fields: [vendorId], references: [id])
+  accountHolder   String
+  bankName        String
+  accountNumber   String
+  ifscCode        String
+  accountType     String   // SAVINGS, CURRENT, OD
+  branch          String?
+  isDefault       Boolean  @default(false)
+  isVerified      Boolean  @default(false)  // Penny drop verification
+  verifiedAt      DateTime?
+  upiId           String?
+  createdAt       DateTime @default(now())
+
+  // Relations
+  payments        Payment[]
+
+  @@index([vendorId])
+  @@map("vendor_bank_accounts")
+}
+
+model Client {
+  id              String    @id @default(uuid())
+  clientCode      String    @unique
+  name            String
+  tradeName       String?
+  email           String?
+  phone           String
+  address         String
+  city            String
+  state           String
+  pincode         String
+  gstNumber       String?
+  panNumber       String?
+  creditDays      Int       @default(30)
+  creditLimit     Decimal?  @db.Decimal(15, 2)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  projects        Project[]
+  invoices        Invoice[]
+  milestones      ProjectMilestone[]
+
+  @@index([clientCode])
+  @@map("clients")
+}
+
+// ─────────────────────────────────────────────
+// PURCHASE ORDERS (for 3-way matching)
+// ─────────────────────────────────────────────
+
+model PurchaseOrder {
+  id              String    @id @default(uuid())
+  poNumber        String    @unique  // PO-2024-00001
+  vendorId        String
+  vendor          Vendor    @relation(fields: [vendorId], references: [id])
+  projectId       String?
+  description     String
+  poDate          DateTime
+  deliveryDate    DateTime?
+  totalAmount     Decimal   @db.Decimal(15, 2)
+  gstAmount       Decimal   @default(0) @db.Decimal(15, 2)
+  grandTotal      Decimal   @db.Decimal(15, 2)
+  status          String    // DRAFT, APPROVED, PARTIALLY_RECEIVED, RECEIVED, CLOSED
+  approvedBy      String?
+  approvedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  lineItems       POLineItem[]
+  grnRecords      GoodsReceiptNote[]
+  invoices        Invoice[]
+
+  @@index([vendorId])
+  @@map("purchase_orders")
+}
+
+model POLineItem {
+  id          String        @id @default(uuid())
+  poId        String
+  po          PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  description String
+  unit        String
+  quantity    Decimal       @db.Decimal(10, 3)
+  unitRate    Decimal       @db.Decimal(12, 2)
+  amount      Decimal       @db.Decimal(15, 2)
+  hsnCode     String?
+  gstRate     Decimal       @default(0) @db.Decimal(5, 2)
+  receivedQty Decimal       @default(0) @db.Decimal(10, 3)
+
+  @@map("po_line_items")
+}
+
+model GoodsReceiptNote {
+  id              String        @id @default(uuid())
+  grnNumber       String        @unique  // GRN-2024-00001
+  poId            String
+  po              PurchaseOrder @relation(fields: [poId], references: [id])
+  receivedDate    DateTime
+  receivedBy      String
+  warehouseLocation String?
+  remarks         String?
+  totalValue      Decimal       @db.Decimal(15, 2)
+  createdAt       DateTime      @default(now())
+
+  // Relations
+  lineItems       GRNLineItem[]
+  invoiceLinks    InvoiceGRNLink[]
+
+  @@index([poId])
+  @@map("goods_receipt_notes")
+}
+
+model GRNLineItem {
+  id          String           @id @default(uuid())
+  grnId       String
+  grn         GoodsReceiptNote @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  description String
+  unit        String
+  receivedQty Decimal          @db.Decimal(10, 3)
+  unitRate    Decimal          @db.Decimal(12, 2)
+  amount      Decimal          @db.Decimal(15, 2)
+
+  @@map("grn_line_items")
+}
+
+// ─────────────────────────────────────────────
+// INVOICES (AP & AR)
+// ─────────────────────────────────────────────
+
+model Invoice {
+  id                  String        @id @default(uuid())
+  invoiceNumber       String        @unique    // Internal: INV-2024-00001
+  externalInvoiceNo   String?                  // Vendor's invoice number
+  type                InvoiceType
+  status              InvoiceStatus @default(DRAFT)
+  projectId           String?
+  project             Project?      @relation(fields: [projectId], references: [id])
+  // AP fields
+  vendorId            String?
+  vendor              Vendor?       @relation(fields: [vendorId], references: [id])
+  poId                String?
+  po                  PurchaseOrder? @relation(fields: [poId], references: [id])
+  // AR fields
+  clientId            String?
+  client              Client?       @relation(fields: [clientId], references: [id])
+  milestoneId         String?
+  milestone           ProjectMilestone? @relation(fields: [milestoneId], references: [id])
+  // Dates
+  invoiceDate         DateTime
+  dueDate             DateTime
+  postingDate         DateTime?
+  // Amounts
+  subTotal            Decimal       @db.Decimal(15, 2)
+  discountAmount      Decimal       @default(0) @db.Decimal(15, 2)
+  taxableAmount       Decimal       @db.Decimal(15, 2)
+  cgstAmount          Decimal       @default(0) @db.Decimal(15, 2)
+  sgstAmount          Decimal       @default(0) @db.Decimal(15, 2)
+  igstAmount          Decimal       @default(0) @db.Decimal(15, 2)
+  totalGst            Decimal       @default(0) @db.Decimal(15, 2)
+  tdsAmount           Decimal       @default(0) @db.Decimal(15, 2)
+  tdsSection          TDSSection    @default(NOT_APPLICABLE)
+  tdsRate             Decimal       @default(0) @db.Decimal(5, 2)
+  grandTotal          Decimal       @db.Decimal(15, 2)
+  amountPaid          Decimal       @default(0) @db.Decimal(15, 2)
+  balanceDue          Decimal       @db.Decimal(15, 2)
+  // Notes
+  narration           String?
+  internalNotes       String?
+  rejectionReason     String?
+  // Flags
+  isRecurring         Boolean       @default(false)
+  isDuplicate         Boolean       @default(false)
+  duplicateOfId       String?
+  retentionAmount     Decimal       @default(0) @db.Decimal(15, 2)
+  retentionPct        Decimal       @default(0) @db.Decimal(5, 2)
+  // Metadata
+  createdById         String
+  createdBy           User          @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  // Relations
+  lineItems           InvoiceLineItem[]
+  payments            PaymentAllocation[]
+  workflowLogs        WorkflowLog[]
+  grnLinks            InvoiceGRNLink[]
+  tdsEntries          TDSEntry[]
+  gstEntries          GSTEntry[]
+  journalEntries      JournalEntry[]  @relation
+
+  @@index([vendorId])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([externalInvoiceNo, vendorId])  // Duplicate check index
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id          String  @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  hsnCode     String?
+  sacCode     String?
+  unit        String?
+  quantity    Decimal @db.Decimal(10, 3)
+  unitRate    Decimal @db.Decimal(12, 2)
+  amount      Decimal @db.Decimal(15, 2)
+  gstRate     Decimal @default(0) @db.Decimal(5, 2)
+  gstType     GSTType @default(CGST)
+  cgst        Decimal @default(0) @db.Decimal(12, 2)
+  sgst        Decimal @default(0) @db.Decimal(12, 2)
+  igst        Decimal @default(0) @db.Decimal(12, 2)
+  lineTotal   Decimal @db.Decimal(15, 2)
+  costHead    BudgetCostHead?
+  lineNo      Int
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
+}
+
+model InvoiceGRNLink {
+  id        String           @id @default(uuid())
+  invoiceId String
+  invoice   Invoice          @relation(fields: [invoiceId], references: [id])
+  grnId     String
+  grn       GoodsReceiptNote @relation(fields: [grnId], references: [id])
+  matchedAt DateTime         @default(now())
+  matchedBy String
+
+  @@unique([invoiceId, grnId])
+  @@map("invoice_grn_links")
+}
+
+// ─────────────────────────────────────────────
+// PAYMENTS
+// ─────────────────────────────────────────────
+
+model Payment {
+  id                String        @id @default(uuid())
+  paymentNumber     String        @unique   // PAY-2024-00001
+  type              String        // VENDOR_PAYMENT, CLIENT_RECEIPT, ADVANCE
+  status            PaymentStatus @default(PENDING)
+  paymentMode       PaymentMode
+  paymentDate       DateTime
+  valueDate         DateTime?     // Bank value date
+  amount            Decimal       @db.Decimal(15, 2)
+  currency          String        @default("INR")
+  exchangeRate      Decimal       @default(1) @db.Decimal(10, 4)
+  // Bank details
+  bankAccountId     String?
+  bankAccount       VendorBankAccount? @relation(fields: [bankAccountId], references: [id])
+  ourBankAccount    String?       // Company's bank account used
+  // Transaction reference
+  transactionRef    String?       // NEFT/RTGS/UTR number
+  chequeNumber      String?
+  chequeDate        DateTime?
+  bankName          String?
+  // Processing
+  processedById     String
+  processedBy       User          @relation("PaymentProcessedBy", fields: [processedById], references: [id])
+  approvedBy        String?
+  approvedAt        DateTime?
+  remarks           String?
+  failureReason     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  allocations       PaymentAllocation[]
+
+  @@index([type])
+  @@index([status])
+  @@index([paymentDate])
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id          String   @id @default(uuid())
+  paymentId   String
+  payment     Payment  @relation(fields: [paymentId], references: [id])
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  amount      Decimal  @db.Decimal(15, 2)
+  allocatedAt DateTime @default(now())
+
+  @@unique([paymentId, invoiceId])
+  @@map("payment_allocations")
+}
+
+// ─────────────────────────────────────────────
+// PROJECT MILESTONES (for AR billing)
+// ─────────────────────────────────────────────
+
+model ProjectMilestone {
+  id              String    @id @default(uuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  name            String
+  description     String?
+  targetDate      DateTime
+  completedDate   DateTime?
+  billingAmount   Decimal   @db.Decimal(15, 2)
+  billingPct      Decimal   @db.Decimal(5, 2)  // % of contract value
+  isBilled        Boolean   @default(false)
+  billedAt        DateTime?
+  status          String    @default("PENDING")  // PENDING, COMPLETED, BILLED
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  invoices        Invoice[]
+
+  @@map("project_milestones")
+}
+
+// ─────────────────────────────────────────────
+// CASH FLOW
+// ─────────────────────────────────────────────
+
+model CashFlow {
+  id              String   @id @default(uuid())
+  projectId       String?
+  project         Project? @relation(fields: [projectId], references: [id])
+  type            String   // INFLOW, OUTFLOW
+  category        String   // REVENUE, EXPENSE, LOAN, ADVANCE, TAX
+  description     String
+  plannedDate     DateTime
+  plannedAmount   Decimal  @db.Decimal(15, 2)
+  actualDate      DateTime?
+  actualAmount    Decimal? @db.Decimal(15, 2)
+  referenceType   String?  // INVOICE, PAYMENT, PAYROLL
+  referenceId     String?
+  isForecasted    Boolean  @default(false)
+  confidence      Decimal  @default(100) @db.Decimal(5, 2)  // % confidence for forecast
+  createdAt       DateTime @default(now())
+
+  @@index([projectId])
+  @@index([plannedDate])
+  @@map("cash_flows")
+}
+
+// ─────────────────────────────────────────────
+// PAYROLL
+// ─────────────────────────────────────────────
+
+model Employee {
+  id              String    @id @default(uuid())
+  employeeCode    String    @unique
+  name            String
+  designation     String
+  department      String
+  projectId       String?   // Current project assignment
+  basicSalary     Decimal   @db.Decimal(12, 2)
+  pfNumber        String?
+  esiNumber       String?
+  panNumber       String?
+  bankAccountNo   String?
+  bankIfsc        String?
+  bankName        String?
+  isActive        Boolean   @default(true)
+  joiningDate     DateTime
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  payrollEntries  PayrollEntry[]
+
+  @@map("employees")
+}
+
+model PayrollEntry {
+  id              String    @id @default(uuid())
+  entryNumber     String    @unique   // PAY-RUN-2024-04-001
+  employeeId      String
+  employee        Employee  @relation(fields: [employeeId], references: [id])
+  projectId       String?
+  project         Project?  @relation(fields: [projectId], references: [id])
+  payPeriodFrom   DateTime
+  payPeriodTo     DateTime
+  workingDays     Int
+  presentDays     Decimal   @db.Decimal(5, 2)
+  overtimeHours   Decimal   @default(0) @db.Decimal(6, 2)
+  // Earnings
+  basicSalary     Decimal   @db.Decimal(12, 2)
+  hra             Decimal   @default(0) @db.Decimal(12, 2)
+  specialAllowance Decimal  @default(0) @db.Decimal(12, 2)
+  overtimePay     Decimal   @default(0) @db.Decimal(12, 2)
+  otherAllowances Decimal   @default(0) @db.Decimal(12, 2)
+  grossSalary     Decimal   @db.Decimal(12, 2)
+  // Deductions
+  pfEmployee      Decimal   @default(0) @db.Decimal(10, 2)
+  pfEmployer      Decimal   @default(0) @db.Decimal(10, 2)
+  esiEmployee     Decimal   @default(0) @db.Decimal(10, 2)
+  esiEmployer     Decimal   @default(0) @db.Decimal(10, 2)
+  tdsIncome       Decimal   @default(0) @db.Decimal(10, 2)
+  professionalTax Decimal   @default(0) @db.Decimal(10, 2)
+  loanDeduction   Decimal   @default(0) @db.Decimal(10, 2)
+  otherDeductions Decimal   @default(0) @db.Decimal(10, 2)
+  totalDeductions Decimal   @db.Decimal(12, 2)
+  netSalary       Decimal   @db.Decimal(12, 2)
+  paymentStatus   String    @default("PENDING")  // PENDING, PROCESSING, PAID
+  paymentDate     DateTime?
+  bankTransferRef String?
+  createdAt       DateTime  @default(now())
+
+  @@index([employeeId])
+  @@index([projectId])
+  @@index([payPeriodFrom, payPeriodTo])
+  @@map("payroll_entries")
+}
+
+// ─────────────────────────────────────────────
+// TAXATION
+// ─────────────────────────────────────────────
+
+model GSTEntry {
+  id              String    @id @default(uuid())
+  invoiceId       String
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id])
+  type            GSTType
+  hsnCode         String?
+  sacCode         String?
+  taxableValue    Decimal   @db.Decimal(15, 2)
+  rate            Decimal   @db.Decimal(5, 2)
+  taxAmount       Decimal   @db.Decimal(12, 2)
+  supplyType      String    // INTRA_STATE, INTER_STATE, EXPORT
+  gstrPeriod      String?   // YYYY-MM for GSTR filing
+  isItcEligible   Boolean   @default(true)
+  itcAvailed      Boolean   @default(false)
+  itcAvailedDate  DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([invoiceId])
+  @@index([gstrPeriod])
+  @@map("gst_entries")
+}
+
+model TDSEntry {
+  id              String    @id @default(uuid())
+  invoiceId       String?
+  invoice         Invoice?  @relation(fields: [invoiceId], references: [id])
+  vendorId        String?
+  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
+  section         TDSSection
+  baseAmount      Decimal   @db.Decimal(15, 2)
+  rate            Decimal   @db.Decimal(5, 2)
+  tdsAmount       Decimal   @db.Decimal(12, 2)
+  surcharge       Decimal   @default(0) @db.Decimal(10, 2)
+  educationCess   Decimal   @default(0) @db.Decimal(10, 2)
+  totalTds        Decimal   @db.Decimal(12, 2)
+  deductionDate   DateTime
+  depositedDate   DateTime?
+  challanNumber   String?
+  bsrCode         String?   // Bank BSR code
+  quarterPeriod   String?   // Q1/Q2/Q3/Q4 FY2024
+  form26QStatus   String?   // PENDING, FILED
+  createdAt       DateTime  @default(now())
+
+  @@index([vendorId])
+  @@index([section])
+  @@index([deductionDate])
+  @@map("tds_entries")
+}
+
+// ─────────────────────────────────────────────
+// APPROVAL WORKFLOWS
+// ─────────────────────────────────────────────
+
+model ApprovalRule {
+  id              String   @id @default(uuid())
+  name            String
+  entityType      String   // INVOICE, PAYMENT, BUDGET
+  level           Int      // 1, 2, 3
+  minAmount       Decimal  @default(0) @db.Decimal(15, 2)
+  maxAmount       Decimal? @db.Decimal(15, 2)
+  approverId      String
+  approver        User     @relation(fields: [approverId], references: [id])
+  isActive        Boolean  @default(true)
+  escalationDays  Int      @default(2)  // Auto-escalate after N days
+  createdAt       DateTime @default(now())
+
+  @@index([entityType, level])
+  @@map("approval_rules")
+}
+
+model WorkflowLog {
+  id          String         @id @default(uuid())
+  entityType  String         // INVOICE, PAYMENT
+  entityId    String
+  invoice     Invoice?       @relation(fields: [entityId], references: [id])
+  action      WorkflowAction
+  fromStatus  String
+  toStatus    String
+  level       Int?
+  performedBy String
+  user        User           @relation(fields: [performedBy], references: [id])
+  comments    String?
+  attachments String[]       // S3 keys
+  performedAt DateTime       @default(now())
+
+  @@index([entityType, entityId])
+  @@map("workflow_logs")
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String   // CREATE, UPDATE, DELETE, VIEW, EXPORT, LOGIN
+  entityType  String
+  entityId    String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  requestId   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

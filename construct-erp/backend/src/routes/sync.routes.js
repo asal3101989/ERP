@@ -1,18 +1,18 @@
 // src/routes/sync.routes.js
-// Public sync endpoint used by TQS Bill Tracker to pull shared reference data
+// Public sync endpoint used by DQS Bill Tracker to pull shared reference data
 // (vendors, projects) from ConstructERP without requiring JWT auth.
-// Protected by a static API key set in .env: TQS_SYNC_KEY
+// Protected by a static API key set in .env: DQS_SYNC_KEY
 
 const express = require('express');
 const { query } = require('../config/database');
 
 const router = express.Router();
 
-const TQS_SYNC_KEY = process.env.TQS_SYNC_KEY || 'tqs-erp-sync-key-change-me';
+const DQS_SYNC_KEY = process.env.DQS_SYNC_KEY || 'dqs-erp-sync-key-change-me';
 
 function requireSyncKey(req, res, next) {
   const key = req.headers['x-sync-key'] || req.query.key;
-  if (key !== TQS_SYNC_KEY) {
+  if (key !== DQS_SYNC_KEY) {
     return res.status(401).json({ ok: false, error: 'Invalid sync key' });
   }
   next();
@@ -64,7 +64,7 @@ router.get('/projects', requireSyncKey, async (req, res) => {
 });
 
 // POST /api/sync/vendor
-// TQS pushes a new vendor created in its UI to ConstructERP
+// DQS pushes a new vendor created in its UI to ConstructERP
 router.post('/vendor', requireSyncKey, async (req, res) => {
   try {
     const { company_id, name, gstin, pan, vendor_type, contact_person, phone, email, address, city, state } = req.body;
@@ -80,7 +80,7 @@ router.post('/vendor', requireSyncKey, async (req, res) => {
       return res.json({ ok: true, action: 'exists', id: existing.rows[0].id });
     }
 
-    const code = `VEN-TQS-${Date.now().toString().slice(-6)}`;
+    const code = `VEN-DQS-${Date.now().toString().slice(-6)}`;
     const result = await query(
       `INSERT INTO vendors (company_id, vendor_code, name, gstin, pan, vendor_type, contact_person, phone, email, address, city, state)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,

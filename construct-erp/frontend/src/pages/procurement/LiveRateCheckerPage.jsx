@@ -373,7 +373,7 @@ export default function LiveRateCheckerPage() {
             LIVE RATE CHECKER
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">
-            TQS Yelahanka
+            DQS Yelahanka
             {summary && (
               <>
                 {' '}· <span className="font-medium">{summary.total_items} materials</span>

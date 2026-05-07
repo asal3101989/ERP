@@ -30,7 +30,7 @@ const C = {
 // ── Departments ────────────────────────────────────────────────────────────────
 const DEPTS = [
   { key:'all',            label:'All Reports',       icon:BarChart3,     color:'indigo' },
-  { key:'tqs',            label:'TQS Tracker',       icon:Send,          color:'indigo' },
+  { key:'dqs',            label:'DQS Tracker',       icon:Send,          color:'indigo' },
   { key:'finance',        label:'Finance',           icon:IndianRupee,   color:'emerald' },
   { key:'hr',             label:'HR & Admin',        icon:Users,         color:'violet' },
   { key:'procurement',    label:'Procurement',       icon:Truck,         color:'amber' },
@@ -47,12 +47,12 @@ const DEPTS = [
 // ── Report definitions (with columns + api endpoint) ──────────────────────────
 // Endpoints match actual backend routes in server.js
 const REPORTS = [
-  // ── TQS ──────────────────────────────────────────────────────────────────────
+  // ── DQS ──────────────────────────────────────────────────────────────────────
   {
-    key:'tqs-bill-register', dept:'tqs', title:'Bill Register', icon:FileText, color:'indigo',
+    key:'dqs-bill-register', dept:'dqs', title:'Bill Register', icon:FileText, color:'indigo',
     desc:'All invoices with vendor, amount, status, and dates',
     filters:['dateRange','project'],
-    endpoint:'/tqs/bills',
+    endpoint:'/dqs/bills',
     // backend returns { data: [...] }
     dataKey:'data',
     // date filter params used by this route
@@ -68,10 +68,10 @@ const REPORTS = [
     ],
   },
   {
-    key:'tqs-aging', dept:'tqs', title:'Invoice Ageing', icon:Clock, color:'indigo',
+    key:'dqs-aging', dept:'dqs', title:'Invoice Ageing', icon:Clock, color:'indigo',
     desc:'Ageing analysis — how long invoices have been pending',
     filters:['project'],
-    endpoint:'/tqs/bills',
+    endpoint:'/dqs/bills',
     dataKey:'data',
     columns:[
       { key:'sl_number',       label:'Bill No',     mono:true },
@@ -93,10 +93,10 @@ const REPORTS = [
       .sort((a,b) => b.days_pending - a.days_pending),
   },
   {
-    key:'tqs-vendor-summary', dept:'tqs', title:'Vendor-wise Summary', icon:Users, color:'indigo',
+    key:'dqs-vendor-summary', dept:'dqs', title:'Vendor-wise Summary', icon:Users, color:'indigo',
     desc:'Invoice count and total amounts grouped by vendor',
     filters:['dateRange','project'],
-    endpoint:'/tqs/bills',
+    endpoint:'/dqs/bills',
     dataKey:'data',
     columns:[
       { key:'vendor_name',  label:'Vendor' },
@@ -119,10 +119,10 @@ const REPORTS = [
     },
   },
   {
-    key:'tqs-ap-aging', dept:'tqs', title:'AP Ageing Report', icon:TrendingUp, color:'indigo',
+    key:'dqs-ap-aging', dept:'dqs', title:'AP Ageing Report', icon:TrendingUp, color:'indigo',
     desc:'Accounts payable ageing buckets: current, 30, 60, 90+ days',
     filters:['project'],
-    endpoint:'/tqs/bills/ap-aging',
+    endpoint:'/dqs/bills/ap-aging',
     dataKey:'data',
     columns:[
       { key:'vendor_name', label:'Vendor' },
@@ -504,13 +504,13 @@ function fmt(val, type) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const [dept, setDept] = useState('tqs');
+  const [dept, setDept] = useState('dqs');
   const [search, setSearch] = useState('');
   const [selectedReport, setSelectedReport] = useState(null);
 
-  // select first report of tqs by default
+  // select first report of dqs by default
   useEffect(() => {
-    const first = REPORTS.find(r => r.dept === 'tqs');
+    const first = REPORTS.find(r => r.dept === 'dqs');
     if (first) setSelectedReport(first);
   }, []);
 

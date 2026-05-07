@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { Calculator, Plus, X, FileText, TrendingUp, Landmark, ChevronDown, Download, RefreshCw } from 'lucide-react';
-import api, { invoiceAPI, projectAPI, raBillAPI, tqsBillsAPI } from '../../api/client';
+import api, { invoiceAPI, projectAPI, raBillAPI, dqsBillsAPI } from '../../api/client';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 
@@ -275,15 +275,15 @@ export default function GSTPage() {
     queryFn: () => invoiceAPI.list().then(r => r.data?.data || []).catch(() => []),
   });
 
-  // TQS bills — input tax (ITC)
-  const { data: tqsRes, refetch: refetchTqs, isFetching: fetchingTqs } = useQuery({
-    queryKey: ['tqs-bills-gst'],
-    queryFn: () => tqsBillsAPI.list({ limit: 1000 }).then(r => {
+  // DQS bills — input tax (ITC)
+  const { data: dqsRes, refetch: refetchTqs, isFetching: fetchingTqs } = useQuery({
+    queryKey: ['dqs-bills-gst'],
+    queryFn: () => dqsBillsAPI.list({ limit: 1000 }).then(r => {
       const d = r.data;
       return Array.isArray(d) ? d : (Array.isArray(d?.data) ? d.data : []);
     }).catch(() => []),
   });
-  const tqsBills = tqsRes || [];
+  const dqsBills = dqsRes || [];
 
   // Projects
   const { data: projects = [] } = useQuery({
@@ -306,12 +306,12 @@ export default function GSTPage() {
   }, [invoices]);
 
   const inputITC = useMemo(() => {
-    const bills = tqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0);
+    const bills = dqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0);
     const total = bills.reduce((s, b) => s + parseFloat(b.gst_amount || 0), 0);
     const cgst = bills.reduce((s, b) => s + parseFloat(b.cgst_amount || b.gst_amount / 2 || 0), 0);
     const sgst = bills.reduce((s, b) => s + parseFloat(b.sgst_amount || b.gst_amount / 2 || 0), 0);
     return { total, cgst, sgst, count: bills.length };
-  }, [tqsBills]);
+  }, [dqsBills]);
 
   const netGSTPayable = Math.max(0, outputGST.total - inputITC.total);
 
@@ -584,7 +584,7 @@ export default function GSTPage() {
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-700">Vendor Bills with GST (Input Tax)</h3>
-              <span className="text-xs text-gray-500">{tqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length} bills</span>
+              <span className="text-xs text-gray-500">{dqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length} bills</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -596,7 +596,7 @@ export default function GSTPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {tqsBills
+                  {dqsBills
                     .filter(b => parseFloat(b.gst_amount || 0) > 0)
                     .slice(0, 100)
                     .map(b => (
@@ -621,7 +621,7 @@ export default function GSTPage() {
                         </td>
                       </tr>
                     ))}
-                  {tqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length === 0 && (
+                  {dqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length === 0 && (
                     <tr>
                       <td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-sm">
                         No vendor bills with GST found
@@ -631,9 +631,9 @@ export default function GSTPage() {
                 </tbody>
               </table>
             </div>
-            {tqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length > 100 && (
+            {dqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length > 100 && (
               <div className="px-5 py-3 border-t border-gray-100 text-xs text-gray-500">
-                Showing first 100 of {tqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length} bills
+                Showing first 100 of {dqsBills.filter(b => parseFloat(b.gst_amount || 0) > 0).length} bills
               </div>
             )}
           </div>

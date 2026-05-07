@@ -10,7 +10,7 @@ const upload = multer({ dest: 'uploads/' });
 vendorRouter.use(authenticate);
 
 // GET / — List all active vendors
-// Ensure extra columns exist (added when TQS vendor list was unified)
+// Ensure extra columns exist (added when DQS vendor list was unified)
 const ensureVendorCols = async () => {
   const extras = [
     `ALTER TABLE vendors ADD COLUMN IF NOT EXISTS trade_name    TEXT DEFAULT ''`,

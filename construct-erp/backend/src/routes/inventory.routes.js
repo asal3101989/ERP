@@ -107,7 +107,7 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// GET /inventory/items-lookup — all material names with their category & unit for TQS bill autocomplete
+// GET /inventory/items-lookup — all material names with their category & unit for DQS bill autocomplete
 router.get('/items-lookup', async (req, res) => {
   try {
     const result = await query(`

@@ -6,14 +6,14 @@ import {
   ChevronLeft, ChevronRight, ExternalLink, ArrowUpDown,
 } from 'lucide-react';
 import dayjs from 'dayjs';
-import { tqsBillsAPI, projectAPI } from '../../api/client';
+import { dqsBillsAPI, projectAPI } from '../../api/client';
 import { Link } from 'react-router-dom';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const inr = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(v || 0));
 const dateFmt = (d) => d ? dayjs(d).format('DD MMM YYYY') : '—';
 
-// Map TQS workflow_status → Zoho-style display status
+// Map DQS workflow_status → Zoho-style display status
 function mapStatus(bill) {
   const ws = String(bill.workflow_status || '').toLowerCase();
   const ps = String(bill.payment_status  || '').toLowerCase();
@@ -76,8 +76,8 @@ export default function VendorInvoicePage() {
 
   // ── Data ──────────────────────────────────────────────────────────────────
   const { data: rawBills = [], isLoading, refetch } = useQuery({
-    queryKey: ['vendor-payables-tqs'],
-    queryFn: () => tqsBillsAPI.list({ limit: 1000 }).then(r => r.data?.data || []).catch(() => []),
+    queryKey: ['vendor-payables-dqs'],
+    queryFn: () => dqsBillsAPI.list({ limit: 1000 }).then(r => r.data?.data || []).catch(() => []),
     staleTime: 30_000,
   });
 
@@ -172,7 +172,7 @@ export default function VendorInvoicePage() {
       <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-base font-semibold text-gray-800">Vendor Bills</h1>
-          <p className="text-xs text-gray-400">All bills from TQS tracker</p>
+          <p className="text-xs text-gray-400">All bills from DQS tracker</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => refetch()} className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-gray-500">
@@ -181,8 +181,8 @@ export default function VendorInvoicePage() {
           <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-medium">
             <Download className="w-3.5 h-3.5" /> Export
           </button>
-          <Link to="/tqs/bills" className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-[#1D4ED8] hover:bg-blue-700 text-white text-sm font-medium">
-            <ExternalLink className="w-3.5 h-3.5" /> Open TQS Tracker
+          <Link to="/dqs/bills" className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-[#1D4ED8] hover:bg-blue-700 text-white text-sm font-medium">
+            <ExternalLink className="w-3.5 h-3.5" /> Open DQS Tracker
           </Link>
         </div>
       </div>
@@ -315,7 +315,7 @@ export default function VendorInvoicePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <Link to="/tqs/bills" className="text-xs text-blue-600 hover:underline font-medium whitespace-nowrap">
+                      <Link to="/dqs/bills" className="text-xs text-blue-600 hover:underline font-medium whitespace-nowrap">
                         View →
                       </Link>
                     </td>

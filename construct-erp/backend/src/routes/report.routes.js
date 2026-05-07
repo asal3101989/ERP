@@ -119,7 +119,7 @@ router.get('/tds', async (req, res) => {
   }
 });
 
-// Vendor Ledger (TQS + Finance)
+// Vendor Ledger (DQS + Finance)
 router.get('/vendor-ledger', async (req, res) => {
   try {
     const { project_id } = req.query;
@@ -134,7 +134,7 @@ router.get('/vendor-ledger', async (req, res) => {
     const projectClausePay = project_id ? ` AND pay.project_id = $${idx}` : '';
     if (project_id) params.push(project_id);
 
-    const [tqsRes, invRes, payRes] = await Promise.all([
+    const [dqsRes, invRes, payRes] = await Promise.all([
       query(
         `
           SELECT
@@ -148,9 +148,9 @@ router.get('/vendor-ledger', async (req, res) => {
             COALESCE(SUM(u.tds_deduction), 0) AS total_tds,
             COALESCE(SUM(u.retention_money), 0) AS total_retention,
             COALESCE(SUM(u.certified_net), 0) - COALESCE(SUM(u.paid_amount), 0) AS outstanding,
-            'TQS' AS source
-          FROM tqs_bills b
-          LEFT JOIN tqs_bill_updates u ON u.bill_id = b.id
+            'DQS' AS source
+          FROM dqs_bills b
+          LEFT JOIN dqs_bill_updates u ON u.bill_id = b.id
           LEFT JOIN projects p ON p.id = b.project_id
           WHERE b.company_id = $1 AND b.is_deleted = FALSE ${projectClauseTqs}
           GROUP BY COALESCE(b.vendor_id::text, 'name:' || COALESCE(b.vendor_name, 'unknown')), b.vendor_id, b.vendor_name
@@ -240,7 +240,7 @@ router.get('/vendor-ledger', async (req, res) => {
       target.sources.add(row.source);
     };
 
-    [...tqsRes.rows, ...invRes.rows, ...payRes.rows].forEach(merge);
+    [...dqsRes.rows, ...invRes.rows, ...payRes.rows].forEach(merge);
 
     const data = [...map.values()]
       .map(row => ({
@@ -339,7 +339,7 @@ router.get('/safety', async (req, res) => {
 });
 
 // ── GET /reports/project-pl ────────────────────────────────────────────────
-// Full project P&L: Contract Value → Client Billing → TQS Vendor Cost → Margin
+// Full project P&L: Contract Value → Client Billing → DQS Vendor Cost → Margin
 router.get('/project-pl', async (req, res) => {
   try {
     const { project_id } = req.query;
@@ -361,13 +361,13 @@ router.get('/project-pl', async (req, res) => {
         COALESCE(rev.received,        0)      AS received_from_client,
         COALESCE(rev.bill_count,      0)      AS ra_bill_count,
 
-        -- Vendor Cost (TQS certified amounts)
+        -- Vendor Cost (DQS certified amounts)
         COALESCE(cost.vendor_certified, 0)    AS vendor_certified,
         COALESCE(cost.vendor_paid,      0)    AS vendor_paid,
         COALESCE(cost.vendor_outstanding, 0)  AS vendor_outstanding,
         COALESCE(cost.tds_held,         0)    AS tds_held,
         COALESCE(cost.retention_held,   0)    AS retention_held,
-        COALESCE(cost.bill_count,       0)    AS tqs_bill_count,
+        COALESCE(cost.bill_count,       0)    AS dqs_bill_count,
 
         -- Other Payments (labour, overhead etc from payments table)
         COALESCE(pay.other_cost,        0)    AS other_cost,
@@ -411,8 +411,8 @@ router.get('/project-pl', async (req, res) => {
           SUM(u.tds_deduction)    AS tds_held,
           SUM(u.retention_money)  AS retention_held,
           COUNT(tb.id)            AS bill_count
-        FROM tqs_bills tb
-        LEFT JOIN tqs_bill_updates u ON u.bill_id = tb.id
+        FROM dqs_bills tb
+        LEFT JOIN dqs_bill_updates u ON u.bill_id = tb.id
         WHERE tb.project_id = p.id AND tb.is_deleted = FALSE
           AND tb.workflow_status IN ('qs','accounts','paid')
       ) cost ON TRUE
@@ -421,7 +421,7 @@ router.get('/project-pl', async (req, res) => {
         SELECT SUM(pay.net_amount) AS other_cost
         FROM payments pay
         WHERE pay.project_id = p.id
-          AND pay.source != 'tqs'   -- exclude TQS auto-entries (already in vendor_certified)
+          AND pay.source != 'dqs'   -- exclude DQS auto-entries (already in vendor_certified)
       ) pay ON TRUE
 
       WHERE ${where}

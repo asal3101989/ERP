@@ -23,7 +23,7 @@ const CHANNELS = [
   { id: 'procurement',    label: 'procurement',     icon: Truck,        desc: 'Purchase orders, vendors, quotations' },
   { id: 'stores',         label: 'stores',          icon: Package,      desc: 'GRN, MRS, inventory, stock' },
   { id: 'qs-billing',     label: 'qs-billing',      icon: Layers,       desc: 'BOQ, RA bills, measurements' },
-  { id: 'tqs',            label: 'tqs-tracker',     icon: ClipboardList,desc: 'Bill approvals, transmittals' },
+  { id: 'dqs',            label: 'dqs-tracker',     icon: ClipboardList,desc: 'Bill approvals, transmittals' },
   { id: 'hr',             label: 'hr-admin',        icon: Users,        desc: 'Payroll, attendance, leave' },
   { id: 'planning',       label: 'planning',        icon: Flag,         desc: 'DPR, schedules, S-curve' },
   { id: 'quality',        label: 'quality-hse',     icon: ShieldCheck,  desc: 'QA/QC, NCR, RFI, safety' },

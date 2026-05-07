@@ -120,17 +120,17 @@ const navGroups = [
     ]
   },
 
-  // ── 9. TQS TRACKER (bill approval workflow) ──────────────────────────────────
+  // ── 9. DQS TRACKER (bill approval workflow) ──────────────────────────────────
   {
-    label: 'TQS Tracker',
+    label: 'DQS Tracker',
     items: [
-      { to: '/tqs',                  icon: LayoutDashboard, label: 'TQS Dashboard' },
-      { to: '/tqs/bills',            icon: FileText,        label: 'Bills' },
-      { to: '/tqs/transmittal',      icon: Send,            label: 'Transmittal' },
-      { to: '/tqs/vendors',          icon: Users,           label: 'Vendors' },
-      { to: '/tqs/material-tracker', icon: Package,         label: 'Material Tracker' },
-      { to: '/tqs/analytics',        icon: TrendingUp,      label: 'Analytics' },
-      { to: '/tqs/reports',          icon: BarChart3,       label: 'Reports' },
+      { to: '/dqs',                  icon: LayoutDashboard, label: 'DQS Dashboard' },
+      { to: '/dqs/bills',            icon: FileText,        label: 'Bills' },
+      { to: '/dqs/transmittal',      icon: Send,            label: 'Transmittal' },
+      { to: '/dqs/vendors',          icon: Users,           label: 'Vendors' },
+      { to: '/dqs/material-tracker', icon: Package,         label: 'Material Tracker' },
+      { to: '/dqs/analytics',        icon: TrendingUp,      label: 'Analytics' },
+      { to: '/dqs/reports',          icon: BarChart3,       label: 'Reports' },
     ]
   },
 
@@ -217,7 +217,7 @@ const GROUP_COLORS = {
   'Subcontractors':    '#F97316',
   'QS & Billing':      '#10B981',
   'Finance':           '#22C55E',
-  'TQS Tracker':       '#6366F1',
+  'DQS Tracker':       '#6366F1',
   'Quality (QA/QC)':   '#3B82F6',
   'HSE & Safety':      '#EF4444',
   'Assets & IT':       '#64748B',

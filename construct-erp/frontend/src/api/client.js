@@ -504,59 +504,59 @@ export const documentsAPI = {
   delete:  (id)       => api.delete(`/documents/${id}`),
 };
 
-export const tqsBillsAPI = {
-  list:         (params)   => api.get('/tqs/bills', { params }),
-  get:          (id)       => api.get(`/tqs/bills/${id}`),
-  create:       (data)     => api.post('/tqs/bills', data),
-  importExcel:  (fd)       => api.post('/tqs/bills/import-excel', fd, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  update:       (id, d)    => api.put(`/tqs/bills/${id}`, d),
-  updateStores: (id, d)    => api.patch(`/tqs/bills/${id}/stores`, d),
-  updateDocumentControl: (id, d) => api.patch(`/tqs/bills/${id}/document-control`, d),
-  updateQS:     (id, d)    => api.patch(`/tqs/bills/${id}/qs`, d),
-  updateAccounts:(id, d)   => api.patch(`/tqs/bills/${id}/accounts`, d),
-  updateProcurement:(id, d)=> api.patch(`/tqs/bills/${id}/procurement`, d),
-  updatePayment:(id, d)    => api.patch(`/tqs/bills/${id}/payment`, d),
-  uploadFile:   (id, fd)   => api.post(`/tqs/bills/${id}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  syncFileToOneDrive: (id, fid) => api.post(`/tqs/bills/${id}/files/${fid}/sync-onedrive`),
-  deleteFile:   (id, fid)  => api.delete(`/tqs/bills/${id}/files/${fid}`),
-  delete:       (id)       => api.delete(`/tqs/bills/${id}`),
+export const dqsBillsAPI = {
+  list:         (params)   => api.get('/dqs/bills', { params }),
+  get:          (id)       => api.get(`/dqs/bills/${id}`),
+  create:       (data)     => api.post('/dqs/bills', data),
+  importExcel:  (fd)       => api.post('/dqs/bills/import-excel', fd, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  update:       (id, d)    => api.put(`/dqs/bills/${id}`, d),
+  updateStores: (id, d)    => api.patch(`/dqs/bills/${id}/stores`, d),
+  updateDocumentControl: (id, d) => api.patch(`/dqs/bills/${id}/document-control`, d),
+  updateQS:     (id, d)    => api.patch(`/dqs/bills/${id}/qs`, d),
+  updateAccounts:(id, d)   => api.patch(`/dqs/bills/${id}/accounts`, d),
+  updateProcurement:(id, d)=> api.patch(`/dqs/bills/${id}/procurement`, d),
+  updatePayment:(id, d)    => api.patch(`/dqs/bills/${id}/payment`, d),
+  uploadFile:   (id, fd)   => api.post(`/dqs/bills/${id}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  syncFileToOneDrive: (id, fid) => api.post(`/dqs/bills/${id}/files/${fid}/sync-onedrive`),
+  deleteFile:   (id, fid)  => api.delete(`/dqs/bills/${id}/files/${fid}`),
+  delete:       (id)       => api.delete(`/dqs/bills/${id}`),
   // ── Cross-module lookups ──
-  lookupPOs:        (params)   => api.get('/tqs/bills/lookup/pos',        { params }),
-  lookupGRNs:       (params)   => api.get('/tqs/bills/lookup/grns',       { params }),
-  lookupPOBalance:  (po_id)    => api.get('/tqs/bills/lookup/po-balance',  { params: { po_id } }),
+  lookupPOs:        (params)   => api.get('/dqs/bills/lookup/pos',        { params }),
+  lookupGRNs:       (params)   => api.get('/dqs/bills/lookup/grns',       { params }),
+  lookupPOBalance:  (po_id)    => api.get('/dqs/bills/lookup/po-balance',  { params: { po_id } }),
   // ── RA Bill Summary + Payment Certificate ──
-  getRASummary:       (id)    => api.get(`/tqs/bills/${id}/ra-summary`),
-  generatePaymentCert:(id)    => api.post(`/tqs/bills/${id}/payment-certificate`),
-  signPaymentCert:    (id, d) => api.patch(`/tqs/bills/${id}/payment-certificate/sign`, d),
+  getRASummary:       (id)    => api.get(`/dqs/bills/${id}/ra-summary`),
+  generatePaymentCert:(id)    => api.post(`/dqs/bills/${id}/payment-certificate`),
+  signPaymentCert:    (id, d) => api.patch(`/dqs/bills/${id}/payment-certificate/sign`, d),
   // ── Vendor Ledger + AP Aging ──
-  getVendorLedger: (params) => api.get('/tqs/bills/vendor-ledger', { params }),
-  getAPAging:      (params) => api.get('/tqs/bills/ap-aging',      { params }),
-  updateMeta:      (id, d)  => api.patch(`/tqs/bills/${id}/meta`, d),
+  getVendorLedger: (params) => api.get('/dqs/bills/vendor-ledger', { params }),
+  getAPAging:      (params) => api.get('/dqs/bills/ap-aging',      { params }),
+  updateMeta:      (id, d)  => api.patch(`/dqs/bills/${id}/meta`, d),
 };
 
-export const tqsTrackerAPI = {
-  list:      (params) => api.get('/tqs/material-tracker', { params }),
-  lifecycle: (params) => api.get('/tqs/material-tracker/lifecycle', { params }),
-  create: (data)   => api.post('/tqs/material-tracker', data),
-  update: (id, d)  => api.put(`/tqs/material-tracker/${id}`, d),
-  delete: (id)     => api.delete(`/tqs/material-tracker/${id}`),
+export const dqsTrackerAPI = {
+  list:      (params) => api.get('/dqs/material-tracker', { params }),
+  lifecycle: (params) => api.get('/dqs/material-tracker/lifecycle', { params }),
+  create: (data)   => api.post('/dqs/material-tracker', data),
+  update: (id, d)  => api.put(`/dqs/material-tracker/${id}`, d),
+  delete: (id)     => api.delete(`/dqs/material-tracker/${id}`),
 };
 
-export const tqsVendorsAPI = {
-  list:   (params) => api.get('/tqs/vendors', { params }),
-  create: (data)   => api.post('/tqs/vendors', data),
-  update: (id, d)  => api.put(`/tqs/vendors/${id}`, d),
-  delete: (id)     => api.delete(`/tqs/vendors/${id}`),
+export const dqsVendorsAPI = {
+  list:   (params) => api.get('/dqs/vendors', { params }),
+  create: (data)   => api.post('/dqs/vendors', data),
+  update: (id, d)  => api.put(`/dqs/vendors/${id}`, d),
+  delete: (id)     => api.delete(`/dqs/vendors/${id}`),
 };
 
-export const tqsTransmittalAPI = {
-  list:         (params) => api.get('/tqs/transmittals', { params }),
-  get:          (id)     => api.get(`/tqs/transmittals/${id}`),
-  create:       (data)   => api.post('/tqs/transmittals', data),
-  submit:       (id)     => api.patch(`/tqs/transmittals/${id}/submit`),
-  receive:      (id, d)  => api.patch(`/tqs/transmittals/${id}/receive`, d),
-  delete:       (id)     => api.delete(`/tqs/transmittals/${id}`),
-  lookupBills:  (params) => api.get('/tqs/transmittals/lookup/bills', { params }),
+export const dqsTransmittalAPI = {
+  list:         (params) => api.get('/dqs/transmittals', { params }),
+  get:          (id)     => api.get(`/dqs/transmittals/${id}`),
+  create:       (data)   => api.post('/dqs/transmittals', data),
+  submit:       (id)     => api.patch(`/dqs/transmittals/${id}/submit`),
+  receive:      (id, d)  => api.patch(`/dqs/transmittals/${id}/receive`, d),
+  delete:       (id)     => api.delete(`/dqs/transmittals/${id}`),
+  lookupBills:  (params) => api.get('/dqs/transmittals/lookup/bills', { params }),
 };
 
 // ─── HR & Admin API ───────────────────────────────────────────────────────────

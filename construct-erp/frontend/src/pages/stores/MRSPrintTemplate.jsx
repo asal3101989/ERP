@@ -31,7 +31,7 @@ const MRSPrintTemplate = React.forwardRef(({ data }, ref) => {
           {/* Info Section */}
           <div className="flex border-x-2 border-b-2 border-black text-[10px]">
             <div className="w-1/2 p-2 border-r-2 border-black space-y-1 text-left">
-              <div className="flex"><span className="w-32 font-bold">Project</span><span className="flex-1">: {data.project_name || 'BCIM-BLR-TQS'}</span></div>
+              <div className="flex"><span className="w-32 font-bold">Project</span><span className="flex-1">: {data.project_name || 'BCIM-BLR-DQS'}</span></div>
               <div className="flex"><span className="w-32 font-bold">Project Code</span><span className="flex-1">: {data.project_code}</span></div>
               <div className="flex"><span className="w-32 font-bold">Head office / Project Name</span><span className="flex-1">: {data.head_office_project_name}</span></div>
               <div className="flex"><span className="w-32 font-bold">Department</span><span className="flex-1">: {data.department || 'Projects'}</span></div>

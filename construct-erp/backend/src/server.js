@@ -68,10 +68,10 @@ const analyticsRoutes     = require('./routes/analytics.routes');
 const variationRoutes     = require('./routes/variation.routes');
 const normsRoutes         = require('./routes/norms.routes');
 const documentsRoutes     = require('./routes/documents.routes');
-const tqsBillsRoutes         = require('./routes/tqs-bills.routes');
-const tqsTrackerRoutes       = require('./routes/tqs-tracker.routes');
-const tqsVendorsRoutes       = require('./routes/tqs-vendors.routes');
-const tqsTransmittalRoutes   = require('./routes/tqs-transmittal.routes');
+const dqsBillsRoutes         = require('./routes/dqs-bills.routes');
+const dqsTrackerRoutes       = require('./routes/dqs-tracker.routes');
+const dqsVendorsRoutes       = require('./routes/dqs-vendors.routes');
+const dqsTransmittalRoutes   = require('./routes/dqs-transmittal.routes');
 const tdsRoutes           = require('./routes/tds.routes');
 const hrMastersRoutes     = require('./routes/hr-masters.routes');
 const hrEmployeesRoutes   = require('./routes/hr-employees.routes');
@@ -257,13 +257,13 @@ app.use(`${API}/upload`, uploadRoutes);
 // Documents (cross-module, OneDrive-backed)
 app.use(`${API}/documents`, documentsRoutes);
 
-// TQS Invoice Tracker
-app.use(`${API}/tqs/bills`, tqsBillsRoutes);
-app.use(`${API}/tqs/material-tracker`, tqsTrackerRoutes);
-app.use(`${API}/tqs/vendors`,          tqsVendorsRoutes);
-app.use(`${API}/tqs/transmittals`,     tqsTransmittalRoutes);
+// DQS Invoice Tracker
+app.use(`${API}/dqs/bills`, dqsBillsRoutes);
+app.use(`${API}/dqs/material-tracker`, dqsTrackerRoutes);
+app.use(`${API}/dqs/vendors`,          dqsVendorsRoutes);
+app.use(`${API}/dqs/transmittals`,     dqsTransmittalRoutes);
 
-// TQS Sync (no JWT — key-based, for cross-app data sharing)
+// DQS Sync (no JWT — key-based, for cross-app data sharing)
 app.use(`${API}/sync`, syncRoutes);
 
 // AI Assistant

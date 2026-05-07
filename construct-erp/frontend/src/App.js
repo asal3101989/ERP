@@ -123,17 +123,17 @@ const QSReportsPage        = lazy(() => import('./pages/qs/ReportsPage'));
 const BillingReportsPage    = lazy(() => import('./pages/billing/BillingReportsPage'));
 const DocumentsPage             = lazy(() => import('./pages/documents/DocumentsPage'));
 const FinanceIntelligencePage   = lazy(() => import('./pages/finance/FinanceIntelligencePage'));
-const TQSDashboardPage      = lazy(() => import('./pages/tqs/TQSDashboardPage'));
+const DQSDashboardPage      = lazy(() => import('./pages/dqs/DQSDashboardPage'));
 
-const TQSBillsPage          = lazy(() => import('./pages/tqs/TQSBillsPage'));
-const TQSBillDetailPage     = lazy(() => import('./pages/tqs/TQSBillDetailPage'));
-const TQSPaymentCertPrint   = lazy(() => import('./pages/tqs/TQSPaymentCertPrint'));
-const TQSMaterialTrackerPage = lazy(() => import('./pages/tqs/TQSMaterialTrackerPage'));
-const TQSReportsPage        = lazy(() => import('./pages/tqs/TQSReportsPage'));
-const TQSAnalyticsPage      = lazy(() => import('./pages/tqs/TQSAnalyticsPage'));
-const TQSVendorsPage        = lazy(() => import('./pages/tqs/TQSVendorsPage'));
-const TQSTransmittalPage    = lazy(() => import('./pages/tqs/TQSTransmittalPage'));
-const QSRABillPrint         = lazy(() => import('./pages/tqs/QSRABillPrint'));
+const DQSBillsPage          = lazy(() => import('./pages/dqs/DQSBillsPage'));
+const DQSBillDetailPage     = lazy(() => import('./pages/dqs/DQSBillDetailPage'));
+const DQSPaymentCertPrint   = lazy(() => import('./pages/dqs/DQSPaymentCertPrint'));
+const DQSMaterialTrackerPage = lazy(() => import('./pages/dqs/DQSMaterialTrackerPage'));
+const DQSReportsPage        = lazy(() => import('./pages/dqs/DQSReportsPage'));
+const DQSAnalyticsPage      = lazy(() => import('./pages/dqs/DQSAnalyticsPage'));
+const DQSVendorsPage        = lazy(() => import('./pages/dqs/DQSVendorsPage'));
+const DQSTransmittalPage    = lazy(() => import('./pages/dqs/DQSTransmittalPage'));
+const QSRABillPrint         = lazy(() => import('./pages/dqs/QSRABillPrint'));
 const QAQCReportsPage       = lazy(() => import('./pages/quality/QAQCReportsPage'));
 const DrawingRegisterPage   = lazy(() => import('./pages/quality/DrawingRegisterPage'));
 const SubmittalsPage        = lazy(() => import('./pages/quality/SubmittalsPage'));
@@ -208,8 +208,8 @@ export default function App() {
               <Route path="/verify/min/:id" element={<MINVerificationPage />} />
 
               {/* Print pages — ProtectedRoute but NO Layout sidebar */}
-              <Route path="/tqs/bills/:id/payment-cert"    element={<ProtectedRoute><TQSPaymentCertPrint /></ProtectedRoute>} />
-              <Route path="/tqs/bills/:id/ra-abstract"      element={<ProtectedRoute><QSRABillPrint /></ProtectedRoute>} />
+              <Route path="/dqs/bills/:id/payment-cert"    element={<ProtectedRoute><DQSPaymentCertPrint /></ProtectedRoute>} />
+              <Route path="/dqs/bills/:id/ra-abstract"      element={<ProtectedRoute><QSRABillPrint /></ProtectedRoute>} />
 
               {/* Private — All ERP module routes now under ProtectedRoute */}
               <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -332,16 +332,16 @@ export default function App() {
                 {/* Documents Repository */}
                 <Route path="documents" element={<DocumentsPage />} />
 
-                {/* TQS Invoice Tracker */}
-                <Route path="tqs"                  element={<TQSDashboardPage />} />
+                {/* DQS Invoice Tracker */}
+                <Route path="dqs"                  element={<DQSDashboardPage />} />
                 <Route path="bills/tracker"         element={<BillsTrackerPage />} />
-                <Route path="tqs/bills"            element={<TQSBillsPage />} />
-                <Route path="tqs/bills/:id"            element={<TQSBillDetailPage />} />
-                <Route path="tqs/material-tracker" element={<TQSMaterialTrackerPage />} />
-                <Route path="tqs/reports"          element={<TQSReportsPage />} />
-                <Route path="tqs/analytics"        element={<TQSAnalyticsPage />} />
-                <Route path="tqs/vendors"          element={<TQSVendorsPage />} />
-                <Route path="tqs/transmittal"      element={<TQSTransmittalPage />} />
+                <Route path="dqs/bills"            element={<DQSBillsPage />} />
+                <Route path="dqs/bills/:id"            element={<DQSBillDetailPage />} />
+                <Route path="dqs/material-tracker" element={<DQSMaterialTrackerPage />} />
+                <Route path="dqs/reports"          element={<DQSReportsPage />} />
+                <Route path="dqs/analytics"        element={<DQSAnalyticsPage />} />
+                <Route path="dqs/vendors"          element={<DQSVendorsPage />} />
+                <Route path="dqs/transmittal"      element={<DQSTransmittalPage />} />
 
                 {/* Reports & Strategic Analytics */}
                 <Route path="reports" element={<ReportsPage />} />

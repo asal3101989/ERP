@@ -65,7 +65,7 @@ export default function PaymentsPage() {
     gross_amount:   Number(p.amount || 0),
     tds_amount_val: Number(p.tds_deducted ?? p.tds_amount ?? 0),
     net_amount_val: Number(p.net_amount ?? p.net_paid ?? (Number(p.amount||0) - Number(p.tds_deducted||p.tds_amount||0))),
-    source_val:     p.source || (p.tqs_bill_id ? 'tqs' : 'manual'),
+    source_val:     p.source || (p.dqs_bill_id ? 'dqs' : 'manual'),
     mode_val:       p.payment_mode || '—',
   })), [rawPayments]);
 
@@ -107,7 +107,7 @@ export default function PaymentsPage() {
   const totalGross = filtered.reduce((s,p) => s+p.gross_amount, 0);
   const totalTds   = filtered.reduce((s,p) => s+p.tds_amount_val, 0);
   const totalNet   = filtered.reduce((s,p) => s+p.net_amount_val, 0);
-  const tqsCount   = filtered.filter(p => p.source_val === 'tqs').length;
+  const dqsCount   = filtered.filter(p => p.source_val === 'dqs').length;
 
   // ── RA Bills tab ───────────────────────────────────────────────────────────
   const certifiedBills = allRaBills.filter(b => b.status === 'certified');
@@ -148,7 +148,7 @@ export default function PaymentsPage() {
           <SummaryCard label="Net Disbursed"  value={inr(totalNet)}   sub="Released to payees"       color="#059669" />
           <SummaryCard label="Gross Amount"    value={inr(totalGross)} sub="Before TDS deduction"     color="#374151" />
           <SummaryCard label="TDS Deducted"    value={inr(totalTds)}   sub="Held at source"           color="#DC2626" />
-          <SummaryCard label="TQS Linked"      value={tqsCount}        sub="Auto-synced from TQS"     color="#1D4ED8" />
+          <SummaryCard label="DQS Linked"      value={dqsCount}        sub="Auto-synced from DQS"     color="#1D4ED8" />
         </div>
 
         {/* Tabs */}
@@ -229,7 +229,7 @@ export default function PaymentsPage() {
                         <td className="px-4 py-3 text-right font-mono text-sm text-red-500">{p.tds_amount_val>0 ? inr(p.tds_amount_val) : '—'}</td>
                         <td className="px-4 py-3 text-right font-semibold text-sm text-gray-900">{inr(p.net_amount_val)}</td>
                         <td className="px-4 py-3">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${p.source_val==='tqs' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>{p.source_val==='tqs'?'TQS':'Manual'}</span>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${p.source_val==='dqs' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>{p.source_val==='dqs'?'DQS':'Manual'}</span>
                         </td>
                         <td className="px-4 py-3">
                           <button onClick={()=>{ if(window.confirm('Delete this payment?')) deleteMut.mutate(p.id); }} className="text-xs text-red-400 hover:text-red-600">Delete</button>
