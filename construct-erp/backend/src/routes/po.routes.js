@@ -267,7 +267,7 @@ router.post('/', async (req, res) => {
           narration || null, terms_conditions || null, notes || null, bank_details || null,
           parseFloat(cgst_rate) || 9, parseFloat(sgst_rate) || 9, parseFloat(igst_rate) || 0,
           gst_inclusive === true || gst_inclusive === 'true',
-          'pending', req.user.id
+          'draft', req.user.id
         ]
       );
       const poId = headerRes.rows[0].id;
@@ -341,7 +341,7 @@ router.patch('/:id/reject', async (req, res) => {
 
 // Stage-based Approval
 const PO_STAGES = {
-  'verify-audit':  { nextStatus: 'verified_audit',  colBy: 'verified_procurement_by', colAt: 'verified_procurement_at', requiredPrev: 'pending'         },
+  'verify-audit':  { nextStatus: 'verified_audit',  colBy: 'verified_procurement_by', colAt: 'verified_procurement_at', requiredPrev: 'draft'           },
   'check-finance': { nextStatus: 'checked_finance',  colBy: 'checked_finance_by',      colAt: 'checked_finance_at',      requiredPrev: 'verified_audit'  },
   'release-mgmt':  { nextStatus: 'released_mgmt',   colBy: 'released_mgmt_by',        colAt: 'released_mgmt_at',        requiredPrev: 'checked_finance' },
   'authorize-md':  { nextStatus: 'approved',         colBy: 'authorized_md_by',        colAt: 'authorized_md_at',        requiredPrev: 'released_mgmt'   },
