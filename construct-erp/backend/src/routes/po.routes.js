@@ -245,12 +245,15 @@ router.post('/', async (req, res) => {
     }
 
     const result = await withTransaction(async (client) => {
-      // 1. Generate PO Number
-      const yr = new Date().getFullYear().toString().slice(2);
-      const nextYr = (parseInt(yr) + 1).toString();
+      // 1. Generate PO Number — Financial Year format: BCIM/PO/25-26/001
+      const now = new Date();
+      // Financial year: April start. If month < 4 (Jan-Mar), FY is prev-curr
+      const fyStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      const fyEnd   = fyStart + 1;
+      const fyLabel = `${String(fyStart).slice(2)}-${String(fyEnd).slice(2)}`; // e.g. "25-26"
       const countRes = await client.query('SELECT COUNT(*) FROM purchase_orders');
       const seq = String(parseInt(countRes.rows[0].count) + 1).padStart(3, '0');
-      const po_number = `PO/${yr}${nextYr}/${seq}`;
+      const po_number = `BCIM/PO/${fyLabel}/${seq}`;
 
       // 2. Insert Header
       const headerRes = await client.query(
@@ -296,9 +299,10 @@ router.post('/', async (req, res) => {
       }
 
       // 4. Update Header with totals & formatted serial
-      const projRes = await client.query('SELECT project_code FROM projects WHERE id = $1', [project_id]);
-      const pCode = projRes.rows[0]?.project_code || 'PRJ';
-      const serial_no_formatted = `BCIM-${pCode}-PO-${seq}`;
+      // Use user-supplied display number if provided, else use the auto-generated po_number
+      const serial_no_formatted = (req.body.po_number_display && req.body.po_number_display.trim())
+        ? req.body.po_number_display.trim()
+        : po_number;
       const grandTotal = gst_inclusive ? subTotal : subTotal + totalGst;
 
       const finalRes = await client.query(

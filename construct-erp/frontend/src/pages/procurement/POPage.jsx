@@ -189,23 +189,32 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
 
   // ── Core form
   const [form, setForm] = useState({
-    vendor_id:     prefill?.vendor_id     || '',
-    project_id:    prefill?.project_id    || '',
-    po_date:       prefill?.po_date       || dayjs().format('YYYY-MM-DD'),
-    delivery_date: '',
-    po_ref_no:     prefill?.po_ref        || '',
-    po_req_no:     prefill?.po_req_no     || '',
-    po_req_date:   '',
-    approval_no:   '',
-    narration:     prefill?.narration     || '',
-    payment_terms: '30 Days from the date of supply',
-    lead_time:     'As per site requirement',
-    cgst_rate:     prefill?.cgst_rate     || '9',
-    sgst_rate:     prefill?.sgst_rate     || '9',
-    igst_rate:     '0',
-    gst_inclusive: prefill?.gst_inclusive ?? true,
-    notes:         prefill?.notes         || (prefill?.mrs_ref ? `Ref: CS / ${prefill.mrs_ref}` : ''),
+    vendor_id:          prefill?.vendor_id     || '',
+    project_id:         prefill?.project_id    || '',
+    po_date:            prefill?.po_date       || dayjs().format('YYYY-MM-DD'),
+    delivery_date:      '',
+    po_number_display:  '',   // custom PO number — auto-generated on server if left blank
+    po_ref_no:          prefill?.po_ref        || '',
+    po_req_no:          prefill?.po_req_no     || '',
+    po_req_date:        '',
+    approval_no:        '',
+    narration:          prefill?.narration     || '',
+    payment_terms:      '30 Days from the date of supply',
+    lead_time:          'As per site requirement',
+    cgst_rate:          prefill?.cgst_rate     || '9',
+    sgst_rate:          prefill?.sgst_rate     || '9',
+    igst_rate:          '0',
+    gst_inclusive:      prefill?.gst_inclusive ?? true,
+    notes:              prefill?.notes         || (prefill?.mrs_ref ? `Ref: CS / ${prefill.mrs_ref}` : ''),
   });
+
+  // Compute current financial year label for placeholder
+  const fyPlaceholder = (() => {
+    const now = new Date();
+    const fyStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const fyLabel = `${String(fyStart).slice(2)}-${String(fyStart + 1).slice(2)}`;
+    return `BCIM/PO/${fyLabel}/001`;
+  })();
 
   // ── Vendor detail text fields (auto-filled from selected vendor, editable)
   const [vendorAddress,   setVendorAddress]   = useState('');
@@ -365,8 +374,13 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
                   <input className={INP2} placeholder="e.g. POTQS001" value={originalPoNo} onChange={e => setOriginalPoNo(e.target.value)} />
                 </Field>
               )}
-              <Field label="PO Number (Ref)">
-                <input className={INP2} placeholder="e.g. POTQS001-A3" value={form.po_ref_no} onChange={e => set('po_ref_no', e.target.value)} />
+              <Field label="PO Number (auto if blank)">
+                <input
+                  className={INP2 + ' font-mono font-semibold'}
+                  placeholder={fyPlaceholder}
+                  value={form.po_number_display}
+                  onChange={e => set('po_number_display', e.target.value.toUpperCase())}
+                />
               </Field>
               <Field label="PO Date *">
                 <input type="date" className={INP2} value={form.po_date} onChange={e => set('po_date', e.target.value)} />
