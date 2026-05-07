@@ -544,17 +544,15 @@ export default function StoreLedgerPage() {
     <div className="p-6 md:p-8 max-w-full mx-auto min-h-screen bg-[#f4f6f9]">
 
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-white border border-slate-200 rounded-3xl px-6 py-6 shadow-sm">
         <div>
-          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-            <BookOpen className="w-3.5 h-3.5" /> Stores
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900">Store Ledger</h1>
+          <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Stores / Ledger</div>
+          <h1 className="mt-2 text-3xl font-black text-slate-900 tracking-tight">Store Ledger</h1>
           <p className="text-sm text-slate-400 mt-0.5">Inventory register · Monthly movement · Material ledger</p>
         </div>
         <div className="flex items-center gap-3">
           {(outCount > 0 || lowCount > 0) && (
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-medium text-amber-700">
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-2xl text-sm font-medium text-amber-700">
               <AlertTriangle className="w-4 h-4" />
               {outCount > 0 && `${outCount} out of stock`}
               {outCount > 0 && lowCount > 0 && ' · '}
@@ -563,14 +561,14 @@ export default function StoreLedgerPage() {
           )}
           <button
             onClick={downloadTemplate}
-            className="flex items-center gap-2 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 text-slate-600 font-semibold text-sm px-4 py-2.5 rounded-xl transition shadow-sm"
+            className="flex items-center gap-2 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 text-slate-600 font-black text-[11px] uppercase tracking-widest px-4 py-2.5 rounded-xl transition shadow-sm"
           >
             <Download size={15} />
             Download Template
           </button>
           <button
             onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm px-4 py-2.5 rounded-xl transition shadow-sm"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] uppercase tracking-widest px-4 py-2.5 rounded-xl transition shadow-sm"
           >
             <Upload size={15} />
             Import from Excel
@@ -579,7 +577,7 @@ export default function StoreLedgerPage() {
       </div>
 
       {/* ── Tabs ───────────────────────────────────────────────── */}
-      <div className="flex gap-1.5 bg-white border border-slate-200 rounded-xl p-1.5 w-fit shadow-sm mb-6">
+      <div className="flex gap-1.5 bg-white border border-slate-200 rounded-2xl p-1.5 w-fit shadow-sm mb-6">
         {[
           ['summary',  'Inventory Register'],
           ['movement', 'Monthly Movement'],
@@ -588,7 +586,7 @@ export default function StoreLedgerPage() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={clsx('px-5 py-2 rounded-lg text-sm font-medium transition-all',
+            className={clsx('px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all',
               tab === key ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
             )}
           >{label}</button>
@@ -603,41 +601,41 @@ export default function StoreLedgerPage() {
 
           {/* KPI cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className="bg-red-50 border border-red-100 rounded-xl p-4 shadow-sm">
-              <div className="text-2xl font-bold text-red-600">{outCount}</div>
-              <div className="text-xs text-red-500 mt-1">Out of Stock</div>
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Out of Stock</div>
+              <div className="mt-3 text-3xl font-black text-red-600 tracking-tight">{outCount}</div>
             </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 shadow-sm">
-              <div className="text-2xl font-bold text-amber-600">{lowCount}</div>
-              <div className="text-xs text-amber-500 mt-1">Below Reorder</div>
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Below Reorder</div>
+              <div className="mt-3 text-3xl font-black text-amber-600 tracking-tight">{lowCount}</div>
             </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-              <div className="text-2xl font-bold text-slate-800">{inventoryData.length}</div>
-              <div className="text-xs text-slate-400 mt-1">Total Materials</div>
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Materials</div>
+              <div className="mt-3 text-3xl font-black text-slate-900 tracking-tight">{inventoryData.length}</div>
             </div>
-            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm">
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm">
               <div className="text-lg font-bold text-indigo-700 font-mono">₹{inr(totalClosingValue)}</div>
-              <div className="text-xs text-indigo-500 mt-1">Closing Stock Value</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Closing Stock Value</div>
             </div>
-            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 shadow-sm">
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm">
               <div className="text-lg font-bold text-emerald-700 font-mono">₹{inr(totalGrandTotal)}</div>
-              <div className="text-xs text-emerald-500 mt-1">Grand Total (incl. GST)</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Grand Total</div>
             </div>
           </div>
 
           {/* Filters */}
-          <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col md:flex-row gap-3 shadow-sm flex-wrap">
+          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 flex flex-col md:flex-row gap-3 shadow-sm flex-wrap">
             <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all"
                 placeholder="Search material…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
             <select
-              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-400"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none focus:border-indigo-400"
               value={projectFilter}
               onChange={e => setProjectFilter(e.target.value)}
             >
@@ -645,7 +643,7 @@ export default function StoreLedgerPage() {
               {projectsData.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             <select
-              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-400"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none focus:border-indigo-400"
               value={categoryFilter}
               onChange={e => setCategoryFilter(e.target.value)}
             >
@@ -655,7 +653,7 @@ export default function StoreLedgerPage() {
             <div className="relative shrink-0">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <select
-                className="bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-700 outline-none focus:border-indigo-400 appearance-none"
+                className="bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none focus:border-indigo-400 appearance-none"
                 value={filterStatus}
                 onChange={e => setFilterStatus(e.target.value)}
               >
@@ -668,7 +666,7 @@ export default function StoreLedgerPage() {
             </div>
             <button
               onClick={exportLedgerCSV}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:border-emerald-400 hover:text-emerald-600 text-slate-600 text-sm font-semibold rounded-lg transition shrink-0"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white border border-slate-200 hover:border-emerald-400 hover:text-emerald-600 text-slate-600 text-[11px] font-black uppercase tracking-widest rounded-xl transition shrink-0"
             >
               <Download size={14} /> Export CSV
             </button>

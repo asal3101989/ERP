@@ -65,6 +65,7 @@ const RateContractPage    = lazy(() => import('./pages/procurement/RateContractP
 const VendorPaymentsPage  = lazy(() => import('./pages/procurement/VendorPaymentsPage'));
 const POPage              = lazy(() => import('./pages/procurement/POPage'));
 const GRNPage             = lazy(() => import('./pages/stores/GRNPage'));
+const StoresHubPage       = lazy(() => import('./pages/stores/StoresHubPage'));
 const InventoryPage       = lazy(() => import('./pages/procurement/InventoryPage'));
 const QuotationPage       = lazy(() => import('./pages/procurement/QuotationPage'));
 const QuotationEntryPage  = lazy(() => import('./pages/procurement/QuotationEntryPage'));
@@ -310,6 +311,7 @@ export default function App() {
                 <Route path="it/licenses" element={<LicensePage />} />
 
                 {/* Stores */}
+                <Route path="stores"                  element={<StoresHubPage />} />
                 <Route path="stores/mrs"              element={<MRSPage />} />
                 <Route path="stores/issue"            element={<IssuePage />} />
                 <Route path="stores/ledger"           element={<StoreLedgerPage />} />

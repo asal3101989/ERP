@@ -79,10 +79,11 @@ const navGroups = [
   {
     label: 'Stores',
     items: [
-      { to: '/stores/grn',              icon: PackageCheck,  label: 'GRN' },
-      { to: '/stores/mrs',              icon: ClipboardList, label: 'Material Requisition' },
-      { to: '/stores/issue',            icon: ArrowUpRight,  label: 'Issue Notes (MIN)' },
-      { to: '/stores/ledger',           icon: BookOpen,      label: 'Store Ledger' },
+      { to: '/stores',                  icon: Warehouse,     label: 'Overview' },
+      { to: '/stores/grn',              icon: PackageCheck,  label: 'Receipts' },
+      { to: '/stores/mrs',              icon: ClipboardList, label: 'Requests' },
+      { to: '/stores/issue',            icon: ArrowUpRight,  label: 'Issues' },
+      { to: '/stores/ledger',           icon: BookOpen,      label: 'Ledger' },
     ]
   },
 
