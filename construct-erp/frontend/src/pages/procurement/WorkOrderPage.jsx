@@ -1,13 +1,13 @@
 // src/pages/procurement/WorkOrderPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import useAuthStore from '../../store/authStore';
-import { 
-  Briefcase, Plus, X, Search, FileText, 
-  Printer, Download, ShieldCheck, 
-  UserPlus, Building2, Calculator, 
+import {
+  Briefcase, Plus, X, Search, FileText,
+  Printer, Download, ShieldCheck,
+  UserPlus, Building2, Calculator,
   TrendingUp, Clock, CheckCircle2,
-  Hammer
+  Hammer, FileUp, Check,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -22,20 +22,63 @@ const inr = v => new Intl.NumberFormat('en-IN', { style: 'currency', currency: '
 
 export default function WorkOrderPage() {
   const { user } = useAuthStore();
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm]     = useState(false);
   const [selectedWO, setSelectedWO] = useState(null);
-  const [search, setSearch] = useState('');
-  
+  const [search, setSearch]         = useState('');
+  const [pdfParsing, setPdfParsing] = useState(false);
+  const pdfInputRef = useRef(null);
+
   // WO Items State
   const [items, setItems] = useState([{ description: '', quantity: '', unit: 'SQFT', rate: '', remarks: '' }]);
-  const [formData, setFormData] = useState({ 
-    project_id: '', 
+  const [formData, setFormData] = useState({
+    project_id: '',
     vendor_id: '',
     wo_number: `WO-${dayjs().format('YYYYMMDD')}-${Math.floor(Math.random()*1000)}`,
-    wo_date: dayjs().format('YYYY-MM-DD'), 
+    wo_date: dayjs().format('YYYY-MM-DD'),
     subject: '',
     terms_conditions: '1. Retention of 5% will be deducted from each bill.\n2. Security Deposit of 5% applicable.\n3. Safety protocols must be strictly followed.\n4. Work must be completed as per technical specifications.'
   });
+
+  const handlePDFUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    if (file.type !== 'application/pdf') return toast.error('Please select a PDF file');
+    setPdfParsing(true);
+    const toastId = toast.loading('Reading Work Order PDF…');
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('pdf', file);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const res = await fetch('/api/v1/subcontractors/work-orders/parse-pdf', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formDataUpload,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Parse failed');
+      if (!json.data?.items?.length) throw new Error('No line items found in PDF');
+      const p = json.data;
+      // Pre-fill form
+      setFormData(prev => ({
+        ...prev,
+        wo_number: p.woNumber || prev.wo_number,
+        wo_date:   p.woDate   || prev.wo_date,
+        subject:   p.narration || '',
+        terms_conditions: prev.terms_conditions,
+        _vendorNameHint:  p.vendorName  || '',
+        _projectNameHint: p.projectRaw  || '',
+        _referenceNo:     p.referenceNo || '',
+      }));
+      setItems(p.items);
+      toast.success(`Extracted ${p.items.length} items from PDF`, { id: toastId });
+      setShowForm(true);
+    } catch (err) {
+      toast.error(err.message || 'Could not read PDF', { id: toastId });
+    } finally {
+      setPdfParsing(false);
+    }
+  };
 
   const qc = useQueryClient();
 
@@ -100,12 +143,19 @@ export default function WorkOrderPage() {
             </p>
           </div>
         </div>
-        <DataToolbar 
-          data={filtered} 
-          fileName="Work_Order_Register_Export" 
-          onAdd={() => setShowForm(true)} 
-          addLabel="Draft New Work Order"
-        />
+        <div className="flex items-center gap-2">
+          <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePDFUpload} />
+          <button onClick={() => pdfInputRef.current?.click()} disabled={pdfParsing}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-60">
+            <FileUp className="w-4 h-4" /> {pdfParsing ? 'Reading…' : 'Import PDF'}
+          </button>
+          <DataToolbar
+            data={filtered}
+            fileName="Work_Order_Register_Export"
+            onAdd={() => { setItems([{ description: '', quantity: '', unit: 'Day', rate: '', remarks: '' }]); setShowForm(true); }}
+            addLabel="Draft New Work Order"
+          />
+        </div>
       </div>
 
       {/* KPI Ribbons */}
@@ -228,6 +278,20 @@ export default function WorkOrderPage() {
              </div>
 
              <div className="flex-1 overflow-y-auto p-10 space-y-8 scrollbar-thin scrollbar-thumb-slate-200">
+                {/* PDF Import banner */}
+                {formData._vendorNameHint && (
+                  <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800">
+                    <Check size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Imported from PDF</span>
+                      {' — '}WO Ref: <strong>{formData.wo_number}</strong>
+                      {' · '}Contractor: <strong>{formData._vendorNameHint}</strong>
+                      {' · '}Project: <strong>{formData._projectNameHint}</strong>
+                      {formData._referenceNo ? <> · Ref: <strong>{formData._referenceNo}</strong></> : null}
+                      <p className="mt-1 text-emerald-700">Select the matching Vendor and Project from the dropdowns below, then submit.</p>
+                    </div>
+                  </div>
+                )}
                 {/* Header Inputs */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm">
                    <div className="space-y-3">
