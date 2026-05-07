@@ -264,8 +264,8 @@ router.delete('/:id', async (req, res) => {
     if (!existing.rows.length || existing.rows[0].company_id !== req.user.company_id) {
       return res.status(404).json({ error: 'GRN not found' });
     }
-    if (existing.rows[0].quality_status !== 'pending') {
-      return res.status(400).json({ error: 'Only pending GRNs can be deleted. Verified or approved GRNs are locked.' });
+    if (existing.rows[0].quality_status === 'approved') {
+      return res.status(400).json({ error: 'Approved GRNs cannot be deleted — stock has been posted to inventory.' });
     }
     await query('DELETE FROM grn_items WHERE grn_id = $1', [req.params.id]);
     await query('DELETE FROM grn WHERE id = $1', [req.params.id]);
@@ -287,8 +287,8 @@ router.put('/:id', async (req, res) => {
     if (!existing.rows.length || existing.rows[0].company_id !== req.user.company_id) {
       return res.status(404).json({ error: 'GRN not found' });
     }
-    if (existing.rows[0].quality_status !== 'pending') {
-      return res.status(400).json({ error: 'Only pending GRNs can be edited.' });
+    if (existing.rows[0].quality_status === 'approved') {
+      return res.status(400).json({ error: 'Approved GRNs cannot be edited — stock has been posted to inventory.' });
     }
 
     const {

@@ -271,8 +271,8 @@ function GRNDetailPanel({ grn, onClose, onVerify, onApprove, onEdit, onDelete, v
             </div>
           )}
 
-          {/* Edit / Delete — only for pending */}
-          {status === 'pending' && (
+          {/* Edit / Delete — allowed until QC Approved */}
+          {status !== 'approved' && (
             <div className="flex items-center gap-2">
               <button
                 onClick={onEdit}
@@ -605,7 +605,7 @@ export default function GRNPage() {
                     <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={status} /></td>
                     <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {status === 'pending' && (
+                        {status !== 'approved' && (
                           <>
                             <button
                               onClick={() => { setSelectedId(null); setEditGRN(grn); }}
