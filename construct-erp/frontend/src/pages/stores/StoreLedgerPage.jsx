@@ -148,22 +148,21 @@ function ImportModal({ projects, onClose, onDone }) {
   const inr = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-[#f4f6f9]">
+      <div className="relative bg-white shadow-sm w-full h-full flex flex-col overflow-hidden">
 
         {/* Header */}
-        <div className="bg-slate-900 px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
           <div>
-            <h2 className="text-lg font-black text-white flex items-center gap-2">
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <FileSpreadsheet size={18} className="text-emerald-400" />
               Import Stock from Excel
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Columns used: Category · Material Description · Unit · Opening Stock · Closing Stock · Rate
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+          <button onClick={onClose} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition">
             <X size={20} />
           </button>
         </div>
@@ -189,7 +188,8 @@ function ImportModal({ projects, onClose, onDone }) {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-[#f4f6f9]">
+          <div className="max-w-7xl mx-auto">
 
           {/* ── STEP 1: Upload ─────────────────────────────────── */}
           {step === 1 && (
@@ -368,6 +368,7 @@ function ImportModal({ projects, onClose, onDone }) {
               </button>
             </div>
           )}
+          </div>
         </div>
 
         {/* Footer actions */}

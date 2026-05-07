@@ -328,8 +328,8 @@ function MINForm({ onClose, projects, contractors, qc }) {
   );
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-      <div className="bg-white border border-slate-200 w-full max-w-4xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 bg-[#f4f6f9] z-[100]">
+      <div className="bg-white w-full h-full overflow-hidden flex flex-col shadow-sm">
 
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
@@ -348,7 +348,8 @@ function MINForm({ onClose, projects, contractors, qc }) {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-[#f4f6f9]">
+          <div className="max-w-7xl mx-auto space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-4">
               <Field label="Project">
@@ -483,6 +484,7 @@ function MINForm({ onClose, projects, contractors, qc }) {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
 

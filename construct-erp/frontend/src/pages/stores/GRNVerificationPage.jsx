@@ -38,32 +38,39 @@ function GRNDetailPanel({ grn, onClose, onVerify, onApprove, loading }) {
   const status = grn.quality_status || grn.status || 'pending';
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
-      <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Panel */}
-      <div className="w-full max-w-lg bg-white shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-[#f4f6f9] flex flex-col">
+      {/* Workspace */}
+      <div className="bg-white shadow-sm flex flex-col overflow-hidden h-full">
         {/* Header */}
-        <div className="bg-slate-900 px-6 py-4 flex items-start justify-between flex-shrink-0">
+        <div className="bg-white border-b border-slate-200 px-6 py-3.5 flex items-start justify-between flex-shrink-0">
           <div>
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">GRN Detail</div>
-            <h2 className="text-lg font-black text-white">{grn.grn_number}</h2>
-            <p className="text-sm text-slate-400 mt-0.5">{grn.project_name}</p>
+            <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Stores / GRN Verification</div>
+            <h2 className="text-lg font-black text-slate-900">{grn.grn_number}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">{grn.project_name}</p>
           </div>
           <div className="flex items-center gap-3">
             <StatusBadge status={status} />
-            <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+            <button onClick={onClose} className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition">
               <X size={20} />
             </button>
           </div>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-[#f4f6f9]">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-5">
+            <div className="space-y-5">
 
           {/* Meta grid */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Receipt Details</p>
+                <h3 className="text-sm font-black text-slate-900 mt-0.5">GRN information</h3>
+              </div>
+              <StatusBadge status={status} />
+            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {[
               ['Supplier',     grn.vendor_name || grn.supplier_name || '—'],
               ['GRN Date',     grn.grn_date ? dayjs(grn.grn_date).format('DD MMM YYYY') : '—'],
@@ -72,35 +79,36 @@ function GRNDetailPanel({ grn, onClose, onVerify, onApprove, loading }) {
               ['Gate Pass',    grn.gate_pass_no || '—'],
               ['Site Location',grn.site_location || '—'],
             ].map(([lbl, val]) => (
-              <div key={lbl}>
-                <div className="text-[10px] text-slate-400 font-bold uppercase mb-0.5">{lbl}</div>
-                <div className="text-sm font-semibold text-slate-800">{val}</div>
+              <div key={lbl} className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3">
+                <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1.5">{lbl}</div>
+                <div className="text-sm font-bold text-slate-900 truncate">{val}</div>
               </div>
             ))}
+          </div>
           </div>
 
           {/* Items */}
           {grn.items && grn.items.length > 0 && (
-            <div>
-              <div className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+              <div className="px-4 py-3.5 bg-white border-b border-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                 <PackageCheck size={13} />
                 Material Items ({grn.items.length})
               </div>
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Material</th>
-                      <th className="px-3 py-2 text-right text-slate-500 font-semibold">Qty</th>
-                      <th className="px-3 py-2 text-left text-slate-500 font-semibold">Unit</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Material</th>
+                      <th className="px-4 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Qty</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Unit</th>
                     </tr>
                   </thead>
                   <tbody>
                     {grn.items.map((it, i) => (
                       <tr key={i} className="border-b border-slate-100 last:border-0">
-                        <td className="px-3 py-2 font-medium text-slate-800">{it.material_name}</td>
-                        <td className="px-3 py-2 text-right font-mono font-bold text-slate-900">{it.quantity_received}</td>
-                        <td className="px-3 py-2 text-slate-500">{it.unit}</td>
+                        <td className="px-4 py-3 font-black text-slate-900">{it.material_name}</td>
+                        <td className="px-4 py-3 text-right font-mono font-black text-indigo-600">{it.quantity_received}</td>
+                        <td className="px-4 py-3 text-slate-500">{it.unit}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -110,12 +118,14 @@ function GRNDetailPanel({ grn, onClose, onVerify, onApprove, loading }) {
           )}
 
           {/* Approval chain */}
-          <div>
-            <div className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+            </div>
+            <div className="space-y-5">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-4 py-3.5 bg-white border-b border-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
               <ShieldCheck size={13} />
               Approval Chain
             </div>
-            <div className="space-y-2">
+            <div className="p-4 space-y-2">
               {[
                 { step: 'Received',        done: true,                                  name: grn.received_by_name, time: null },
                 { step: 'Stores Verified', done: status === 'verified_stores' || status === 'approved', name: grn.verified_stores_name, time: grn.verified_stores_at },
@@ -141,11 +151,13 @@ function GRNDetailPanel({ grn, onClose, onVerify, onApprove, loading }) {
 
           {/* Remarks */}
           {grn.remarks && (
-            <div>
-              <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Remarks</div>
-              <div className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2">{grn.remarks}</div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-2">Remarks</div>
+              <div className="text-sm text-slate-700 bg-slate-50 rounded-xl px-3 py-2">{grn.remarks}</div>
             </div>
           )}
+            </div>
+          </div>
         </div>
 
         {/* Action footer */}
