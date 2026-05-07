@@ -373,8 +373,8 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   sub_total NUMERIC(15,2) DEFAULT 0,
   total_gst NUMERIC(15,2) DEFAULT 0,
   grand_total NUMERIC(15,2) DEFAULT 0,
-  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN (
-    'draft','pending','verified_audit','checked_finance','released_mgmt','approved','sent','part_received','fully_received','cancelled'
+  status VARCHAR(20) DEFAULT 'draft' CHECK (status IN (
+    'draft','verified_audit','released_mgmt','approved','sent','part_received','fully_received','cancelled','rejected'
   )),
   terms_conditions TEXT,
   notes TEXT,

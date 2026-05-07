@@ -339,12 +339,11 @@ router.patch('/:id/reject', async (req, res) => {
   }
 });
 
-// Stage-based Approval
+// Stage-based Approval  (3 stages: Audit → Director → MD)
 const PO_STAGES = {
-  'verify-audit':  { nextStatus: 'verified_audit',  colBy: 'verified_procurement_by', colAt: 'verified_procurement_at', requiredPrev: 'draft'           },
-  'check-finance': { nextStatus: 'checked_finance',  colBy: 'checked_finance_by',      colAt: 'checked_finance_at',      requiredPrev: 'verified_audit'  },
-  'release-mgmt':  { nextStatus: 'released_mgmt',   colBy: 'released_mgmt_by',        colAt: 'released_mgmt_at',        requiredPrev: 'checked_finance' },
-  'authorize-md':  { nextStatus: 'approved',         colBy: 'authorized_md_by',        colAt: 'authorized_md_at',        requiredPrev: 'released_mgmt'   },
+  'verify-audit': { nextStatus: 'verified_audit', colBy: 'verified_procurement_by', colAt: 'verified_procurement_at', requiredPrev: 'draft'          },
+  'release-mgmt': { nextStatus: 'released_mgmt',  colBy: 'released_mgmt_by',        colAt: 'released_mgmt_at',        requiredPrev: 'verified_audit' },
+  'authorize-md': { nextStatus: 'approved',        colBy: 'authorized_md_by',        colAt: 'authorized_md_at',        requiredPrev: 'released_mgmt'  },
 };
 
 router.patch('/:id/:stage', async (req, res) => {

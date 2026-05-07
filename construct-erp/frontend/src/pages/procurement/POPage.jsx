@@ -18,21 +18,20 @@ import POPrintTemplate from './POPrintTemplate';
 const UNITS = ['MT', 'Bags', 'CUM', 'SQM', 'Nos', 'RMT', 'KG', 'Litre', 'Month', 'LS'];
 
 const STATUS_CONFIG = {
-  pending:         { label: 'Pending Audit',   short: 'Pending',      color: 'bg-yellow-50 text-yellow-700 border-yellow-200',  dot: 'bg-yellow-500',  icon: Clock,        stage: 1 },
-  verified_audit:  { label: 'Audit Verified',  short: 'Audit OK',     color: 'bg-blue-50 text-blue-700 border-blue-200',        dot: 'bg-blue-500',    icon: UserCheck,    stage: 2 },
-  checked_finance: { label: 'Finance Passed',  short: 'Finance OK',   color: 'bg-indigo-50 text-indigo-700 border-indigo-200',   dot: 'bg-indigo-500',  icon: BadgeCheck,   stage: 3 },
-  released_mgmt:   { label: 'Mgmt Released',   short: 'Released',     color: 'bg-violet-50 text-violet-700 border-violet-200',   dot: 'bg-violet-500',  icon: Building2,    stage: 4 },
-  approved:        { label: 'MD Authorized',   short: 'Authorized',   color: 'bg-emerald-50 text-emerald-700 border-emerald-200',dot: 'bg-emerald-500', icon: CheckCircle2, stage: 5 },
-  part_received:   { label: 'Part Received',   short: 'Part Rcvd',    color: 'bg-cyan-50 text-cyan-700 border-cyan-200',         dot: 'bg-cyan-500',    icon: Package,      stage: 6 },
-  fully_received:  { label: 'Fully Received',  short: 'Received',     color: 'bg-green-50 text-green-700 border-green-200',      dot: 'bg-green-500',   icon: Check,        stage: 7 },
-  rejected:        { label: 'Rejected',         short: 'Rejected',     color: 'bg-red-50 text-red-700 border-red-200',            dot: 'bg-red-400',     icon: XCircle,      stage: 0 },
+  draft:          { label: 'Draft',           short: 'Draft',        color: 'bg-slate-50 text-slate-600 border-slate-200',      dot: 'bg-slate-400',   icon: FileText,     stage: 1 },
+  verified_audit: { label: 'Audit Verified',  short: 'Audit OK',     color: 'bg-blue-50 text-blue-700 border-blue-200',        dot: 'bg-blue-500',    icon: UserCheck,    stage: 2 },
+  released_mgmt:  { label: 'Dir. Released',   short: 'Released',     color: 'bg-violet-50 text-violet-700 border-violet-200',  dot: 'bg-violet-500',  icon: Building2,    stage: 3 },
+  approved:       { label: 'MD Authorized',   short: 'Authorized',   color: 'bg-emerald-50 text-emerald-700 border-emerald-200',dot: 'bg-emerald-500', icon: CheckCircle2, stage: 4 },
+  sent:           { label: 'Sent to Vendor',  short: 'Sent',         color: 'bg-sky-50 text-sky-700 border-sky-200',           dot: 'bg-sky-500',     icon: Activity,     stage: 5 },
+  part_received:  { label: 'Part Received',   short: 'Part Rcvd',    color: 'bg-cyan-50 text-cyan-700 border-cyan-200',        dot: 'bg-cyan-500',    icon: Package,      stage: 6 },
+  fully_received: { label: 'Fully Received',  short: 'Received',     color: 'bg-green-50 text-green-700 border-green-200',     dot: 'bg-green-500',   icon: Check,        stage: 7 },
+  rejected:       { label: 'Rejected',        short: 'Rejected',     color: 'bg-red-50 text-red-700 border-red-200',           dot: 'bg-red-400',     icon: XCircle,      stage: 0 },
 };
 
 const STAGE_ACTIONS = [
-  { id: 'verify-audit',  label: 'Audit Verify',     reqStatus: 'pending' },
-  { id: 'check-finance', label: 'Finance Check',     reqStatus: 'verified_audit' },
-  { id: 'release-mgmt',  label: 'Director Release',  reqStatus: 'checked_finance' },
-  { id: 'authorize-md',  label: 'MD Authorize',      reqStatus: 'released_mgmt' },
+  { id: 'verify-audit', label: 'Audit Verify',    reqStatus: 'draft'          },
+  { id: 'release-mgmt', label: 'Director Release', reqStatus: 'verified_audit' },
+  { id: 'authorize-md', label: 'MD Authorize',     reqStatus: 'released_mgmt'  },
 ];
 
 const inr  = v => `₹${Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
@@ -681,10 +680,9 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
 }
 
 const STAGE_LABELS = {
-  'verify-audit':  'Audit Verification',
-  'check-finance': 'Finance Check',
-  'release-mgmt':  'Director Release',
-  'authorize-md':  'MD Authorization',
+  'verify-audit': 'Audit Verification',
+  'release-mgmt': 'Director Release',
+  'authorize-md': 'MD Authorization',
 };
 
 /* ─── Detail Slide-over ─── */
@@ -1213,10 +1211,10 @@ export default function POPage() {
   };
 
   const stats = [
-    { key: 'pending',         label: 'Pending Audit',  icon: Clock,        dot: 'bg-yellow-400' },
-    { key: 'checked_finance', label: 'Finance OK',      icon: BadgeCheck,   dot: 'bg-indigo-400' },
-    { key: 'approved',        label: 'Authorized',      icon: CheckCircle2, dot: 'bg-emerald-400' },
-    { key: 'fully_received',  label: 'Received',        icon: Package,      dot: 'bg-green-400' },
+    { key: 'draft',          label: 'Draft',        icon: FileText,     dot: 'bg-slate-400' },
+    { key: 'verified_audit', label: 'Audit OK',     icon: UserCheck,    dot: 'bg-blue-400' },
+    { key: 'approved',       label: 'Authorized',   icon: CheckCircle2, dot: 'bg-emerald-400' },
+    { key: 'fully_received', label: 'Received',     icon: Package,      dot: 'bg-green-400' },
   ];
 
   return (
@@ -1292,13 +1290,12 @@ export default function POPage() {
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           {[
-            ['all', 'All'],
-            ['pending', 'Pending'],
+            ['all',            'All'],
+            ['draft',          'Draft'],
             ['verified_audit', 'Audit OK'],
-            ['checked_finance', 'Finance OK'],
-            ['released_mgmt', 'Released'],
-            ['approved', 'Authorized'],
-            ['rejected', 'Rejected'],
+            ['released_mgmt',  'Released'],
+            ['approved',       'Authorized'],
+            ['rejected',       'Rejected'],
           ].map(([val, lbl]) => (
             <button key={val} onClick={() => setStatusFilter(val)}
               className={clsx('px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
