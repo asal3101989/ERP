@@ -361,6 +361,53 @@ router.patch('/:id/reject', async (req, res) => {
   }
 });
 
+// GET /purchase-orders/:id/qty-status — per-item qty tracking
+router.get('/:id/qty-status', async (req, res) => {
+  try {
+    const { rows } = await query(`
+      SELECT
+        pi.id                                                     AS po_item_id,
+        pi.item_name,
+        pi.unit,
+        pi.quantity                                               AS ordered_qty,
+        COALESCE(grn_agg.received_qty,  0)                        AS received_qty,
+        COALESCE(inv_agg.invoiced_qty,  0)                        AS invoiced_qty,
+        GREATEST(0, pi.quantity - COALESCE(grn_agg.received_qty, 0))  AS grn_remaining,
+        GREATEST(0,
+          LEAST(pi.quantity, COALESCE(grn_agg.received_qty, 0))
+          - COALESCE(inv_agg.invoiced_qty, 0)
+        )                                                         AS inv_remaining
+      FROM po_items pi
+
+      LEFT JOIN (
+        SELECT gi.po_item_id, SUM(gi.quantity_received) AS received_qty
+        FROM grn_items gi
+        JOIN grn g ON g.id = gi.grn_id
+        WHERE g.po_id = $1
+          AND g.quality_status = 'approved'
+        GROUP BY gi.po_item_id
+      ) grn_agg ON grn_agg.po_item_id = pi.id
+
+      LEFT JOIN (
+        SELECT li.po_item_id, SUM(li.quantity) AS invoiced_qty
+        FROM dqs_bill_line_items li
+        JOIN dqs_bills b ON b.id = li.bill_id
+        WHERE b.po_id = $1
+          AND b.is_deleted = FALSE
+          AND li.po_item_id IS NOT NULL
+        GROUP BY li.po_item_id
+      ) inv_agg ON inv_agg.po_item_id = pi.id
+
+      WHERE pi.po_id = $1
+      ORDER BY pi.sort_order
+    `, [req.params.id]);
+
+    res.json({ data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /purchase-orders/:id/bills — all DQS bills linked to this PO
 // NOTE: declared before /:id/:stage to avoid wildcard clash
 router.get('/:id/bills', async (req, res) => {

@@ -197,7 +197,7 @@ export const poAPI = {
   receive:   (id, data)      => api.patch(`/purchase-orders/${id}/receive`, data),
   renumber:  (id, display)   => api.patch(`/purchase-orders/${id}/renumber`, { po_number_display: display }),
   getBills:  (id)            => api.get(`/purchase-orders/${id}/bills`),
-  getQtyStatus: (id)         => api.get('/dqs/bills/lookup/po-balance', { params: { po_id: id } }),
+  getQtyStatus: (id)         => api.get(`/purchase-orders/${id}/qty-status`),
   importPreview: (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/purchase-orders/import/preview', fd, { headers: { 'Content-Type': undefined } }); },
   importConfirm: (data) => api.post('/purchase-orders/import/confirm', data),
 };

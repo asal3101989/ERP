@@ -709,7 +709,7 @@ const STAGE_LABELS = {
 function POQtySection({ poId }) {
   const { data, isLoading } = useQuery({
     queryKey: ['po-qty-status', poId],
-    queryFn: () => poAPI.getQtyStatus(poId).then(r => r.data?.data ?? []),
+    queryFn: () => poAPI.getQtyStatus(poId).then(r => r.data?.data ?? r.data ?? []),
     enabled: !!poId,
   });
 
