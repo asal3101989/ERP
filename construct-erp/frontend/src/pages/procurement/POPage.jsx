@@ -7,7 +7,7 @@ import {
   ShoppingCart, Plus, X, Check, Clock, Search, Download,
   Printer, AlertCircle, ChevronRight, Trash2, Activity,
   Package, Building2, Calendar, BadgeCheck, FileText,
-  CheckCircle2, UserCheck, Landmark, XCircle,
+  CheckCircle2, UserCheck, Landmark, XCircle, Upload, FileUp,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -547,16 +547,209 @@ function PODetailPanel({ po, detailedPO, onClose, onApprove, onReject, isApprovi
   );
 }
 
+/* ─── PDF Import Modal ─── */
+function PDFImportModal({ parsed, vendors, projects, onConfirm, onClose }) {
+  const [vendorId, setVendorId]   = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [items, setItems]         = useState(parsed.items || []);
+
+  // Try to auto-match vendor by name
+  useEffect(() => {
+    if (!vendors.length) return;
+    const name = (parsed.vendorName || '').toLowerCase();
+    const match = vendors.find(v => v.name.toLowerCase().includes(name) || name.includes(v.name.toLowerCase().split(' ')[0]));
+    if (match) setVendorId(match.id);
+  }, [vendors, parsed.vendorName]);
+
+  // Auto-match project
+  useEffect(() => {
+    if (!projects.length) return;
+    const proj = (parsed.projectRaw || '').toLowerCase();
+    const match = projects.find(p => p.name.toLowerCase().includes(proj.split(' ')[0]) || proj.includes(p.name.toLowerCase().split(' ')[0]));
+    if (match) setProjectId(match.id);
+  }, [projects, parsed.projectRaw]);
+
+  const setItem = (i, k, v) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [k]: v } : it));
+  const subTotal = items.reduce((s, it) => s + (parseFloat(it.quantity)||0)*(parseFloat(it.rate)||0), 0);
+
+  const handleConfirm = () => {
+    if (!vendorId)  return toast.error('Please select a vendor');
+    if (!projectId) return toast.error('Please select a project');
+    onConfirm({
+      vendor_id:  vendorId,
+      project_id: projectId,
+      po_date:    parsed.poDate || dayjs().format('YYYY-MM-DD'),
+      notes:      [parsed.narration, `Imported from PDF — PO Ref: ${parsed.poNumber}`, parsed.paymentTerms ? `Payment: ${parsed.paymentTerms}` : ''].filter(Boolean).join('\n'),
+      items,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[65] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-2xl flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0 bg-gradient-to-r from-emerald-50 to-white">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <FileUp className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">PDF Import Preview</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Ref: {parsed.poNumber || '—'} · {parsed.poDate || '—'} · Vendor: {parsed.vendorName || '—'}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-all"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* Banner */}
+          <div className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+            <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <span>Data extracted from PDF. Verify the vendor &amp; project mapping below, adjust any fields, then click <strong>Create PO</strong>.</span>
+          </div>
+
+          {/* Vendor & Project */}
+          <div className="border border-slate-200 rounded-xl p-5">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Mapping</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium text-slate-500 mb-1.5 block">
+                  Vendor (PDF: <span className="text-slate-700">{parsed.vendorName || '—'}</span>)
+                </label>
+                <select className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400"
+                  value={vendorId} onChange={e => setVendorId(e.target.value)}>
+                  <option value="">Select vendor…</option>
+                  {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-500 mb-1.5 block">
+                  Project (PDF: <span className="text-slate-700">{parsed.projectRaw || '—'}</span>)
+                </label>
+                <select className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400"
+                  value={projectId} onChange={e => setProjectId(e.target.value)}>
+                  <option value="">Select project…</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Items */}
+          <div className="border border-slate-200 rounded-xl p-5">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">
+              Line Items ({items.length})
+            </h3>
+            <div className="space-y-3">
+              {items.map((it, i) => (
+                <div key={i} className="grid grid-cols-12 gap-2 items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <div className="col-span-4">
+                    <p className="text-[10px] text-slate-400 mb-0.5">Description</p>
+                    <input className="w-full h-8 bg-white border border-slate-200 rounded px-2 text-xs text-slate-800 outline-none focus:border-indigo-400"
+                      value={it.material_name} onChange={e => setItem(i, 'material_name', e.target.value)} />
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[10px] text-slate-400 mb-0.5">Unit</p>
+                    <input className="w-full h-8 bg-white border border-slate-200 rounded px-2 text-xs text-slate-800 outline-none focus:border-indigo-400"
+                      value={it.unit} onChange={e => setItem(i, 'unit', e.target.value)} />
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[10px] text-slate-400 mb-0.5">Qty</p>
+                    <input type="number" className="w-full h-8 bg-white border border-slate-200 rounded px-2 text-xs text-slate-800 outline-none focus:border-indigo-400"
+                      value={it.quantity} onChange={e => setItem(i, 'quantity', e.target.value)} />
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[10px] text-slate-400 mb-0.5">Rate (₹)</p>
+                    <input type="number" className="w-full h-8 bg-white border border-slate-200 rounded px-2 text-xs text-slate-800 outline-none focus:border-indigo-400"
+                      value={it.rate} onChange={e => setItem(i, 'rate', e.target.value)} />
+                  </div>
+                  <div className="col-span-1">
+                    <p className="text-[10px] text-slate-400 mb-0.5">GST%</p>
+                    <input type="number" className="w-full h-8 bg-white border border-slate-200 rounded px-2 text-xs text-slate-800 outline-none focus:border-indigo-400"
+                      value={it.gst_rate} onChange={e => setItem(i, 'gst_rate', e.target.value)} />
+                  </div>
+                  <div className="col-span-1 text-right pt-4">
+                    <p className="text-xs font-semibold text-slate-700">
+                      ₹{((parseFloat(it.quantity)||0)*(parseFloat(it.rate)||0)).toLocaleString('en-IN',{maximumFractionDigits:0})}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end mt-3 pt-3 border-t border-slate-100">
+              <div className="text-sm font-bold text-slate-900">
+                Sub Total: ₹{subTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </div>
+            </div>
+          </div>
+
+          {/* Narration */}
+          {parsed.narration && (
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800">
+              <span className="font-semibold">Narration:</span> {parsed.narration}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 flex-shrink-0">
+          <p className="text-xs text-slate-400">Grand Total (PDF): ₹{(parsed.grandTotal||0).toLocaleString('en-IN')}</p>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-white transition-all">Cancel</button>
+            <button onClick={handleConfirm}
+              className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
+              <ShoppingCart className="w-4 h-4" /> Create PO from PDF
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Page ─── */
 export default function POPage() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
   const location = useLocation();
-  const [showForm, setShowForm]       = useState(false);
-  const [prefillData, setPrefillData] = useState(null);
-  const [selectedPO, setSelectedPO]   = useState(null);
-  const [search, setSearch]           = useState('');
+  const [showForm, setShowForm]         = useState(false);
+  const [prefillData, setPrefillData]   = useState(null);
+  const [selectedPO, setSelectedPO]     = useState(null);
+  const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [parsedPDF, setParsedPDF]       = useState(null);
+  const [pdfParsing, setPdfParsing]     = useState(false);
+  const pdfInputRef = useRef(null);
+
+  const handlePDFUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    if (file.type !== 'application/pdf') return toast.error('Please select a PDF file');
+    setPdfParsing(true);
+    const toastId = toast.loading('Reading PDF…');
+    try {
+      const formData = new FormData();
+      formData.append('pdf', file);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const res = await fetch('/api/v1/purchase-orders/parse-pdf', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Parse failed');
+      if (!json.data?.items?.length) throw new Error('No line items found in PDF — please check the file');
+      toast.success(`Extracted ${json.data.items.length} items from PDF`, { id: toastId });
+      setParsedPDF(json.data);
+    } catch (err) {
+      toast.error(err.message || 'Could not read PDF', { id: toastId });
+    } finally {
+      setPdfParsing(false);
+    }
+  };
 
   useEffect(() => {
     if (location.state?.fromCS) {
@@ -660,6 +853,12 @@ export default function POPage() {
           <button onClick={exportCSV}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:border-slate-300 transition-all shadow-sm">
             <Download className="w-4 h-4" /> Export CSV
+          </button>
+          {/* Hidden file input for PDF */}
+          <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={handlePDFUpload} />
+          <button onClick={() => pdfInputRef.current?.click()} disabled={pdfParsing}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-60">
+            <FileUp className="w-4 h-4" /> {pdfParsing ? 'Reading PDF…' : 'Import PDF'}
           </button>
           <button onClick={() => { setPrefillData(null); setShowForm(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-all shadow-sm">
@@ -801,6 +1000,21 @@ export default function POPage() {
           isApproving={approveMutation.isPending}
           isRejecting={rejectMutation.isPending}
           user={user}
+        />
+      )}
+
+      {/* PDF Import preview modal */}
+      {parsedPDF && (
+        <PDFImportModal
+          parsed={parsedPDF}
+          vendors={vendorsData}
+          projects={projectsData}
+          onClose={() => setParsedPDF(null)}
+          onConfirm={prefill => {
+            setParsedPDF(null);
+            setPrefillData(prefill);
+            setShowForm(true);
+          }}
         />
       )}
 

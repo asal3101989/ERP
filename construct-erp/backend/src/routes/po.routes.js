@@ -2,7 +2,91 @@
 const express = require('express');
 const { authenticate } = require('../middleware/auth');
 const { query, withTransaction } = require('../config/database');
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
 const router = express.Router();
+
+// ── PDF Parse Helper ──────────────────────────────────────────────────────────
+const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+function parsePOText(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const full  = lines.join(' ');
+
+  const get = (regex, def = '') => { const m = full.match(regex); return m ? m[1].trim() : def; };
+
+  // Header fields
+  const poNumber   = get(/PO No[:\s]+([A-Z0-9\-]+)/i);
+  const rawDate    = get(/Date[:\s]+([\d]{2}[\.\-\/][\d]{2}[\.\-\/][\d]{4})/i);
+  const projectRaw = get(/Project[:\s]+([^\n]+?)(?:PO No|Date|$)/i);
+
+  // Parse date DD.MM.YYYY → YYYY-MM-DD
+  let poDate = '';
+  if (rawDate) {
+    const [d, m, y] = rawDate.split(/[\.\-\/]/);
+    poDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+
+  // Vendor — text after "To," and before "DELIVERY"
+  const toIdx = lines.findIndex(l => /^To,?$/i.test(l));
+  let vendorName = '';
+  let vendorGST  = '';
+  if (toIdx >= 0) {
+    vendorName = (lines[toIdx + 1] || '').replace(/^M\/s\.?\s*/i, '').trim();
+    const gstLine = lines.slice(toIdx, toIdx + 10).find(l => /GST[:\s]+[0-9A-Z]{15}/i.test(l));
+    if (gstLine) vendorGST = gstLine.match(/([0-9A-Z]{15})/)?.[1] || '';
+  }
+
+  // Narration
+  const narration = get(/Narration[:\s]+([^\n]+)/i);
+
+  // Payment terms
+  const paymentTerms = get(/Payment\s*[:\s]+([^\n]+)/i, '30 days from date of supply');
+
+  // Line items — look for rows with: description, UOM, number, number, number
+  // Pattern: optional SL, description text, optional mix design, UOM (Cum/MT/Nos/etc), qty, rate, amount
+  const items = [];
+  const itemRx = /(\d+)\s+([\w\s\/\-]+?)\s+([\w\s\+]+?Kgs[\w\s\+]*?)?\s*(Cum|MT|Nos|KG|SQM|RMT|Bags|Ltr|Litre|LS)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/gi;
+  let m;
+  while ((m = itemRx.exec(full)) !== null) {
+    const qty  = parseFloat(m[5].replace(/,/g,''));
+    const rate = parseFloat(m[6].replace(/,/g,''));
+    if (!qty || !rate) continue;
+    items.push({
+      material_name: m[2].trim() + (m[3] ? ` (${m[3].trim()})` : ''),
+      unit:          m[4],
+      quantity:      qty,
+      rate:          rate,
+      gst_rate:      '18',   // default; user can adjust
+      hsn_code:      '',
+    });
+  }
+
+  // GST rate from text (CGST @ 9% → 18%)
+  const cgstMatch = full.match(/CGST\s*@\s*([\d]+)%/i);
+  if (cgstMatch) {
+    const gstRate = String(parseInt(cgstMatch[1]) * 2);
+    items.forEach(it => { it.gst_rate = gstRate; });
+  }
+
+  // Grand total
+  const grandTotal = parseFloat(get(/Grand Total\s+([\d,]+)/i, '0').replace(/,/g,'')) || 0;
+
+  return { poNumber, poDate, vendorName, vendorGST, projectRaw, narration, paymentTerms, items, grandTotal };
+}
+
+// POST /purchase-orders/parse-pdf  — No auth needed just for parsing (returns only extracted data)
+router.post('/parse-pdf', authenticate, memUpload.single('pdf'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No PDF file uploaded' });
+    const data = await pdfParse(req.file.buffer);
+    const parsed = parsePOText(data.text);
+    res.json({ success: true, data: parsed, rawText: data.text.slice(0, 3000) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to parse PDF: ' + err.message });
+  }
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Public Verification Endpoint (No Auth required for QR scanning)
 router.get('/public/verify/:id', async (req, res) => {
