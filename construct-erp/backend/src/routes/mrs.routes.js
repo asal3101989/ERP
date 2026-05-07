@@ -3,6 +3,19 @@ const express = require('express');
 const { authenticate } = require('../middleware/auth');
 const { query, withTransaction } = require('../config/database');
 const router = express.Router();
+
+// ── Auto-migrate: add extra columns to mrs_items ──────────────────────────────
+(async () => {
+  try {
+    await query(`ALTER TABLE mrs_items ADD COLUMN IF NOT EXISTS item_code      VARCHAR(60)`);
+    await query(`ALTER TABLE mrs_items ADD COLUMN IF NOT EXISTS date_required  DATE`);
+    await query(`ALTER TABLE mrs_items ADD COLUMN IF NOT EXISTS vendor         VARCHAR(200)`);
+    await query(`ALTER TABLE mrs_items ADD COLUMN IF NOT EXISTS remarks        TEXT`);
+    console.log('[MRS] mrs_items columns migrated OK');
+  } catch (e) {
+    console.error('[MRS] mrs_items migration error:', e.message);
+  }
+})();
 // Public Verification Endpoint (No Auth required for QR scanning)
 router.get('/public/verify/:id', async (req, res) => {
   try {
@@ -185,12 +198,14 @@ router.post('/', async (req, res) => {
       // Insert items
       const inserted = [];
       for (let i = 0; i < items.length; i++) {
-        const { material, qty, unit, purpose } = items[i];
+        const { material, qty, unit, purpose, item_code, date_required, vendor, remarks } = items[i];
         if (!material || !qty || !unit) continue;
         const it = await client.query(
-          `INSERT INTO mrs_items (mrs_id, material_name, quantity, unit, purpose, sort_order)
-           VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-          [mrs.rows[0].id, material, parseFloat(qty), unit, purpose, i + 1]
+          `INSERT INTO mrs_items
+             (mrs_id, material_name, quantity, unit, purpose, item_code, date_required, vendor, remarks, sort_order)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+          [mrs.rows[0].id, material, parseFloat(qty), unit, purpose || null,
+           item_code || null, date_required || null, vendor || null, remarks || null, i + 1]
         );
         inserted.push(it.rows[0]);
       }

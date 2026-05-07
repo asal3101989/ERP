@@ -65,7 +65,7 @@ export default function MRSPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showSigModal, setShowSigModal] = useState(false);
   const [pendingStage, setPendingStage] = useState(null); // { id, stage, label }
-  const [items, setItems] = useState([{ material: '', qty: '', unit: 'Nos', purpose: '' }]);
+  const [items, setItems] = useState([{ material: '', item_code: '', qty: '', unit: 'Nos', date_required: '', vendor: '', purpose: '', remarks: '' }]);
   const [formData, setFormData] = useState({
     project_id: '', department: 'Projects', head_office_project_name: '',
     site_incharge: '', required_by: '', priority: 'normal', remarks: '',
@@ -680,20 +680,34 @@ export default function MRSPage() {
                     <p className="text-xs text-slate-400 mt-0.5">Select from store ledger or add new items</p>
                   </div>
                   <button
-                    onClick={() => setItems([...items, { material: '', qty: '', unit: 'Nos', purpose: '' }])}
+                    onClick={() => setItems([...items, { material: '', item_code: '', qty: '', unit: 'Nos', date_required: '', vendor: '', purpose: '', remarks: '' }])}
                     className="flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-colors"
                   >
                     <Plus className="w-3 h-3" /> Add Row
                   </button>
                 </div>
-                <div className="grid gap-1.5 mb-2" style={{ gridTemplateColumns: '2fr 90px 80px 2fr 36px' }}>
-                  {['Material Name', 'Quantity', 'Unit', 'Purpose', ''].map(h => (
-                    <div key={h} className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">{h}</div>
+
+                {/* Column headers */}
+                <div className="grid gap-1.5 mb-1" style={{ gridTemplateColumns: '28px 80px 1.8fr 70px 70px 100px 1fr 1fr 36px' }}>
+                  {['#', 'Item Code', 'Description', 'Unit', 'Qty', 'Date Reqd', 'Vendor', 'Remarks', ''].map(h => (
+                    <div key={h} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">{h}</div>
                   ))}
                 </div>
-                <div className="space-y-2">
+
+                <div className="space-y-1.5">
                   {items.map((item, idx) => (
-                    <div key={idx} className="grid gap-2 items-start" style={{ gridTemplateColumns: '2fr 90px 80px 2fr 36px' }}>
+                    <div key={idx} className="grid gap-1.5 items-center" style={{ gridTemplateColumns: '28px 80px 1.8fr 70px 70px 100px 1fr 1fr 36px' }}>
+                      {/* # */}
+                      <div className="text-xs text-slate-400 font-mono text-center">{idx + 1}</div>
+                      {/* Item Code */}
+                      <input
+                        type="text"
+                        placeholder="Code"
+                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs text-slate-900 placeholder:text-slate-300 outline-none focus:border-indigo-400 transition-all"
+                        value={item.item_code || ''}
+                        onChange={e => { const n = [...items]; n[idx].item_code = e.target.value; setItems(n); }}
+                      />
+                      {/* Description / Material */}
                       <MaterialCombobox
                         value={item.material}
                         inventoryItems={inventoryItems}
@@ -710,31 +724,50 @@ export default function MRSPage() {
                           setShowNewItemModal(true);
                         }}
                       />
-                      <input
-                        type="number"
-                        placeholder="0"
-                        className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all text-right"
-                        value={item.qty}
-                        onChange={e => { const n = [...items]; n[idx].qty = e.target.value; setItems(n); }}
-                      />
+                      {/* Unit */}
                       <select
-                        className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all"
+                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-1 text-xs text-slate-900 outline-none focus:border-indigo-400 transition-all"
                         value={item.unit}
                         onChange={e => { const n = [...items]; n[idx].unit = e.target.value; setItems(n); }}
                       >
                         {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
+                      {/* Qty */}
+                      <input
+                        type="number"
+                        placeholder="0"
+                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all text-right"
+                        value={item.qty}
+                        onChange={e => { const n = [...items]; n[idx].qty = e.target.value; setItems(n); }}
+                      />
+                      {/* Date Required */}
+                      <input
+                        type="date"
+                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs text-slate-900 outline-none focus:border-indigo-400 transition-all"
+                        value={item.date_required || ''}
+                        onChange={e => { const n = [...items]; n[idx].date_required = e.target.value; setItems(n); }}
+                      />
+                      {/* Vendor */}
                       <input
                         type="text"
-                        placeholder="Intended use"
-                        className="h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all"
-                        value={item.purpose}
-                        onChange={e => { const n = [...items]; n[idx].purpose = e.target.value; setItems(n); }}
+                        placeholder="Vendor (opt.)"
+                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs text-slate-900 placeholder:text-slate-300 outline-none focus:border-indigo-400 transition-all"
+                        value={item.vendor || ''}
+                        onChange={e => { const n = [...items]; n[idx].vendor = e.target.value; setItems(n); }}
                       />
+                      {/* Remarks */}
+                      <input
+                        type="text"
+                        placeholder="Remarks"
+                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs text-slate-900 placeholder:text-slate-300 outline-none focus:border-indigo-400 transition-all"
+                        value={item.remarks || ''}
+                        onChange={e => { const n = [...items]; n[idx].remarks = e.target.value; setItems(n); }}
+                      />
+                      {/* Delete */}
                       <button
                         onClick={() => { if (items.length > 1) setItems(items.filter((_, i) => i !== idx)); }}
                         disabled={items.length === 1}
-                        className="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all mt-0"
+                        className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
