@@ -567,244 +567,293 @@ export default function MRSPage() {
 
       {/* ── New MRS Form Modal ── */}
       {showForm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-2xl flex flex-col max-h-[92vh] shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          {/* ── Full-screen MRS Form (Zoho ERP style) ── */}
+          <div className="bg-white w-full h-full flex flex-col" style={{ maxWidth: '100vw' }}>
 
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-indigo-600" />
+            {/* ── Top bar ── */}
+            <div className="flex items-center justify-between px-8 py-4 border-b border-slate-200 bg-white flex-shrink-0 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow">
+                  <ClipboardList className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Create Material Requisition</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Multi-stage approval document</p>
+                  <p className="text-lg font-bold text-slate-900">New Material Requisition</p>
+                  <p className="text-xs text-slate-400">Multi-stage approval document · BCIM Engineering</p>
                 </div>
               </div>
-              <button
-                onClick={resetForm}
-                className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:border-slate-300 transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Modal body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
-
-              {/* Project Details */}
-              <div className="border border-slate-200 rounded-xl p-5">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Project Details</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <Field label="Project *">
-                    <select
-                      className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all"
-                      value={formData.project_id}
-                      onChange={e => setFormData(p => ({ ...p, project_id: e.target.value }))}
-                    >
-                      <option value="">Select project…</option>
-                      {projectsData?.map(proj => <option key={proj.id} value={proj.id}>{proj.name}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Department">
-                    <select
-                      className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all"
-                      value={formData.department}
-                      onChange={e => setFormData(p => ({ ...p, department: e.target.value }))}
-                    >
-                      <option value="Projects">Projects</option>
-                      <option value="Civil">Civil</option>
-                      <option value="Structural">Structural</option>
-                      <option value="MEP">MEP (Mechanical/Electrical/Plumbing)</option>
-                      <option value="Electrical">Electrical</option>
-                      <option value="Plumbing">Plumbing</option>
-                      <option value="HVAC">HVAC</option>
-                      <option value="Finishing">Finishing</option>
-                      <option value="Safety">Safety / HSE</option>
-                      <option value="QA/QC">QA / QC</option>
-                      <option value="Procurement">Procurement</option>
-                      <option value="Stores">Stores</option>
-                      <option value="Site Office">Site Office</option>
-                      <option value="Admin">Admin</option>
-                      <option value="HR">HR</option>
-                      <option value="Finance">Finance</option>
-                      <option value="IT">IT</option>
-                      <option value="Maintenance">Maintenance</option>
-                      <option value="Security">Security</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </Field>
-                  <Field label="HO Project Name">
-                    <input
-                      className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all"
-                      placeholder="HO project name"
-                      value={formData.head_office_project_name}
-                      onChange={e => setFormData(p => ({ ...p, head_office_project_name: e.target.value }))}
-                    />
-                  </Field>
-                  <Field label="Site Incharge">
-                    <input
-                      className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all"
-                      placeholder="Enter name"
-                      value={formData.site_incharge}
-                      onChange={e => setFormData(p => ({ ...p, site_incharge: e.target.value }))}
-                    />
-                  </Field>
-                  <Field label="Required By *">
-                    <input
-                      type="date"
-                      className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all"
-                      value={formData.required_by}
-                      onChange={e => setFormData(p => ({ ...p, required_by: e.target.value }))}
-                    />
-                  </Field>
-                  <Field label="Priority">
-                    <select
-                      className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 transition-all"
-                      value={formData.priority}
-                      onChange={e => setFormData(p => ({ ...p, priority: e.target.value }))}
-                    >
-                      <option value="normal">Normal</option>
-                      <option value="urgent">Urgent</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </Field>
-                </div>
-              </div>
-
-              {/* Material Items */}
-              <div className="border border-slate-200 rounded-xl p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Material Items</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Select from store ledger or add new items</p>
-                  </div>
-                  <button
-                    onClick={() => setItems([...items, { material: '', item_code: '', qty: '', unit: 'Nos', date_required: '', vendor: '', purpose: '', remarks: '' }])}
-                    className="flex items-center gap-1.5 px-3 h-7 rounded-lg text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-colors"
-                  >
-                    <Plus className="w-3 h-3" /> Add Row
-                  </button>
-                </div>
-
-                {/* Column headers */}
-                <div className="grid gap-1.5 mb-1" style={{ gridTemplateColumns: '28px 80px 1.8fr 70px 70px 100px 1fr 1fr 36px' }}>
-                  {['#', 'Item Code', 'Description', 'Unit', 'Qty', 'Date Reqd', 'Vendor', 'Remarks', ''].map(h => (
-                    <div key={h} className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">{h}</div>
-                  ))}
-                </div>
-
-                <div className="space-y-1.5">
-                  {items.map((item, idx) => (
-                    <div key={idx} className="grid gap-1.5 items-center" style={{ gridTemplateColumns: '28px 80px 1.8fr 70px 70px 100px 1fr 1fr 36px' }}>
-                      {/* # */}
-                      <div className="text-xs text-slate-400 font-mono text-center">{idx + 1}</div>
-                      {/* Item Code */}
-                      <input
-                        type="text"
-                        placeholder="Code"
-                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs text-slate-900 placeholder:text-slate-300 outline-none focus:border-indigo-400 transition-all"
-                        value={item.item_code || ''}
-                        onChange={e => { const n = [...items]; n[idx].item_code = e.target.value; setItems(n); }}
-                      />
-                      {/* Description / Material */}
-                      <MaterialCombobox
-                        value={item.material}
-                        inventoryItems={inventoryItems}
-                        onChange={(materialName, unit) => {
-                          const n = [...items];
-                          n[idx].material = materialName;
-                          if (unit) n[idx].unit = unit;
-                          setItems(n);
-                        }}
-                        onNewItem={(prefill) => {
-                          setNewItemTargetIdx(idx);
-                          setNewItemForm(f => ({ ...f, material_name: prefill || '', category: '', category_custom: '', unit: item.unit || 'Nos' }));
-                          setCategoryMode('select');
-                          setShowNewItemModal(true);
-                        }}
-                      />
-                      {/* Unit */}
-                      <select
-                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-1 text-xs text-slate-900 outline-none focus:border-indigo-400 transition-all"
-                        value={item.unit}
-                        onChange={e => { const n = [...items]; n[idx].unit = e.target.value; setItems(n); }}
-                      >
-                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                      {/* Qty */}
-                      <input
-                        type="number"
-                        placeholder="0"
-                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all text-right"
-                        value={item.qty}
-                        onChange={e => { const n = [...items]; n[idx].qty = e.target.value; setItems(n); }}
-                      />
-                      {/* Date Required */}
-                      <input
-                        type="date"
-                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs text-slate-900 outline-none focus:border-indigo-400 transition-all"
-                        value={item.date_required || ''}
-                        onChange={e => { const n = [...items]; n[idx].date_required = e.target.value; setItems(n); }}
-                      />
-                      {/* Vendor */}
-                      <input
-                        type="text"
-                        placeholder="Vendor (opt.)"
-                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs text-slate-900 placeholder:text-slate-300 outline-none focus:border-indigo-400 transition-all"
-                        value={item.vendor || ''}
-                        onChange={e => { const n = [...items]; n[idx].vendor = e.target.value; setItems(n); }}
-                      />
-                      {/* Remarks */}
-                      <input
-                        type="text"
-                        placeholder="Remarks"
-                        className="h-8 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs text-slate-900 placeholder:text-slate-300 outline-none focus:border-indigo-400 transition-all"
-                        value={item.remarks || ''}
-                        onChange={e => { const n = [...items]; n[idx].remarks = e.target.value; setItems(n); }}
-                      />
-                      {/* Delete */}
-                      <button
-                        onClick={() => { if (items.length > 1) setItems(items.filter((_, i) => i !== idx)); }}
-                        disabled={items.length === 1}
-                        className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Remarks */}
-              <div className="border border-slate-200 rounded-xl p-5">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Remarks</h3>
-                <textarea
-                  rows={3}
-                  placeholder="Additional notes or special instructions…"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-400 transition-all resize-none"
-                  value={formData.remarks}
-                  onChange={e => setFormData(p => ({ ...p, remarks: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            {/* Modal footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 flex-shrink-0">
-              <span className="text-xs text-slate-400">{items.filter(i => i.material && i.qty).length} item(s) ready</span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={resetForm}
-                  className="px-5 h-9 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-white transition-all"
+                  className="px-5 h-10 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={createMutation.isPending}
-                  className="px-6 h-9 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-sm"
+                  className="px-7 h-10 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-all disabled:opacity-50 shadow flex items-center gap-2"
                 >
-                  {createMutation.isPending ? 'Submitting…' : 'Submit Requisition →'}
+                  {createMutation.isPending ? 'Submitting…' : <><Check className="w-4 h-4" /> Submit Requisition</>}
+                </button>
+                <button
+                  onClick={resetForm}
+                  className="w-10 h-10 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:border-slate-300 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* ── Body ── */}
+            <div className="flex-1 overflow-y-auto bg-slate-50">
+
+              {/* ── Section 1: Project Info ── */}
+              <div className="bg-white border-b border-slate-200 px-8 py-6">
+                <p className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-5">Project Information</p>
+                <div className="grid grid-cols-6 gap-5">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">Project <span className="text-red-500">*</span></label>
+                    <select
+                      className="w-full h-10 bg-white border border-slate-300 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                      value={formData.project_id}
+                      onChange={e => setFormData(p => ({ ...p, project_id: e.target.value }))}
+                    >
+                      <option value="">Select project…</option>
+                      {projectsData?.map(proj => <option key={proj.id} value={proj.id}>{proj.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">Department</label>
+                    <select
+                      className="w-full h-10 bg-white border border-slate-300 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                      value={formData.department}
+                      onChange={e => setFormData(p => ({ ...p, department: e.target.value }))}
+                    >
+                      {['Projects','Civil','Structural','MEP','Electrical','Plumbing','HVAC','Finishing','Safety','QA/QC','Procurement','Stores','Site Office','Admin','HR','Finance','IT','Maintenance','Security','Other'].map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">Site Incharge</label>
+                    <input
+                      className="w-full h-10 bg-white border border-slate-300 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                      placeholder="Name"
+                      value={formData.site_incharge}
+                      onChange={e => setFormData(p => ({ ...p, site_incharge: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">Required By <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      className="w-full h-10 bg-white border border-slate-300 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                      value={formData.required_by}
+                      onChange={e => setFormData(p => ({ ...p, required_by: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">Priority</label>
+                    <select
+                      className="w-full h-10 bg-white border border-slate-300 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                      value={formData.priority}
+                      onChange={e => setFormData(p => ({ ...p, priority: e.target.value }))}
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="urgent">🔶 Urgent</option>
+                      <option value="critical">🔴 Critical</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Head Office / Project Name</label>
+                  <input
+                    className="w-full max-w-lg h-10 bg-white border border-slate-300 rounded-lg px-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                    placeholder="e.g. BCIM — Divyasree Chambers"
+                    value={formData.head_office_project_name}
+                    onChange={e => setFormData(p => ({ ...p, head_office_project_name: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* ── Section 2: Material Items Table ── */}
+              <div className="px-8 py-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-widest">Material Items</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{items.filter(i => i.material).length} item(s) · Select from store ledger or type freely</p>
+                  </div>
+                  <button
+                    onClick={() => setItems([...items, { material: '', item_code: '', qty: '', unit: 'Nos', date_required: '', vendor: '', purpose: '', remarks: '' }])}
+                    className="flex items-center gap-2 px-4 h-9 rounded-lg text-sm font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> Add Row
+                  </button>
+                </div>
+
+                {/* Spreadsheet table */}
+                <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm" style={{ minWidth: 1100 }}>
+                      <thead>
+                        <tr className="bg-slate-700 text-white text-xs font-semibold uppercase tracking-wide">
+                          <th className="w-10 px-3 py-3 text-center border-r border-slate-600">#</th>
+                          <th className="w-24 px-4 py-3 text-left border-r border-slate-600">Item Code</th>
+                          <th className="px-4 py-3 text-left border-r border-slate-600" style={{ minWidth: 260 }}>Description / Material Name</th>
+                          <th className="w-20 px-4 py-3 text-center border-r border-slate-600">Unit</th>
+                          <th className="w-24 px-4 py-3 text-center border-r border-slate-600">Quantity</th>
+                          <th className="w-36 px-4 py-3 text-center border-r border-slate-600">Date Required</th>
+                          <th className="w-44 px-4 py-3 text-left border-r border-slate-600">Vendor / Supplier</th>
+                          <th className="px-4 py-3 text-left border-r border-slate-600">Remarks</th>
+                          <th className="w-12 px-2 py-3"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((item, idx) => (
+                          <tr key={idx} className={`border-b border-slate-100 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'} hover:bg-indigo-50/40`}>
+                            {/* # */}
+                            <td className="px-3 py-2.5 text-center text-xs text-slate-400 font-mono border-r border-slate-100">{idx + 1}</td>
+                            {/* Item Code */}
+                            <td className="px-2 py-2 border-r border-slate-100">
+                              <input
+                                type="text"
+                                placeholder="—"
+                                className="w-full h-9 bg-transparent border border-transparent rounded-md px-2 text-sm text-slate-700 placeholder:text-slate-300 outline-none focus:bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all"
+                                value={item.item_code || ''}
+                                onChange={e => { const n = [...items]; n[idx].item_code = e.target.value; setItems(n); }}
+                              />
+                            </td>
+                            {/* Description */}
+                            <td className="px-2 py-2 border-r border-slate-100">
+                              <MaterialCombobox
+                                value={item.material}
+                                inventoryItems={inventoryItems}
+                                onChange={(materialName, unit) => {
+                                  const n = [...items];
+                                  n[idx].material = materialName;
+                                  if (unit) n[idx].unit = unit;
+                                  setItems(n);
+                                }}
+                                onNewItem={(prefill) => {
+                                  setNewItemTargetIdx(idx);
+                                  setNewItemForm(f => ({ ...f, material_name: prefill || '', category: '', category_custom: '', unit: item.unit || 'Nos' }));
+                                  setCategoryMode('select');
+                                  setShowNewItemModal(true);
+                                }}
+                              />
+                            </td>
+                            {/* Unit */}
+                            <td className="px-2 py-2 text-center border-r border-slate-100">
+                              <select
+                                className="w-full h-9 bg-transparent border border-transparent rounded-md px-1 text-sm text-slate-700 outline-none focus:bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all text-center"
+                                value={item.unit}
+                                onChange={e => { const n = [...items]; n[idx].unit = e.target.value; setItems(n); }}
+                              >
+                                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                              </select>
+                            </td>
+                            {/* Qty */}
+                            <td className="px-2 py-2 text-center border-r border-slate-100">
+                              <input
+                                type="number"
+                                placeholder="0"
+                                className="w-full h-9 bg-transparent border border-transparent rounded-md px-2 text-sm text-slate-700 font-semibold placeholder:text-slate-300 outline-none focus:bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all text-center"
+                                value={item.qty}
+                                onChange={e => { const n = [...items]; n[idx].qty = e.target.value; setItems(n); }}
+                              />
+                            </td>
+                            {/* Date Required */}
+                            <td className="px-2 py-2 text-center border-r border-slate-100">
+                              <input
+                                type="date"
+                                className="w-full h-9 bg-transparent border border-transparent rounded-md px-2 text-sm text-slate-700 outline-none focus:bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all"
+                                value={item.date_required || ''}
+                                onChange={e => { const n = [...items]; n[idx].date_required = e.target.value; setItems(n); }}
+                              />
+                            </td>
+                            {/* Vendor */}
+                            <td className="px-2 py-2 border-r border-slate-100">
+                              <input
+                                type="text"
+                                placeholder="Optional"
+                                className="w-full h-9 bg-transparent border border-transparent rounded-md px-2 text-sm text-slate-700 placeholder:text-slate-300 outline-none focus:bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all"
+                                value={item.vendor || ''}
+                                onChange={e => { const n = [...items]; n[idx].vendor = e.target.value; setItems(n); }}
+                              />
+                            </td>
+                            {/* Remarks */}
+                            <td className="px-2 py-2 border-r border-slate-100">
+                              <input
+                                type="text"
+                                placeholder="—"
+                                className="w-full h-9 bg-transparent border border-transparent rounded-md px-2 text-sm text-slate-700 placeholder:text-slate-300 outline-none focus:bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all"
+                                value={item.remarks || ''}
+                                onChange={e => { const n = [...items]; n[idx].remarks = e.target.value; setItems(n); }}
+                              />
+                            </td>
+                            {/* Delete */}
+                            <td className="px-2 py-2 text-center">
+                              <button
+                                onClick={() => { if (items.length > 1) setItems(items.filter((_, i) => i !== idx)); }}
+                                disabled={items.length === 1}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-20 disabled:cursor-not-allowed transition-all mx-auto"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {/* Add row button inside table */}
+                        <tr className="bg-slate-50 border-t border-slate-200">
+                          <td colSpan={9} className="px-4 py-2.5">
+                            <button
+                              onClick={() => setItems([...items, { material: '', item_code: '', qty: '', unit: 'Nos', date_required: '', vendor: '', purpose: '', remarks: '' }])}
+                              className="flex items-center gap-1.5 text-xs font-semibold text-indigo-500 hover:text-indigo-700 transition-colors"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Add another row
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Section 3: Remarks ── */}
+              <div className="px-8 pb-8">
+                <p className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-3">Additional Remarks</p>
+                <textarea
+                  rows={3}
+                  placeholder="Special instructions, delivery notes, or other information…"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all resize-none shadow-sm"
+                  value={formData.remarks}
+                  onChange={e => setFormData(p => ({ ...p, remarks: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* ── Bottom status bar ── */}
+            <div className="flex items-center justify-between px-8 py-3 border-t border-slate-200 bg-white flex-shrink-0">
+              <div className="flex items-center gap-4 text-xs text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+                  {items.filter(i => i.material && i.qty).length} item(s) ready
+                </span>
+                {formData.priority === 'urgent' && <span className="text-amber-600 font-semibold">🔶 Urgent</span>}
+                {formData.priority === 'critical' && <span className="text-red-600 font-semibold">🔴 Critical</span>}
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={resetForm} className="px-5 h-9 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={createMutation.isPending}
+                  className="px-7 h-9 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-all disabled:opacity-50 shadow flex items-center gap-2"
+                >
+                  {createMutation.isPending ? 'Submitting…' : <><Check className="w-4 h-4" /> Submit Requisition</>}
                 </button>
               </div>
             </div>
