@@ -163,30 +163,35 @@ function parseDPRWorkbook(buffer) {
         boq_qty: toNumber(get(r, 9)),
         planned: toNumber(get(r, 10)),
         achieved: toNumber(get(r, 11)),
-        cumulative: toNumber(get(r, 12)),
+        cumulative: toNumber(get(r, 15)),   // col P = CUM. ACHIEVED QTY (was wrongly col M)
         remarks: '',
       });
     }
   }
 
+  const plantStart = findRow('PLANT & MACHINERY');
   const staff = [];
   const direct_workers = [];
   const subcontractors = [];
-  for (let r = 0; r < rows.length; r++) {
+  // Limit staff/labour scan to resource section only (between RESOURCES row and PLANT & MACHINERY row)
+  // to avoid picking up plant item names (col B) and nos (col F) as staff entries.
+  const resourceScanStart = resourcesRow >= 0 ? resourcesRow : 0;
+  const resourceScanEnd   = plantStart > resourceScanStart ? plantStart : rows.length;
+  for (let r = resourceScanStart; r < resourceScanEnd; r++) {
     const staffCategory = cellText(get(r, 1));
     const workerCategory = cellText(get(r, 6));
     const subcontractorName = cellText(get(r, 12));
 
-    if (staffCategory && !['CATEGORY', 'TOTAL', 'STAFF'].includes(staffCategory.toUpperCase())) {
+    if (staffCategory && !['CATEGORY', 'TOTAL', 'STAFF', 'RESOURCES'].includes(staffCategory.toUpperCase())) {
       const nos = toNumber(get(r, 5));
       if (nos !== '') staff.push({ category: staffCategory, nos });
     }
-    if (workerCategory && !['CATEGORY', 'TOTAL', 'DIRECT WORKERS'].includes(workerCategory.toUpperCase())) {
+    if (workerCategory && !['CATEGORY', 'TOTAL', 'DIRECT WORKERS', 'DAILY LABOUR REPORT'].includes(workerCategory.toUpperCase())) {
       const day = toNumber(get(r, 10));
       const night = toNumber(get(r, 11));
       if (day !== '' || night !== '') direct_workers.push({ category: workerCategory, day, night });
     }
-    if (subcontractorName && !['NAME', 'SUBCONTRACTORS'].includes(subcontractorName.toUpperCase())) {
+    if (subcontractorName && !['NAME', 'SUBCONTRACTORS', 'M A T E R I A L'].includes(subcontractorName.toUpperCase()) && !/^\d+$/.test(subcontractorName)) {
       const day = toNumber(get(r, 14));
       const night = toNumber(get(r, 15));
       if (day !== '' || night !== '') {
@@ -196,7 +201,6 @@ function parseDPRWorkbook(buffer) {
   }
 
   const plant_items = [];
-  const plantStart = findRow('PLANT & MACHINERY');
   if (plantStart >= 0) {
     for (let r = plantStart + 1; r < rows.length; r++) {
       const item = cellText(get(r, 1));
@@ -214,11 +218,11 @@ function parseDPRWorkbook(buffer) {
       const dia = cellText(get(r, 6));
       if (!dia || /^total$/i.test(dia)) break;
       steel.push({
-        dia: dia.replace(/\s+dia$/i, 'mm'),
-        receipts_today: toNumber(get(r, 10)),
-        receipts_till_date: toNumber(get(r, 11)),
-        available: toNumber(get(r, 12)),
-        consumption: toNumber(get(r, 14)),
+        dia: dia.replace(/\s+dia\s*$/i, ''),   // "8mm dia" → "8mm"
+        receipts_today: toNumber(get(r, 10)),   // col K
+        receipts_till_date: toNumber(get(r, 11)), // col L
+        available: toNumber(get(r, 12)),          // col M = available on site
+        consumption: toNumber(get(r, 14)),        // col O = consumption for day
       });
     }
   }
