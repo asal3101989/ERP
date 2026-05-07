@@ -690,7 +690,7 @@ function NewPOModal({ onClose, vendors, projects, onCreate, isPending, prefill }
             <button type="button" onClick={onClose} className="px-5 h-9 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">Cancel</button>
             <button type="button" onClick={handleSubmit} disabled={isPending}
               className="px-6 h-9 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-sm">
-              {isPending ? 'Submitting…' : 'Submit for Audit →'}
+              {isPending ? 'Saving…' : 'Save & Create PO'}
             </button>
           </div>
         </div>
