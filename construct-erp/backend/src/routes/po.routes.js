@@ -367,7 +367,7 @@ router.get('/:id/qty-status', async (req, res) => {
     const { rows } = await query(`
       SELECT
         pi.id                                                     AS po_item_id,
-        pi.item_name,
+        COALESCE(pi.material_name, pi.item_name, '—')             AS item_name,
         pi.unit,
         pi.quantity                                               AS ordered_qty,
         COALESCE(grn_agg.received_qty,  0)                        AS received_qty,
