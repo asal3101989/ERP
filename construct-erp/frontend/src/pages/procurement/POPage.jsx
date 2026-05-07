@@ -705,6 +705,108 @@ const STAGE_LABELS = {
   'authorize-md': 'MD Authorization',
 };
 
+/* ─── Quantity Tracking vs PO ─── */
+function POQtySection({ poId }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['po-qty-status', poId],
+    queryFn: () => poAPI.getQtyStatus(poId).then(r => r.data?.data ?? []),
+    enabled: !!poId,
+  });
+
+  const items = data || [];
+  const hasExceeded = items.some(it => parseFloat(it.received_qty) > parseFloat(it.ordered_qty) || parseFloat(it.invoiced_qty) > parseFloat(it.ordered_qty));
+
+  const n = v => Number(v || 0);
+  const pct = (a, b) => b > 0 ? Math.min(100, (a / b) * 100) : 0;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className={`px-4 py-3 flex items-center justify-between ${hasExceeded ? 'bg-gradient-to-r from-red-600 to-red-700' : 'bg-gradient-to-r from-teal-600 to-teal-700'}`}>
+        <span className="text-xs font-bold text-white uppercase tracking-wider">Quantity Tracking</span>
+        {hasExceeded
+          ? <span className="text-[11px] text-red-200 font-semibold">⚠ Quantity Exceeded</span>
+          : <span className="text-[11px] text-teal-200">All quantities within limit</span>}
+      </div>
+
+      {isLoading ? (
+        <div className="p-4 text-xs text-slate-400">Loading…</div>
+      ) : items.length === 0 ? (
+        <div className="p-4 text-xs text-slate-400 text-center">No items found on this PO</div>
+      ) : (
+        <div className="divide-y divide-slate-50">
+          {/* Column headers */}
+          <div className="grid grid-cols-5 px-4 py-2 bg-slate-50 text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+            <div className="col-span-2">Item</div>
+            <div className="text-right">Ordered</div>
+            <div className="text-right">GRN Rcvd</div>
+            <div className="text-right">Invoiced</div>
+          </div>
+
+          {items.map((it, i) => {
+            const ordered   = n(it.ordered_qty);
+            const received  = n(it.received_qty);
+            const invoiced  = n(it.invoiced_qty);
+            const remaining = n(it.remaining_qty);
+            const rcvExceed = received > ordered;
+            const invExceed = invoiced > ordered;
+            const anyExceed = rcvExceed || invExceed;
+            const rcvPct = pct(received, ordered);
+            const invPct = pct(invoiced, ordered);
+
+            return (
+              <div key={i} className={`px-4 py-3 ${anyExceed ? 'bg-red-50' : ''}`}>
+                <div className="grid grid-cols-5 items-start gap-1">
+                  <div className="col-span-2">
+                    <p className="text-xs font-semibold text-slate-800 leading-tight">{it.item_name}</p>
+                    <p className="text-[10px] text-slate-400">{it.unit}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-slate-700">{ordered}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-xs font-bold ${rcvExceed ? 'text-red-600' : 'text-emerald-600'}`}>
+                      {received} {rcvExceed && '⚠'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-xs font-bold ${invExceed ? 'text-red-600' : 'text-indigo-600'}`}>
+                      {invoiced} {invExceed && '⚠'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Progress bars */}
+                <div className="mt-2 space-y-1">
+                  <div>
+                    <div className="flex justify-between text-[9px] text-slate-400 mb-0.5">
+                      <span>GRN Received</span>
+                      <span>{rcvPct.toFixed(0)}%{remaining > 0 ? ` · ${remaining} remaining` : ''}</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${rcvExceed ? 'bg-red-500' : 'bg-emerald-400'}`}
+                        style={{ width: `${Math.min(rcvPct, 100)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[9px] text-slate-400 mb-0.5">
+                      <span>Invoiced</span>
+                      <span>{invPct.toFixed(0)}%</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${invExceed ? 'bg-red-500' : 'bg-indigo-400'}`}
+                        style={{ width: `${Math.min(invPct, 100)}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Bills Against PO ─── */
 function POBillsSection({ poId, grandTotal }) {
   const { data, isLoading } = useQuery({
@@ -1018,6 +1120,9 @@ function PODetailPanel({ po, detailedPO, onClose, onApprove, onReject, isApprovi
               <p className="text-sm text-slate-600">{po.notes}</p>
             </div>
           )}
+
+          {/* Quantity Tracking */}
+          <POQtySection poId={po.id} />
 
           {/* Bills Against This PO */}
           <POBillsSection poId={po.id} grandTotal={po.grand_total} />
