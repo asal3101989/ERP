@@ -6,7 +6,7 @@ import {
   Truck, CheckCircle2, Clock, AlertTriangle, Package,
   ChevronRight, FileText, Calendar, Hash, TrendingUp,
   ShieldCheck, CheckCheck, RefreshCw, ClipboardList,
-  Eye, Building2, Link2, Info
+  Eye, Building2, Link2, Info, Pencil, Trash2
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import dayjs from 'dayjs';
@@ -77,7 +77,7 @@ function WorkflowStepper({ status }) {
 }
 
 /* ── Detail / Approval Panel ──────────────────────────────────── */
-function GRNDetailPanel({ grn, onClose, onVerify, onApprove, verifyLoading, approveLoading, printRef }) {
+function GRNDetailPanel({ grn, onClose, onVerify, onApprove, onEdit, onDelete, verifyLoading, approveLoading, deleteLoading }) {
   if (!grn) return null;
   const status = grn.quality_status || grn.status || 'pending';
   const items  = grn.items || [];
@@ -271,10 +271,29 @@ function GRNDetailPanel({ grn, onClose, onVerify, onApprove, verifyLoading, appr
             </div>
           )}
 
+          {/* Edit / Delete — only for pending */}
+          {status === 'pending' && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onEdit}
+                className="flex-1 flex items-center justify-center gap-2 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold py-2.5 rounded-xl text-sm transition"
+              >
+                <Pencil size={14} /> Edit GRN
+              </button>
+              <button
+                onClick={onDelete}
+                disabled={deleteLoading}
+                className="flex-1 flex items-center justify-center gap-2 border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-2.5 rounded-xl text-sm transition disabled:opacity-50"
+              >
+                <Trash2 size={14} /> {deleteLoading ? 'Deleting…' : 'Delete GRN'}
+              </button>
+            </div>
+          )}
+
           {/* Print + Close */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { /* trigger print from parent */ document.dispatchEvent(new CustomEvent('grn-print')); }}
+              onClick={() => { document.dispatchEvent(new CustomEvent('grn-print')); }}
               className="flex-1 flex items-center justify-center gap-2 border border-slate-200 hover:border-slate-300 text-slate-600 font-semibold py-2.5 rounded-xl text-sm transition"
             >
               <Printer size={15} /> Print GRN
@@ -296,6 +315,7 @@ function GRNDetailPanel({ grn, onClose, onVerify, onApprove, verifyLoading, appr
 export default function GRNPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm]         = useState(false);
+  const [editGRN, setEditGRN]           = useState(null);  // GRN object to edit
   const [selectedId, setSelectedId]     = useState(null);
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -349,6 +369,26 @@ export default function GRNPage() {
     },
     onError: (e) => toast.error(e?.response?.data?.error || 'Approval failed'),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => grnAPI.delete(id),
+    onSuccess: () => {
+      toast.success('GRN deleted');
+      setSelectedId(null);
+      qc.invalidateQueries({ queryKey: ['grn-list'] });
+    },
+    onError: (e) => toast.error(e?.response?.data?.error || 'Delete failed'),
+  });
+
+  const handleDelete = (id) => {
+    if (!window.confirm('Delete this GRN? This cannot be undone.')) return;
+    deleteMutation.mutate(id);
+  };
+
+  const handleEdit = (grn) => {
+    setSelectedId(null);    // close detail panel
+    setEditGRN(grn);        // open edit form pre-filled
+  };
 
   // Counts
   const counts = {
@@ -563,8 +603,28 @@ export default function GRNPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={status} /></td>
-                    <td className="px-4 py-3 text-right">
-                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                    <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => { setSelectedId(null); setEditGRN(grn); }}
+                              title="Edit GRN"
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(grn.id)}
+                              title="Delete GRN"
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 transition"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
+                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                      </div>
                     </td>
                   </tr>
                 );
@@ -595,14 +655,27 @@ export default function GRNPage() {
           onClose={() => setSelectedId(null)}
           onVerify={() => verifyMutation.mutate(selectedId)}
           onApprove={() => approveMutation.mutate(selectedId)}
+          onEdit={() => handleEdit(detailedGRN)}
+          onDelete={() => handleDelete(selectedId)}
           verifyLoading={verifyMutation.isPending}
           approveLoading={approveMutation.isPending}
+          deleteLoading={deleteMutation.isPending}
         />
       )}
 
       {/* ── New GRN Form ────────────────────────────────────────── */}
       {showForm && (
         <GRNForm onClose={() => setShowForm(false)} projects={projects} qc={qc} />
+      )}
+
+      {/* ── Edit GRN Form ───────────────────────────────────────── */}
+      {editGRN && (
+        <GRNForm
+          onClose={() => setEditGRN(null)}
+          projects={projects}
+          qc={qc}
+          initialData={editGRN}
+        />
       )}
 
       {/* Hidden print area */}
@@ -615,16 +688,38 @@ export default function GRNPage() {
   );
 }
 
-/* ── GRN Create Form ─────────────────────────────────────────── */
-function GRNForm({ onClose, projects, qc }) {
-  const [form, setForm] = useState({
-    project_id: '', po_id: '', vendor_id: '', grn_date: dayjs().format('YYYY-MM-DD'),
-    vehicle_number: '', driver_name: '', challan_number: '', invoice_number: '',
-    site_location: '', gate_pass_no: '', wb_slip_no: '', remarks: '',
+/* ── GRN Create / Edit Form ──────────────────────────────────── */
+function GRNForm({ onClose, projects, qc, initialData }) {
+  const isEdit = !!initialData;
+
+  const [form, setForm] = useState(() => ({
+    project_id:     initialData?.project_id     || '',
+    po_id:          initialData?.po_id          || '',
+    vendor_id:      initialData?.vendor_id      || '',
+    grn_date:       initialData?.grn_date       ? dayjs(initialData.grn_date).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
+    vehicle_number: initialData?.vehicle_number || '',
+    driver_name:    initialData?.driver_name    || '',
+    challan_number: initialData?.challan_number || '',
+    invoice_number: initialData?.invoice_number || '',
+    site_location:  initialData?.site_location  || '',
+    gate_pass_no:   initialData?.gate_pass_no   || '',
+    wb_slip_no:     initialData?.wb_slip_no     || '',
+    remarks:        initialData?.remarks        || '',
+  }));
+
+  const [items, setItems] = useState(() => {
+    if (initialData?.items?.length) {
+      return initialData.items.map(it => ({
+        material_name:     it.material_name     || '',
+        unit:              it.unit              || 'Nos',
+        quantity_received: it.quantity_received || '',
+        quality_remarks:   it.quality_remarks   || '',
+        po_item_id:        it.po_item_id        || null,
+      }));
+    }
+    return [{ material_name: '', unit: 'Nos', quantity_received: '', quality_remarks: '', po_item_id: null }];
   });
-  const [items, setItems] = useState([
-    { material_name: '', unit: 'Nos', quantity_received: '', quality_remarks: '', po_item_id: null }
-  ]);
+
   const [poLinked, setPoLinked] = useState(null); // stores selected PO detail
 
   const { data: vendors = [] } = useQuery({
@@ -678,8 +773,10 @@ function GRNForm({ onClose, projects, qc }) {
     });
   }, [form.po_id]);
 
-  // Reset PO link when project changes
+  // Reset PO link when project changes (skip on first mount in edit mode)
+  const isFirstMount = useRef(true);
   useEffect(() => {
+    if (isFirstMount.current) { isFirstMount.current = false; return; }
     setForm(prev => ({ ...prev, po_id: '', vendor_id: '' }));
     setPoLinked(null);
     setItems([{ material_name: '', unit: 'Nos', quantity_received: '', quality_remarks: '', po_item_id: null }]);
@@ -695,12 +792,25 @@ function GRNForm({ onClose, projects, qc }) {
     onError: (e) => toast.error(e?.response?.data?.error || 'Failed to create GRN'),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (d) => grnAPI.update(initialData.id, d),
+    onSuccess: () => {
+      toast.success('GRN updated successfully!');
+      qc.invalidateQueries({ queryKey: ['grn-list'] });
+      qc.invalidateQueries({ queryKey: ['grn', initialData.id] });
+      onClose();
+    },
+    onError: (e) => toast.error(e?.response?.data?.error || 'Failed to update GRN'),
+  });
+
+  const activeMutation = isEdit ? updateMutation : createMutation;
+
   const submit = () => {
     if (!form.project_id) return toast.error('Select a project');
     if (!form.grn_date)   return toast.error('GRN date is required');
     const validItems = items.filter(i => i.material_name?.trim() && i.quantity_received);
     if (!validItems.length) return toast.error('Add at least one item with quantity');
-    createMutation.mutate({ ...form, items: validItems });
+    activeMutation.mutate({ ...form, items: validItems });
   };
 
   const setField = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -718,9 +828,14 @@ function GRNForm({ onClose, projects, qc }) {
         <div className="bg-slate-900 px-6 py-4 flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="text-base font-black text-white flex items-center gap-2">
-              <PackageCheck size={16} className="text-emerald-400" /> New Goods Receipt Note
+              {isEdit
+                ? <><Pencil size={16} className="text-amber-400" /> Edit GRN — {initialData?.grn_number}</>
+                : <><PackageCheck size={16} className="text-emerald-400" /> New Goods Receipt Note</>
+              }
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Record inward material with challan & vehicle details</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isEdit ? 'Update receipt details (only allowed while status is Pending)' : 'Record inward material with challan & vehicle details'}
+            </p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition">
             <X size={16} />
@@ -898,9 +1013,9 @@ function GRNForm({ onClose, projects, qc }) {
               className="px-5 h-9 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-white transition">
               Cancel
             </button>
-            <button onClick={submit} disabled={createMutation.isPending}
-              className="px-6 h-9 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition disabled:opacity-50 shadow-sm">
-              {createMutation.isPending ? 'Creating…' : 'Create GRN →'}
+            <button onClick={submit} disabled={activeMutation.isPending}
+              className={`px-6 h-9 rounded-lg text-white text-sm font-semibold transition disabled:opacity-50 shadow-sm ${isEdit ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+              {activeMutation.isPending ? (isEdit ? 'Saving…' : 'Creating…') : (isEdit ? 'Save Changes →' : 'Create GRN →')}
             </button>
           </div>
         </div>

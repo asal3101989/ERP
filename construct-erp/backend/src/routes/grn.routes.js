@@ -252,4 +252,97 @@ router.patch('/:id/approve-qc', async (req, res) => {
   }
 });
 
+// DELETE /grn/:id — only allowed on pending GRNs
+router.delete('/:id', async (req, res) => {
+  try {
+    const existing = await query(
+      `SELECT g.id, g.quality_status, p.company_id
+       FROM grn g JOIN projects p ON g.project_id = p.id
+       WHERE g.id = $1`,
+      [req.params.id]
+    );
+    if (!existing.rows.length || existing.rows[0].company_id !== req.user.company_id) {
+      return res.status(404).json({ error: 'GRN not found' });
+    }
+    if (existing.rows[0].quality_status !== 'pending') {
+      return res.status(400).json({ error: 'Only pending GRNs can be deleted. Verified or approved GRNs are locked.' });
+    }
+    await query('DELETE FROM grn_items WHERE grn_id = $1', [req.params.id]);
+    await query('DELETE FROM grn WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /grn/:id — update header + items (only pending GRNs)
+router.put('/:id', async (req, res) => {
+  try {
+    const existing = await query(
+      `SELECT g.id, g.quality_status, p.company_id
+       FROM grn g JOIN projects p ON g.project_id = p.id
+       WHERE g.id = $1`,
+      [req.params.id]
+    );
+    if (!existing.rows.length || existing.rows[0].company_id !== req.user.company_id) {
+      return res.status(404).json({ error: 'GRN not found' });
+    }
+    if (existing.rows[0].quality_status !== 'pending') {
+      return res.status(400).json({ error: 'Only pending GRNs can be edited.' });
+    }
+
+    const {
+      po_id, vendor_id, grn_date,
+      vehicle_number, driver_name, challan_number, invoice_number,
+      site_location, gate_pass_no, wb_slip_no, remarks, items
+    } = req.body;
+
+    await withTransaction(async (client) => {
+      // 1. Update header
+      await client.query(
+        `UPDATE grn SET
+          po_id = $1, vendor_id = $2, grn_date = $3,
+          vehicle_number = $4, driver_name = $5, challan_number = $6,
+          invoice_number = $7, site_location = $8, gate_pass_no = $9,
+          wb_slip_no = $10, remarks = $11
+         WHERE id = $12`,
+        [po_id || null, vendor_id || null, grn_date,
+         vehicle_number || null, driver_name || null, challan_number || null,
+         invoice_number || null, site_location || null, gate_pass_no || null,
+         wb_slip_no || null, remarks || null, req.params.id]
+      );
+
+      // 2. Replace items
+      await client.query('DELETE FROM grn_items WHERE grn_id = $1', [req.params.id]);
+      let totalQty = 0;
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        await client.query(
+          `INSERT INTO grn_items (grn_id, material_name, quantity_received, unit, po_item_id, quality_remarks, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [req.params.id, it.material_name, it.quantity_received, it.unit, it.po_item_id || null, it.quality_remarks || null, i + 1]
+        );
+        totalQty += parseFloat(it.quantity_received || 0);
+      }
+
+      // 3. Update total quantity
+      await client.query(
+        `UPDATE grn SET total_quantity = $1 WHERE id = $2`,
+        [totalQty, req.params.id]
+      );
+    });
+
+    const updated = await query(
+      `SELECT g.*, v.name as vendor_name, p.name as project_name FROM grn g
+       JOIN projects p ON g.project_id = p.id
+       LEFT JOIN vendors v ON g.vendor_id = v.id
+       WHERE g.id = $1`,
+      [req.params.id]
+    );
+    res.json({ data: updated.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

@@ -211,6 +211,8 @@ export const grnAPI = {
   list:    (params)   => api.get('/grn', { params }),
   get:     (id)       => api.get(`/grn/${id}`),
   create:  (data)     => api.post('/grn', data),
+  update:  (id, data) => api.put(`/grn/${id}`, data),
+  delete:  (id)       => api.delete(`/grn/${id}`),
   approve: (id, stage) => api.patch(`/grn/${id}/${stage}`),
 };
 
