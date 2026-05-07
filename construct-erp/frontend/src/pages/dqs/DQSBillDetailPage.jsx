@@ -1248,6 +1248,33 @@ export default function DQSBillDetailPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['dqs-bill', id] }); toast.success('Bill info updated'); },
   });
 
+  // ── PO Linking ──────────────────────────────────────────────────────────
+  const [showLinkPO, setShowLinkPO]   = useState(false);
+  const [poSearch, setPoSearch]       = useState('');
+  const { data: availablePOs = [] } = useQuery({
+    queryKey: ['dqs-link-pos', bill?.project_id],
+    queryFn: () => dqsBillsAPI.lookupPOs({ project_id: bill?.project_id }).then(r => r.data?.data ?? []),
+    enabled: showLinkPO,
+  });
+  const filteredLinkPOs = availablePOs.filter(po => {
+    const q = poSearch.toLowerCase();
+    return !q || (po.po_number || '').toLowerCase().includes(q) || (po.vendor_name || '').toLowerCase().includes(q);
+  });
+  const linkPOMut = useMutation({
+    mutationFn: (po_id) => dqsBillsAPI.update(id, { po_id }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['dqs-bill', id] });
+      setShowLinkPO(false);
+      setPoSearch('');
+      toast.success('Bill linked to PO');
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Link failed'),
+  });
+  const unlinkPOMut = useMutation({
+    mutationFn: () => dqsBillsAPI.update(id, { po_id: null }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['dqs-bill', id] }); toast.success('PO link removed'); },
+  });
+
   if (isLoading) return (
     <div className="p-8 space-y-4 bg-[#f4f6f9] min-h-screen">
       {Array.from({ length: 5 }).map((_, i) => (
@@ -1368,8 +1395,59 @@ export default function DQSBillDetailPage() {
               <div className="p-5">
                 {/* Row 1 — key identifiers */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 pb-4 border-b border-slate-100">
+
+                  {/* PO / WO # — with Link to PO feature */}
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">PO / WO #</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-semibold text-slate-800">{bill.po_number || '—'}</p>
+                      {bill.po_id ? (
+                        <button
+                          onClick={() => { if (window.confirm('Remove PO link?')) unlinkPOMut.mutate(); }}
+                          title="Remove PO link"
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 hover:bg-red-100 hover:text-red-600 font-semibold transition-all"
+                        >linked ✕</button>
+                      ) : (
+                        <button
+                          onClick={() => setShowLinkPO(v => !v)}
+                          title="Link to a PO record"
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 font-semibold transition-all"
+                        >+ Link PO</button>
+                      )}
+                    </div>
+
+                    {/* Dropdown for PO search + select */}
+                    {showLinkPO && (
+                      <div className="mt-2 bg-white border border-indigo-200 rounded-lg shadow-lg p-2 z-10 w-72">
+                        <input
+                          autoFocus
+                          placeholder="Search PO number or vendor…"
+                          value={poSearch}
+                          onChange={e => setPoSearch(e.target.value)}
+                          className="w-full border border-slate-200 rounded px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-400 mb-2"
+                        />
+                        <div className="max-h-48 overflow-y-auto space-y-1">
+                          {filteredLinkPOs.length === 0 && (
+                            <p className="text-xs text-slate-400 text-center py-3">No approved POs found</p>
+                          )}
+                          {filteredLinkPOs.map(po => (
+                            <button
+                              key={po.id}
+                              onClick={() => linkPOMut.mutate(po.id)}
+                              disabled={linkPOMut.isPending}
+                              className="w-full text-left px-2 py-1.5 rounded hover:bg-indigo-50 transition-all"
+                            >
+                              <p className="text-xs font-semibold text-slate-800 font-mono">{po.po_number}</p>
+                              <p className="text-[10px] text-slate-400">{po.vendor_name} · ₹{Number(po.total_amount || 0).toLocaleString('en-IN')}</p>
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={() => setShowLinkPO(false)} className="mt-1 w-full text-center text-[10px] text-slate-400 hover:text-slate-600">Cancel</button>
+                      </div>
+                    )}
+                  </div>
+
                   {[
-                    { label: 'PO / WO #',      value: bill.po_number },
                     { label: 'Invoice #',       value: bill.inv_number },
                     { label: 'Invoice Date',    value: fmt(bill.inv_date) },
                     { label: 'Received Date',   value: fmt(bill.received_date) },
