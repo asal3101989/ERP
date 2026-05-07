@@ -58,6 +58,7 @@ function PriorityBadge({ priority }) {
 
 export default function MRSPage() {
   const { user } = useAuthStore();
+  const [showPrint, setShowPrint] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [selectedMRS, setSelectedMRS] = useState(null);
   const [search, setSearch] = useState('');
@@ -399,7 +400,7 @@ export default function MRSPage() {
               <div className="flex items-center gap-2">
                 <StatusBadge status={liveStatus} />
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => setShowPrint(true)}
                   disabled={!detailedMRS}
                   className="flex items-center gap-1.5 px-3 h-8 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:border-slate-300 disabled:opacity-40 transition-all"
                 >
@@ -552,19 +553,15 @@ export default function MRSPage() {
             </div>
           </div>
 
-          {/* Print zone */}
-          <div className="mrs-print-zone">
-            <MRSPrintTemplate data={detailedMRS} />
-          </div>
-          <style dangerouslySetInnerHTML={{ __html: `
-            @media screen { .mrs-print-zone { display: none !important; } }
-            @media print {
-              body * { visibility: hidden !important; }
-              .mrs-print-zone, .mrs-print-zone * { visibility: visible !important; }
-              .mrs-print-zone { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; display: flex !important; justify-content: center !important; background: white !important; z-index: 999999 !important; }
-              @page { size: A4 landscape; margin: 0; }
-            }
-          `}} />
+          {/* Print preview overlay */}
+          {showPrint && detailedMRS && (
+            <div className="fixed inset-0 z-[200] bg-white overflow-y-auto">
+              <MRSPrintTemplate
+                data={detailedMRS}
+                onClose={() => setShowPrint(false)}
+              />
+            </div>
+          )}
         </div>
       )}
 
