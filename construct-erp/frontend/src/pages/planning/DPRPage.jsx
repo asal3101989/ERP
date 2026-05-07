@@ -272,14 +272,19 @@ function DPRViewPanel({ dpr, project, onClose, onEdit, qc }) {
                 {approveMut.isPending ? 'Approving…' : 'Approve'}
               </button>
             )}
-            {d.status === 'draft' && (
-              <button
-                onClick={() => onEdit(d)}
-                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-1"
-              >
-                <Edit2 className="w-3 h-3" /> Edit
-              </button>
-            )}
+            <button
+              onClick={() => onEdit(d)}
+              className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 flex items-center gap-1"
+            >
+              <Edit2 className="w-3 h-3" /> Edit
+            </button>
+            <button
+              onClick={() => { if (window.confirm('Delete this DPR?')) deleteMut.mutate(d.id); }}
+              disabled={deleteMut.isPending}
+              className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" /> Delete
+            </button>
             <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-md text-slate-400">
               <X className="w-4 h-4" />
             </button>
@@ -292,13 +297,7 @@ function DPRViewPanel({ dpr, project, onClose, onEdit, qc }) {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-100 bg-slate-50 px-5 py-3 flex items-center justify-between flex-shrink-0">
-          <button
-            onClick={() => { if (window.confirm('Delete this DPR?')) deleteMut.mutate(d.id); }}
-            className="flex items-center gap-1.5 px-3 py-2 text-red-600 text-xs font-medium hover:bg-red-50 rounded-lg"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> Delete
-          </button>
+        <div className="border-t border-slate-100 bg-slate-50 px-5 py-3 flex justify-end flex-shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-200 rounded-lg">
             Close
           </button>
