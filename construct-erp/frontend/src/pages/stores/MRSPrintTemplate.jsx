@@ -1,403 +1,284 @@
-// src/pages/stores/MRSPrintTemplate.jsx
-// Integrated from MRPrintLayout.jsx — A4 popup-window print approach
+// src/pages/stores/MRSPrintTemplate.jsx — Inline-styled A4 print template
 import { useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import dayjs from 'dayjs';
 
-// ─── Date formatter ───────────────────────────────────────────────────────────
 const fmtDate = (d) => {
   if (!d) return '';
-  try { return dayjs(d).format('DD/MM/YYYY'); } catch { return d; }
+  try { return dayjs(d).format('DD/MM/YYYY'); } catch { return String(d); }
 };
 
-// ─── Print trigger — opens popup window with inline CSS ───────────────────────
+// ── Print trigger ─────────────────────────────────────────────────────────────
 export function useMRSPrint(ref) {
   return () => {
     const content = ref.current?.innerHTML;
     if (!content) return;
-    const win = window.open('', '_blank', 'width=1050,height=850');
+    const win = window.open('', '_blank', 'width=1050,height=900');
     win.document.write(`<!DOCTYPE html><html><head>
       <title>Material Requisition</title>
-      <style>${PRINT_CSS}</style>
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{font-family:Arial,sans-serif;font-size:9pt;color:#000;background:#fff;}
+        @page{size:A4 portrait;margin:10mm 12mm;}
+        @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+      </style>
     </head><body>${content}</body></html>`);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+    setTimeout(() => { win.print(); win.close(); }, 500);
   };
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ── Shared inline style objects ───────────────────────────────────────────────
+const S = {
+  // outer wrapper shown on screen
+  preview: { background:'#e5e7eb', minHeight:'100vh', padding:'32px 24px', display:'flex', justifyContent:'center', fontFamily:'Arial,sans-serif' },
+  // A4 page
+  a4: { background:'#fff', width:'210mm', minHeight:'297mm', padding:'12mm 14mm', boxShadow:'0 4px 24px rgba(0,0,0,.18)', border:'1px solid #d1d5db', fontSize:'9pt', color:'#000', fontFamily:'Arial,sans-serif' },
+  // tables
+  tbl: { width:'100%', borderCollapse:'collapse', marginBottom:0 },
+  td: { border:'1px solid #000', padding:'4px 7px', verticalAlign:'middle', fontSize:'9pt' },
+  thLbl: { fontWeight:700, background:'#f8f8f8', whiteSpace:'nowrap', border:'1px solid #000', padding:'3px 7px', fontSize:'9pt' },
+  thVal: { border:'1px solid #000', padding:'3px 7px', fontSize:'9pt' },
+};
+
 export default function MRSPrintTemplate({ data, onClose }) {
   const printRef = useRef();
   const triggerPrint = useMRSPrint(printRef);
 
   if (!data) return null;
 
-  const items    = data.items || [];
+  const items   = data.items || [];
   const MIN_ROWS = 8;
-  const padded   = [
+  const padded  = [
     ...items,
-    ...Array.from({ length: Math.max(0, MIN_ROWS - items.length) }, (_, i) => ({
-      _blank: true, sl: items.length + i + 1,
-    })),
+    ...Array.from({ length: Math.max(0, MIN_ROWS - items.length) }, () => ({ _blank: true })),
   ];
-
   const verificationUrl = `${window.location.origin}/verify/mrs/${data.id}`;
 
   return (
     <>
-      <style>{SCREEN_CSS}</style>
-
-      {/* ── Toolbar ── */}
-      <div className="mrp-toolbar">
-        <div className="mrp-toolbar-left">
-          <div className="mrp-tlogo">
-            <span className="mrp-tlogo-mark">B</span>
-            <span className="mrp-tlogo-text">BCIM</span>
-          </div>
+      {/* ── Screen toolbar ── */}
+      <div style={{ background:'#1e40af', padding:'12px 28px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:100, boxShadow:'0 2px 8px rgba(30,64,175,.3)', fontFamily:'system-ui,sans-serif' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          <div style={{ width:32, height:32, background:'#fff', color:'#1e40af', borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:17 }}>B</div>
           <div>
-            <div className="mrp-ttitle">MR Print Preview</div>
-            <div className="mrp-tsub">{data.serial_no_formatted || data.mrs_number}</div>
+            <div style={{ fontWeight:700, fontSize:15, color:'#fff' }}>MR Print Preview</div>
+            <div style={{ fontSize:11, color:'rgba(255,255,255,.7)' }}>{data.serial_no_formatted || data.mrs_number}</div>
           </div>
         </div>
-        <div className="mrp-toolbar-right">
+        <div style={{ display:'flex', gap:10 }}>
           {onClose && (
-            <button className="mrp-btn mrp-btn-ghost" onClick={onClose}>← Back</button>
+            <button onClick={onClose} style={{ padding:'7px 18px', borderRadius:6, background:'rgba(255,255,255,.15)', color:'#fff', border:'none', fontSize:13, fontWeight:600, cursor:'pointer' }}>← Back</button>
           )}
-          <button className="mrp-btn mrp-btn-primary" onClick={triggerPrint}>
-            🖨 Print / Save PDF
-          </button>
+          <button onClick={triggerPrint} style={{ padding:'7px 18px', borderRadius:6, background:'#fff', color:'#1e40af', border:'none', fontSize:13, fontWeight:600, cursor:'pointer' }}>🖨 Print / Save PDF</button>
         </div>
       </div>
 
       {/* ── A4 Preview ── */}
-      <div className="mrp-preview-bg">
-        <div className="mrp-a4" ref={printRef}>
+      <div style={S.preview}>
+        <div style={S.a4} ref={printRef}>
 
-          {/* ══ HEADER ══ */}
-          <table className="mrp-hdr-tbl">
+          {/* ══ HEADER TABLE ══ */}
+          <table style={{ ...S.tbl, border:'1.5px solid #000' }}>
             <tbody>
               <tr>
-                <td className="mrp-logo-cell" rowSpan={2}>
-                  <div className="mrp-logo-block">
-                    <div className="mrp-logo-box">B</div>
-                    <div className="mrp-logo-name">BCIM</div>
-                    <div className="mrp-logo-full">BCIM Engineering Private Limited</div>
-                    <div className="mrp-logo-addr">"B" Wing, Divyasree Chambers, No. 11,<br />O'Shaugnessy Road, Bangalore – 560 025</div>
-                    <div className="mrp-logo-tel">Tel: 080 22244455</div>
-                  </div>
+                {/* Logo cell */}
+                <td rowSpan={2} style={{ ...S.td, width:'38%', border:'1.5px solid #000', verticalAlign:'top', padding:'8px 10px' }}>
+                  <div style={{ display:'inline-block', width:26, height:26, background:'#1e40af', color:'#fff', fontWeight:700, fontSize:14, textAlign:'center', lineHeight:'26px', borderRadius:4, marginBottom:3 }}>B</div>
+                  <div style={{ fontSize:16, fontWeight:700, letterSpacing:3, color:'#1e40af' }}>BCIM</div>
+                  <div style={{ fontSize:'8pt', fontWeight:700 }}>BCIM Engineering Private Limited</div>
+                  <div style={{ fontSize:'7.5pt', color:'#333', lineHeight:1.4, marginTop:2 }}>"B" Wing, Divyasree Chambers, No. 11,<br />O'Shaugnessy Road, Bangalore – 560 025</div>
+                  <div style={{ fontSize:'7.5pt', color:'#333', marginTop:2 }}>Tel: 080 22244455</div>
                 </td>
-                <td className="mrp-doc-title-cell" colSpan={2}>
-                  <div className="mrp-doc-title">MATERIAL / SERVICE REQUISITION</div>
+                {/* Title */}
+                <td colSpan={2} style={{ ...S.td, textAlign:'center', verticalAlign:'middle', border:'1.5px solid #000' }}>
+                  <div style={{ fontSize:14, fontWeight:700, letterSpacing:1.5, textTransform:'uppercase' }}>Material / Service Requisition</div>
                 </td>
               </tr>
               <tr>
-                <td className="mrp-ref-cell">
-                  <table className="mrp-ref-tbl">
+                {/* Serial / Date */}
+                <td style={{ ...S.td, verticalAlign:'top', border:'1px solid #000' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse' }}>
                     <tbody>
                       <tr>
-                        <td className="mrp-ref-lbl">Serial No</td>
-                        <td className="mrp-ref-colon">:</td>
-                        <td className="mrp-ref-val"><strong>{data.serial_no_formatted || data.mrs_number}</strong></td>
+                        <td style={{ width:60, fontWeight:600, fontSize:'9pt', padding:'2px 4px', whiteSpace:'nowrap' }}>Serial No</td>
+                        <td style={{ width:10, padding:'2px 4px', fontSize:'9pt' }}>:</td>
+                        <td style={{ fontWeight:700, fontSize:'9pt', padding:'2px 4px' }}>{data.serial_no_formatted || data.mrs_number}</td>
                       </tr>
                       <tr>
-                        <td className="mrp-ref-lbl">Date</td>
-                        <td className="mrp-ref-colon">:</td>
-                        <td className="mrp-ref-val">{fmtDate(data.required_by || data.created_at)}</td>
+                        <td style={{ fontWeight:600, fontSize:'9pt', padding:'2px 4px' }}>Date</td>
+                        <td style={{ padding:'2px 4px', fontSize:'9pt' }}>:</td>
+                        <td style={{ fontSize:'9pt', padding:'2px 4px' }}>{fmtDate(data.required_by || data.created_at)}</td>
                       </tr>
                     </tbody>
                   </table>
                 </td>
-                <td className="mrp-qr-cell">
-                  <QRCodeSVG value={verificationUrl} size={56} />
+                {/* QR Code */}
+                <td style={{ ...S.td, width:80, textAlign:'center', verticalAlign:'middle', border:'1px solid #000' }}>
+                  <QRCodeSVG value={verificationUrl} size={60} />
                 </td>
               </tr>
             </tbody>
           </table>
 
           {/* ══ PROJECT INFO ══ */}
-          <table className="mrp-info-tbl">
+          <table style={{ ...S.tbl, border:'1px solid #000', borderTop:'none' }}>
             <tbody>
               <tr>
-                <td className="mrp-lbl">Project</td>
-                <td className="mrp-colon">:</td>
-                <td className="mrp-val">{data.project_name}</td>
-                <td className="mrp-lbl mrp-border-left">Serial No</td>
-                <td className="mrp-colon">:</td>
-                <td className="mrp-val">{data.serial_no_formatted || data.mrs_number}</td>
+                <td style={S.thLbl}>Project</td>
+                <td style={{ ...S.thVal, width:8 }}>:</td>
+                <td style={S.thVal}>{data.project_name}</td>
+                <td style={{ ...S.thLbl, borderLeft:'1px solid #000', paddingLeft:8 }}>Serial No</td>
+                <td style={{ ...S.thVal, width:8 }}>:</td>
+                <td style={S.thVal}>{data.serial_no_formatted || data.mrs_number}</td>
               </tr>
               <tr>
-                <td className="mrp-lbl">Project Code</td>
-                <td className="mrp-colon">:</td>
-                <td className="mrp-val">{data.project_code}</td>
-                <td className="mrp-lbl mrp-border-left">Date</td>
-                <td className="mrp-colon">:</td>
-                <td className="mrp-val">{fmtDate(data.required_by || data.created_at)}</td>
+                <td style={S.thLbl}>Project Code</td>
+                <td style={S.thVal}>:</td>
+                <td style={S.thVal}>{data.project_code}</td>
+                <td style={{ ...S.thLbl, borderLeft:'1px solid #000', paddingLeft:8 }}>Date</td>
+                <td style={S.thVal}>:</td>
+                <td style={S.thVal}>{fmtDate(data.required_by || data.created_at)}</td>
               </tr>
               <tr>
-                <td className="mrp-lbl" colSpan={3}>
-                  Head Office / Project Name : {data.head_office_project_name}
+                <td colSpan={3} style={{ ...S.thLbl, fontWeight:400 }}>
+                  <span style={{ fontWeight:700 }}>Head Office / Project Name</span> : {data.head_office_project_name}
                 </td>
-                <td colSpan={3}></td>
+                <td colSpan={3} style={S.thVal}></td>
               </tr>
               <tr>
-                <td className="mrp-lbl">Department</td>
-                <td className="mrp-colon">:</td>
-                <td className="mrp-val">{data.department}</td>
-                <td colSpan={3}></td>
+                <td style={S.thLbl}>Department</td>
+                <td style={S.thVal}>:</td>
+                <td style={S.thVal}>{data.department}</td>
+                <td colSpan={3} style={S.thVal}></td>
               </tr>
             </tbody>
           </table>
 
           {/* ══ ITEMS TABLE ══ */}
-          <table className="mrp-items-tbl">
+          <table style={{ ...S.tbl, border:'1px solid #000', borderTop:'none' }}>
             <thead>
-              <tr>
-                <th className="it-sl">SL. NO</th>
-                <th className="it-code">ITEM CODE</th>
-                <th className="it-desc">DESCRIPTION</th>
-                <th className="it-unit">UNIT</th>
-                <th className="it-qty">QTY</th>
-                <th className="it-date">DATE REQUIRED</th>
-                <th className="it-vendor">VENDOR / SUPPLIER (Optional)</th>
-                <th className="it-rmk">REMARKS</th>
+              <tr style={{ background:'#dce6f1' }}>
+                {[
+                  ['SL. NO',   32,  'center'],
+                  ['Item Code', 70, 'left'],
+                  ['Description', 160, 'left'],
+                  ['Unit',     40,  'center'],
+                  ['Qty',      40,  'center'],
+                  ['Date Required', 80, 'center'],
+                  ['Vendor / Supplier (Optional)', 120, 'left'],
+                  ['Remarks',  80,  'left'],
+                ].map(([label, w, align]) => (
+                  <th key={label} style={{ border:'1px solid #000', padding:'5px', fontSize:'8pt', textAlign:align, fontWeight:700, letterSpacing:.3, textTransform:'uppercase', width:w, background:'#dce6f1' }}>{label}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {padded.map((it, idx) => (
-                <tr key={idx} className="it-row">
-                  <td className="it-sl">{it._blank ? '' : idx + 1}</td>
-                  <td className="it-code">{it._blank ? '' : (it.item_code || '')}</td>
-                  <td className="it-desc">{it._blank ? '' : (it.material_name || it.material || '')}</td>
-                  <td className="it-unit">{it._blank ? '' : (it.unit || '')}</td>
-                  <td className="it-qty">{it._blank ? '' : (it.quantity || it.qty || '')}</td>
-                  <td className="it-date">{it._blank ? '' : fmtDate(it.required_date || it.date_required)}</td>
-                  <td className="it-vendor">{it._blank ? '' : (it.preferred_vendor || it.vendor || '')}</td>
-                  <td className="it-rmk">{it._blank ? '' : (it.purpose || it.remarks || '')}</td>
+              {padded.map((it, i) => (
+                <tr key={i}>
+                  <td style={{ border:'1px solid #000', padding:'5px', height:22, fontSize:'8.5pt', textAlign:'center', verticalAlign:'middle' }}>{it._blank ? '' : i + 1}</td>
+                  <td style={{ border:'1px solid #000', padding:'5px', fontSize:'8.5pt', verticalAlign:'middle' }}>{it._blank ? '' : (it.item_code || '')}</td>
+                  <td style={{ border:'1px solid #000', padding:'5px', fontSize:'8.5pt', verticalAlign:'middle' }}>{it._blank ? '' : (it.material_name || it.material || '')}</td>
+                  <td style={{ border:'1px solid #000', padding:'5px', fontSize:'8.5pt', textAlign:'center', verticalAlign:'middle', textTransform:'uppercase' }}>{it._blank ? '' : (it.unit || '')}</td>
+                  <td style={{ border:'1px solid #000', padding:'5px', fontSize:'8.5pt', textAlign:'center', verticalAlign:'middle' }}>{it._blank ? '' : (it.quantity || it.qty || '')}</td>
+                  <td style={{ border:'1px solid #000', padding:'5px', fontSize:'8.5pt', textAlign:'center', verticalAlign:'middle' }}>{it._blank ? '' : fmtDate(it.date_required || it.required_date)}</td>
+                  <td style={{ border:'1px solid #000', padding:'5px', fontSize:'8.5pt', verticalAlign:'middle' }}>{it._blank ? '' : (it.vendor || it.preferred_vendor || '')}</td>
+                  <td style={{ border:'1px solid #000', padding:'5px', fontSize:'8.5pt', verticalAlign:'middle' }}>{it._blank ? '' : (it.remarks || it.purpose || '')}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
           {/* ══ PURCHASE DEPT ══ */}
-          <table className="mrp-purchase-tbl">
+          <table style={{ ...S.tbl, border:'1px solid #000', borderTop:'none' }}>
             <tbody>
               <tr>
-                <td colSpan={3} className="mrp-purchase-heading">For The Uses of Purchase Department</td>
-                <td colSpan={2} className="mrp-purchase-processed-lbl">Processed By</td>
-                <td colSpan={2} className="mrp-purchase-processed-val">{data.processed_by_name || ''}</td>
+                <td colSpan={3} style={{ border:'1px solid #000', padding:'4px 7px', fontWeight:700, fontSize:'9pt', background:'#f0f0f0' }}>For The Uses of Purchase Department</td>
+                <td colSpan={2} style={{ border:'1px solid #000', padding:'4px 7px', fontWeight:600, background:'#f8f8f8', fontSize:'8.5pt' }}>Processed By</td>
+                <td colSpan={2} style={{ border:'1px solid #000', padding:'4px 7px', fontSize:'8.5pt' }}>{data.processed_by_name || ''}</td>
               </tr>
               <tr>
-                <td className="mrp-pd-lbl">Received Date</td>
-                <td className="mrp-pd-colon">:</td>
-                <td className="mrp-pd-val">{data.purchase_received_date ? fmtDate(data.purchase_received_date) : ''}</td>
-                <td colSpan={2} className="mrp-pd-lbl">Date</td>
-                <td colSpan={2} className="mrp-pd-val">{data.processed_at ? fmtDate(data.processed_at) : ''}</td>
+                <td style={{ border:'1px solid #000', padding:'4px 7px', fontWeight:600, background:'#f8f8f8', fontSize:'8.5pt', whiteSpace:'nowrap' }}>Received Date</td>
+                <td style={{ border:'1px solid #000', padding:'4px 7px', width:10, fontSize:'8.5pt' }}>:</td>
+                <td style={{ border:'1px solid #000', padding:'4px 7px', fontSize:'8.5pt' }}>{fmtDate(data.purchase_received_date)}</td>
+                <td colSpan={2} style={{ border:'1px solid #000', padding:'4px 7px', fontWeight:600, background:'#f8f8f8', fontSize:'8.5pt' }}>Date</td>
+                <td colSpan={2} style={{ border:'1px solid #000', padding:'4px 7px', fontSize:'8.5pt' }}>{fmtDate(data.processed_at)}</td>
               </tr>
               <tr>
-                <td className="mrp-pd-lbl">Purchase Order No. &amp; Date</td>
-                <td className="mrp-pd-colon">:</td>
-                <td className="mrp-pd-val">{data.po_no_date || ''}</td>
-                <td colSpan={2} className="mrp-pd-lbl">Expected Date of Delivery</td>
-                <td colSpan={2} className="mrp-pd-val">{data.expected_delivery_date ? fmtDate(data.expected_delivery_date) : ''}</td>
+                <td style={{ border:'1px solid #000', padding:'4px 7px', fontWeight:600, background:'#f8f8f8', fontSize:'8.5pt', whiteSpace:'nowrap' }}>Purchase Order No. &amp; Date</td>
+                <td style={{ border:'1px solid #000', padding:'4px 7px', width:10, fontSize:'8.5pt' }}>:</td>
+                <td style={{ border:'1px solid #000', padding:'4px 7px', fontSize:'8.5pt' }}>{data.po_no_date || ''}</td>
+                <td colSpan={2} style={{ border:'1px solid #000', padding:'4px 7px', fontWeight:600, background:'#f8f8f8', fontSize:'8.5pt' }}>Expected Date of Delivery</td>
+                <td colSpan={2} style={{ border:'1px solid #000', padding:'4px 7px', fontSize:'8.5pt' }}>{fmtDate(data.expected_delivery_date)}</td>
               </tr>
             </tbody>
           </table>
 
           {/* ══ APPROVALS ══ */}
-          <table className="mrp-approvals-tbl">
-            <tbody>
-              {/* Signature images row */}
-              <tr className="appr-sig-row">
-                {[
-                  data.raised_by_sig,
-                  data.tower_sig_img || data.verified_tower_sig,
-                  data.pm_sig_img    || data.approved_pm_sig,
-                  data.srpm_sig_img  || data.approved_srpm_sig,
-                  data.mgmt_sig_img  || data.approved_mgmt_sig,
-                  data.md_sig_img    || data.approved_md_sig,
-                ].map((sig, i) => (
-                  <td key={i}>
-                    {sig
-                      ? <img src={sig} alt="sig" style={{ maxHeight: 36, maxWidth: '90%' }} />
-                      : null}
-                  </td>
-                ))}
-              </tr>
-              {/* Labels row */}
-              <tr className="appr-lbl-row">
-                <td>Requested By</td>
-                <td>Verified and checked by Tower Manager</td>
-                <td>Approved by Project Manager</td>
-                <td>Approved by Sr. Project Manager</td>
-                <td>Management</td>
-                <td>Management</td>
-              </tr>
-              {/* Signature lines */}
-              <tr className="appr-line-row">
-                <td><div className="appr-line" /></td>
-                <td><div className="appr-line" /></td>
-                <td><div className="appr-line" /></td>
-                <td><div className="appr-line" /></td>
-                <td><div className="appr-line" /></td>
-                <td><div className="appr-line" /></td>
-              </tr>
-              {/* Names row */}
-              <tr className="appr-name-row">
-                <td>Name: {data.raised_by_name || ''}</td>
-                <td>Name: {data.verified_tower_name || ''}</td>
-                <td>Name: {data.approved_pm_name || ''}</td>
-                <td>Name: {data.approved_srpm_name || ''}</td>
-                <td>Director: {data.approved_mgmt_name || ''}</td>
-                <td>Managing Director: {data.approved_md_name || ''}</td>
-              </tr>
-              {/* Dates row */}
-              <tr className="appr-date-row">
-                <td>Date: {fmtDate(data.created_at)}</td>
-                <td>Date: {fmtDate(data.verified_tower_mgr_at)}</td>
-                <td>Date: {fmtDate(data.approved_pm_at)}</td>
-                <td>Date: {fmtDate(data.approved_sr_pm_at)}</td>
-                <td>Date: {fmtDate(data.approved_mgmt_at)}</td>
-                <td>Date: {fmtDate(data.approved_md_at)}</td>
-              </tr>
-            </tbody>
-          </table>
+          {(() => {
+            const approvers = [
+              { label: 'Requested By',                        sig: data.raised_by_sig,      name: data.raised_by_name,      date: data.created_at,           title: '' },
+              { label: 'Verified and checked by Tower Manager', sig: data.tower_sig_img,    name: data.verified_tower_name,  date: data.verified_tower_mgr_at, title: '' },
+              { label: 'Approved by Project Manager',         sig: data.pm_sig_img,         name: data.approved_pm_name,    date: data.approved_pm_at,        title: '' },
+              { label: 'Approved by Sr. Project Manager',     sig: data.srpm_sig_img,       name: data.approved_srpm_name,  date: data.approved_sr_pm_at,     title: '' },
+              { label: 'Management',                          sig: data.mgmt_sig_img,       name: data.approved_mgmt_name,  date: data.approved_mgmt_at,      title: 'Director:' },
+              { label: 'Management',                          sig: data.md_sig_img,         name: data.approved_md_name,    date: data.approved_md_at,        title: 'Managing Director:' },
+            ];
+            const cellStyle = { border:'1px solid #000', padding:'4px 6px', fontSize:'8pt', width:'16.66%', verticalAlign:'bottom' };
+            return (
+              <table style={{ ...S.tbl, border:'1px solid #000', borderTop:'none' }}>
+                <tbody>
+                  {/* Signature images */}
+                  <tr>
+                    {approvers.map((a, i) => (
+                      <td key={i} style={{ ...cellStyle, height:44, textAlign:'center', verticalAlign:'middle' }}>
+                        {a.sig ? <img src={a.sig} alt="sig" style={{ maxHeight:36, maxWidth:'90%' }} /> : null}
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Labels */}
+                  <tr>
+                    {approvers.map((a, i) => (
+                      <td key={i} style={{ ...cellStyle, fontWeight:700, fontSize:'7.5pt', background:'#f0f4fa', textAlign:'center', height:28, verticalAlign:'middle' }}>{a.label}</td>
+                    ))}
+                  </tr>
+                  {/* Signature lines */}
+                  <tr>
+                    {approvers.map((_, i) => (
+                      <td key={i} style={{ ...cellStyle, paddingBottom:4 }}>
+                        <div style={{ borderBottom:'1px solid #000', width:'80%', margin:'0 auto' }}></div>
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Names */}
+                  <tr>
+                    {approvers.map((a, i) => (
+                      <td key={i} style={{ ...cellStyle, fontSize:'8pt', paddingTop:3 }}>
+                        {a.title ? `${a.title} ` : 'Name: '}{a.name || ''}
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Dates */}
+                  <tr>
+                    {approvers.map((a, i) => (
+                      <td key={i} style={{ ...cellStyle, fontSize:'8pt', paddingBottom:5 }}>
+                        Date: {fmtDate(a.date)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            );
+          })()}
 
           {/* ══ FOOTER ══ */}
-          <div className="mrp-footer">
-            BCIM ENGINEERING PRIVATE LIMITED &nbsp;|&nbsp; "B" Wing, Divyasree Chambers,
-            No. 11, O'Shaugnessy Road, Bangalore – 560 025
+          <div style={{ textAlign:'center', fontSize:'7.5pt', color:'#333', border:'1px solid #000', borderTop:'none', padding:'4px', background:'#f8f8f8' }}>
+            BCIM ENGINEERING PRIVATE LIMITED &nbsp;|&nbsp; "B" Wing, Divyasree Chambers, No. 11, O'Shaugnessy Road, Bangalore – 560 025
           </div>
 
-        </div>{/* end .mrp-a4 */}
+        </div>
       </div>
     </>
   );
 }
-
-// ─── Screen CSS ───────────────────────────────────────────────────────────────
-const SCREEN_CSS = `
-  .mrp-toolbar {
-    background: #1e40af; padding: 12px 28px;
-    display: flex; align-items: center; justify-content: space-between;
-    font-family: 'DM Sans', system-ui, sans-serif;
-    position: sticky; top: 0; z-index: 100;
-    box-shadow: 0 2px 8px rgba(30,64,175,.3);
-  }
-  .mrp-toolbar-left  { display: flex; align-items: center; gap: 14px; }
-  .mrp-toolbar-right { display: flex; gap: 10px; }
-  .mrp-tlogo         { display: flex; align-items: center; gap: 6px; }
-  .mrp-tlogo-mark {
-    width: 30px; height: 30px; background: white; color: #1e40af;
-    border-radius: 5px; display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 16px;
-  }
-  .mrp-tlogo-text { font-weight: 700; font-size: 17px; color: white; letter-spacing: 2px; }
-  .mrp-ttitle { font-weight: 600; font-size: 15px; color: white; }
-  .mrp-tsub   { font-size: 11px; color: rgba(255,255,255,.7); }
-  .mrp-btn {
-    padding: 7px 18px; border-radius: 6px;
-    font-size: 13px; font-weight: 600;
-    cursor: pointer; border: none; transition: all .15s;
-  }
-  .mrp-btn-ghost   { background: rgba(255,255,255,.15); color: white; }
-  .mrp-btn-ghost:hover { background: rgba(255,255,255,.25); }
-  .mrp-btn-primary { background: white; color: #1e40af; }
-  .mrp-btn-primary:hover { background: #eff6ff; }
-  .mrp-preview-bg {
-    background: #e5e7eb; min-height: calc(100vh - 54px);
-    padding: 32px 24px; display: flex; justify-content: center;
-  }
-  .mrp-a4 {
-    background: white; width: 210mm; min-height: 297mm;
-    padding: 12mm 14mm; box-shadow: 0 4px 24px rgba(0,0,0,.18);
-    font-family: Arial, sans-serif; font-size: 9pt;
-    border: 1px solid #d1d5db;
-  }
-`;
-
-// ─── Print CSS (injected into popup window) ───────────────────────────────────
-const PRINT_CSS = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; font-size: 9pt; color: #000; }
-
-  /* ── Header ── */
-  .mrp-hdr-tbl { width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-bottom: 0; }
-  .mrp-hdr-tbl td { border: 1px solid #000; padding: 5px 8px; vertical-align: middle; }
-  .mrp-logo-cell { width: 38%; }
-  .mrp-logo-block { text-align: left; }
-  .mrp-logo-box {
-    display: inline-block; width: 26px; height: 26px; background: #1e40af; color: white;
-    font-weight: 700; font-size: 14pt; text-align: center; line-height: 26px;
-    border-radius: 4px; margin-bottom: 3px;
-  }
-  .mrp-logo-name { font-size: 16pt; font-weight: 700; letter-spacing: 3px; color: #1e40af; }
-  .mrp-logo-full { font-size: 8pt; font-weight: 700; }
-  .mrp-logo-addr { font-size: 7.5pt; color: #333; line-height: 1.4; margin-top: 2px; }
-  .mrp-logo-tel  { font-size: 7.5pt; color: #333; margin-top: 2px; }
-  .mrp-doc-title-cell { text-align: center; vertical-align: middle; }
-  .mrp-doc-title { font-size: 13pt; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
-  .mrp-ref-cell { vertical-align: top; }
-  .mrp-ref-tbl  { width: 100%; border-collapse: collapse; }
-  .mrp-ref-tbl td { padding: 2px 4px; border: none; font-size: 9pt; }
-  .mrp-ref-lbl  { width: 60px; font-weight: 600; white-space: nowrap; }
-  .mrp-ref-colon { width: 10px; }
-  .mrp-ref-val  { font-weight: 700; }
-  .mrp-qr-cell  { text-align: center; vertical-align: middle; width: 70px; }
-
-  /* ── Info ── */
-  .mrp-info-tbl { width: 100%; border-collapse: collapse; border: 1px solid #000; border-top: none; margin-bottom: 0; }
-  .mrp-info-tbl td { border: 1px solid #000; padding: 3px 7px; font-size: 9pt; }
-  .mrp-lbl   { font-weight: 600; width: 120px; background: #f8f8f8; }
-  .mrp-colon { width: 10px; }
-  .mrp-val   { min-width: 120px; }
-  .mrp-border-left { border-left: 1px solid #000; padding-left: 8px; }
-
-  /* ── Items ── */
-  .mrp-items-tbl { width: 100%; border-collapse: collapse; border: 1px solid #000; border-top: none; margin-bottom: 0; }
-  .mrp-items-tbl th {
-    border: 1px solid #000; padding: 5px; font-size: 8pt;
-    text-align: center; background: #dce6f1; text-transform: uppercase;
-    font-weight: 700; letter-spacing: .3px;
-  }
-  .it-sl     { width: 32px;  text-align: center; }
-  .it-code   { width: 70px;  }
-  .it-desc   { min-width: 140px; }
-  .it-unit   { width: 40px;  text-align: center; }
-  .it-qty    { width: 40px;  text-align: center; }
-  .it-date   { width: 80px;  text-align: center; }
-  .it-vendor { width: 110px; }
-  .it-rmk    { width: 80px;  }
-  .it-row td { border: 1px solid #000; padding: 5px; height: 22px; font-size: 8.5pt; vertical-align: middle; }
-
-  /* ── Purchase Dept ── */
-  .mrp-purchase-tbl { width: 100%; border-collapse: collapse; border: 1px solid #000; border-top: none; margin-bottom: 0; }
-  .mrp-purchase-tbl td { border: 1px solid #000; padding: 4px 7px; font-size: 8.5pt; }
-  .mrp-purchase-heading { font-weight: 700; font-size: 9pt; background: #f0f0f0; }
-  .mrp-purchase-processed-lbl { font-weight: 600; background: #f8f8f8; }
-  .mrp-pd-lbl   { font-weight: 600; background: #f8f8f8; white-space: nowrap; }
-  .mrp-pd-colon { width: 10px; }
-  .mrp-pd-val   { min-width: 100px; }
-
-  /* ── Approvals ── */
-  .mrp-approvals-tbl { width: 100%; border-collapse: collapse; border: 1px solid #000; border-top: none; margin-bottom: 0; }
-  .mrp-approvals-tbl td { border: 1px solid #000; padding: 4px 6px; font-size: 8pt; width: 16.66%; vertical-align: bottom; }
-  .appr-sig-row td  { height: 44px; text-align: center; vertical-align: middle; }
-  .appr-lbl-row td  { font-weight: 700; font-size: 7.5pt; background: #f0f4fa; text-align: center; height: 28px; vertical-align: middle; }
-  .appr-line-row td { padding: 0 6px 4px; }
-  .appr-line { border-bottom: 1px solid #000; width: 80%; margin: 0 auto; }
-  .appr-name-row td { font-size: 8pt; padding-top: 3px; }
-  .appr-date-row td { font-size: 8pt; padding-bottom: 5px; }
-
-  /* ── Footer ── */
-  .mrp-footer {
-    text-align: center; font-size: 7.5pt; color: #333;
-    border: 1px solid #000; border-top: none;
-    padding: 4px; background: #f8f8f8;
-  }
-
-  @page { size: A4 portrait; margin: 10mm 12mm; }
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  }
-`;
