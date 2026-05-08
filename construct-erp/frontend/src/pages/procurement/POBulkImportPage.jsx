@@ -138,35 +138,52 @@ export default function POBulkImportPage() {
     }));
   };
 
-  // ── OCR Auto-extract
+  // ── OCR Auto-extract — applies date + amount to current PO
   const handleAutoExtract = async () => {
     if (!curItem) return;
     const result = await extract(curItem.file);
     if (!result) return;
-    const updates = {};
-    if (result.date)   updates.po_date = result.date;
-    // Apply extracted amount to first item's rate (grand total / qty if qty set)
-    if (result.amount) {
-      const firstQty = parseFloat(curItem.form.items[0]?.quantity) || 0;
-      if (firstQty > 0) {
-        const gst = parseFloat(curItem.form.items[0]?.gst_rate) || 0;
-        const subTotal = parseFloat(result.amount) / (1 + gst / 100);
-        setItemField(0, 'rate', (subTotal / firstQty).toFixed(2));
-        if (result.gst) setItemField(0, 'gst_rate', result.gst);
+
+    const extracted = [];
+
+    setQueue(prev => prev.map((q, i) => {
+      if (i !== current) return q;
+
+      let newForm = { ...q.form };
+      let newItems = q.form.items.map(it => ({ ...it }));
+
+      // ── Date
+      if (result.date) {
+        newForm.po_date = result.date;
+        extracted.push('date');
       }
-    }
-    if (result.gst) {
-      setQueue(prev => prev.map((q, i) => {
-        if (i !== current) return q;
-        const newItems = q.form.items.map((it, j) => j === 0 ? { ...it, gst_rate: result.gst } : it);
-        return { ...q, form: { ...q.form, ...updates, items: newItems } };
-      }));
-    } else if (Object.keys(updates).length) {
-      setQueue(prev => prev.map((q, i) => i !== current ? q : { ...q, form: { ...q.form, ...updates } }));
-    }
-    const extracted = Object.keys(updates);
-    if (extracted.length) toast.success(`Extracted: ${extracted.join(', ')}`);
-    else toast('OCR ran — review date & amounts');
+
+      // ── Amount → put into first item as rate (qty=1 if not set)
+      if (result.amount) {
+        const gst      = parseFloat(result.gst || newItems[0]?.gst_rate || 18);
+        const grandAmt = parseFloat(result.amount);
+        // Back-calculate sub-total (amount before GST)
+        const subTotal = gst > 0 ? grandAmt / (1 + gst / 100) : grandAmt;
+
+        const existingQty = parseFloat(newItems[0]?.quantity) || 0;
+        if (existingQty > 0) {
+          // Qty already filled — set rate = subTotal / qty
+          newItems[0] = { ...newItems[0], rate: (subTotal / existingQty).toFixed(2) };
+        } else {
+          // No qty yet — set qty=1, rate=subTotal (lump sum)
+          newItems[0] = { ...newItems[0], quantity: '1', unit: 'LS', rate: subTotal.toFixed(2) };
+        }
+        if (result.gst) newItems[0] = { ...newItems[0], gst_rate: result.gst };
+        newForm.items = newItems;
+        extracted.push('amount');
+        if (result.gst) extracted.push('GST%');
+      }
+
+      return { ...q, form: newForm };
+    }));
+
+    if (extracted.length) toast.success(`Extracted: ${extracted.join(', ')} — review & correct`);
+    else toast('OCR ran but could not find date or amount — fill manually');
   };
 
   // ── Save current record and advance
