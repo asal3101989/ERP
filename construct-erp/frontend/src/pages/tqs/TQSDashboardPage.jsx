@@ -174,7 +174,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-export default function TQSDashboardPage() {
+export default function DQSDashboardPage() {
   const navigate = useNavigate();
 
   const { data: bills = [] } = useQuery({
@@ -268,7 +268,7 @@ export default function TQSDashboardPage() {
             <Zap size={18} color="#fff" />
           </motion.div>
           <div>
-            <h1 style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: 0 }}>TQS Dashboard</h1>
+            <h1 style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: 0 }}>DQS Dashboard</h1>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Live invoice tracker · All departments</p>
           </div>
         </div>
