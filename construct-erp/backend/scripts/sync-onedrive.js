@@ -7,8 +7,9 @@
 //   node scripts/sync-onedrive.js
 //   node scripts/sync-onedrive.js --dry-run   (preview only, no uploads)
 
-require('dotenv').config();
 const path = require('path');
+// Load .env from backend/ regardless of where the script is invoked from
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const fs   = require('fs');
 const { Pool } = require('pg');
 const { uploadToOneDrive, isConfigured } = require('../src/services/onedrive.service');
