@@ -23,7 +23,7 @@ export function useOCRExtract() {
         const arrayBuffer = await file.arrayBuffer();
         const pdf      = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
         const page     = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 2.5 });
+        const viewport = page.getViewport({ scale: 1.8 });
 
         const canvas  = document.createElement('canvas');
         canvas.width  = viewport.width;
@@ -36,17 +36,19 @@ export function useOCRExtract() {
         throw new Error('PDF render failed: ' + e.message);
       }
 
-      // ── Step 2: Send to backend → Gemini Vision
+      // ── Step 2: Send to backend → Gemini Vision (60s timeout — large image)
       toast('Reading document with AI…', { id: 'ocr', icon: '🤖' });
       let extracted;
       try {
         const res = await api.post('/ocr/extract-po', {
           image_base64: imageBase64,
           mime_type:    'image/jpeg',
-        });
+        }, { timeout: 60000 });
         extracted = res.data?.data;
+        console.log('[Gemini raw response]', res.data);
       } catch (e) {
         const msg = e.response?.data?.error || e.message;
+        console.error('[Gemini OCR error]', e.response?.data || e);
         throw new Error('AI extraction failed: ' + msg);
       }
 
