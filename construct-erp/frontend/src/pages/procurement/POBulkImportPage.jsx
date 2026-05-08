@@ -3,7 +3,7 @@
 // Filenames encode PO number + vendor name: "POTQS042-Bhuwalka & Sons Pvt Ltd.pdf"
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { poAPI, vendorAPI, projectAPI } from '../../api/client';
+import { poAPI, vendorAPI, projectAPI, documentsAPI } from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   Upload, ChevronLeft, ChevronRight, CheckCircle2,
@@ -143,8 +143,35 @@ export default function POBulkImportPage() {
     if (!saved.length) { toast.error('No records to import'); return; }
     setImporting(true);
     try {
+      // Step 1: Create all PO records
       const res = await poAPI.bulkImport({ project_id: projectId, records: saved });
-      setResult(res.data);
+      const importResult = res.data;
+
+      // Step 2: Upload PDF for each successfully created PO
+      const createdIds = importResult.created_ids || [];
+      if (createdIds.length > 0) {
+        toast(`Uploading ${createdIds.length} PDF files…`, { icon: '📎' });
+        let uploaded = 0;
+        for (const { po_number, id } of createdIds) {
+          // Find the matching file in the queue by po_number
+          const queueItem = queue.find(q => q.form?.po_number === po_number || q.poNumber === po_number);
+          if (!queueItem?.file) continue;
+          try {
+            const fd = new FormData();
+            fd.append('file', queueItem.file, queueItem.file.name);
+            fd.append('project_id', projectId);
+            fd.append('module', 'purchase_order');
+            fd.append('module_record_id', id);
+            await documentsAPI.upload(fd);
+            uploaded++;
+          } catch (e) {
+            console.warn(`PDF upload failed for ${po_number}:`, e.message);
+          }
+        }
+        importResult.pdfs_uploaded = uploaded;
+      }
+
+      setResult(importResult);
       setStep('done');
     } catch (e) {
       toast.error(e.response?.data?.error || 'Import failed');
@@ -448,10 +475,14 @@ export default function POBulkImportPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
                   <div className="text-2xl font-bold text-emerald-600">{result.created}</div>
-                  <div className="text-xs text-emerald-700 font-medium">Created</div>
+                  <div className="text-xs text-emerald-700 font-medium">POs Created</div>
+                </div>
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-center">
+                  <div className="text-2xl font-bold text-indigo-600">{result.pdfs_uploaded ?? 0}</div>
+                  <div className="text-xs text-indigo-700 font-medium">PDFs Saved</div>
                 </div>
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
                   <div className="text-2xl font-bold text-slate-400">{result.skipped}</div>

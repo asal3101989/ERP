@@ -335,7 +335,8 @@ router.post('/bulk-import', async (req, res) => {
     if (!records.length)    return res.status(400).json({ error: 'No records provided' });
 
     let created = 0, skipped = 0;
-    const errors = [];
+    const errors  = [];
+    const created_ids = []; // { po_number, id } — for PDF upload after import
 
     for (const rec of records) {
       try {
@@ -348,10 +349,10 @@ router.post('/bulk-import', async (req, res) => {
 
         const grandTotal = parseFloat(rec.grand_total) || 0;
         const gstPct     = parseFloat(rec.gst_pct) || 0;
-        // Back-calculate: grand_total = sub_total * (1 + gstPct/100)
         const subTotal   = gstPct > 0 ? grandTotal / (1 + gstPct / 100) : grandTotal;
         const totalGst   = grandTotal - subTotal;
 
+        let newId;
         await withTransaction(async (client) => {
           const poRow = await client.query(
             `INSERT INTO purchase_orders
@@ -367,24 +368,24 @@ router.post('/bulk-import', async (req, res) => {
               req.user.id,
             ]
           );
-          const po_id = poRow.rows[0].id;
+          newId = poRow.rows[0].id;
 
-          // Insert a single lump-sum item
           const matName = rec.subject || rec.notes || 'Imported Item';
           await client.query(
             `INSERT INTO po_items (po_id, material_name, quantity, unit, rate, gst_rate, gst_amount, total_amount, sort_order)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1)`,
-            [po_id, matName, 1, 'LS', subTotal.toFixed(2), gstPct, totalGst.toFixed(2), grandTotal.toFixed(2)]
+            [newId, matName, 1, 'LS', subTotal.toFixed(2), gstPct, totalGst.toFixed(2), grandTotal.toFixed(2)]
           );
         });
 
         created++;
+        created_ids.push({ po_number: rec.po_number, id: newId });
       } catch (e) {
         errors.push({ po_number: rec.po_number, reason: e.message });
       }
     }
 
-    res.json({ created, skipped, errors });
+    res.json({ created, skipped, errors, created_ids });
   } catch (err) {
     console.error('[PO Bulk Import]:', err.message);
     res.status(500).json({ error: err.message });
