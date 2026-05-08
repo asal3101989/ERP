@@ -1,11 +1,9 @@
 // src/hooks/useOCRExtract.js
-// Renders PDF page 1 → JPEG via pdfjs-dist → sends to backend → Gemini Vision extracts data
+// Sends the raw PDF file to the backend → Gemini Vision extracts structured data.
+// No pdfjs, no tesseract — Gemini reads PDFs natively.
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import api from '../api/client';
-
-const WORKER_SRC =
-  'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.js';
 
 export function useOCRExtract() {
   const [ocrLoading, setOcrLoading] = useState(false);
@@ -13,59 +11,38 @@ export function useOCRExtract() {
   const extract = async (file) => {
     setOcrLoading(true);
     try {
-      // ── Step 1: Render PDF page 1 to canvas
-      toast('Rendering PDF page…', { id: 'ocr', icon: '🖼️' });
-      let imageBase64;
-      try {
-        const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SRC;
-
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf      = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
-        const page     = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1.8 });
-
-        const canvas  = document.createElement('canvas');
-        canvas.width  = viewport.width;
-        canvas.height = viewport.height;
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-
-        // Convert to base64 JPEG (smaller than PNG, Gemini handles it fine)
-        imageBase64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
-      } catch (e) {
-        throw new Error('PDF render failed: ' + e.message);
-      }
-
-      // ── Step 2: Send to backend → Gemini Vision (60s timeout — large image)
       toast('Reading document with AI…', { id: 'ocr', icon: '🤖' });
-      let extracted;
-      try {
-        const res = await api.post('/ocr/extract-po', {
-          image_base64: imageBase64,
-          mime_type:    'image/jpeg',
-        }, { timeout: 60000 });
-        extracted = res.data?.data;
-        console.log('[Gemini raw response]', res.data);
-      } catch (e) {
-        const msg = e.response?.data?.error || e.message;
-        console.error('[Gemini OCR error]', e.response?.data || e);
-        throw new Error('AI extraction failed: ' + msg);
-      }
+
+      // Convert PDF file to base64
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      const base64 = btoa(binary);
+
+      // Send to backend → Gemini
+      const res = await api.post('/ocr/extract-po', {
+        image_base64: base64,
+        mime_type:    'application/pdf',
+      }, { timeout: 60000 });
 
       toast.dismiss('ocr');
 
-      if (!extracted || (!extracted.po_date && !extracted.grand_total && !extracted.items?.length)) {
-        toast.error('AI could not find any data — try filling manually', { duration: 5000 });
+      const extracted = res.data?.data;
+      console.log('[Gemini Extracted]', extracted);
+
+      if (!extracted || (!extracted.po_date && !extracted.grand_total && !(extracted.items?.length))) {
+        toast.error('AI could not find data — fill manually', { duration: 5000 });
         return null;
       }
 
-      console.log('[Gemini Extracted]', extracted);
-      return extracted;   // { po_date, grand_total, gst_pct, items[] }
+      return extracted; // { po_date, grand_total, gst_pct, items[] }
 
     } catch (err) {
       toast.dismiss('ocr');
-      toast.error(err.message, { duration: 8000 });
-      console.error('[OCR Error]', err);
+      const msg = err.response?.data?.error || err.message;
+      toast.error('AI failed: ' + msg, { duration: 8000 });
+      console.error('[Gemini OCR Error]', err.response?.data || err);
       return null;
     } finally {
       setOcrLoading(false);
