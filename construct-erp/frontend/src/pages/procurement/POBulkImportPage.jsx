@@ -7,9 +7,10 @@ import { poAPI, vendorAPI, projectAPI } from '../../api/client';
 import toast from 'react-hot-toast';
 import {
   Upload, ChevronLeft, ChevronRight, CheckCircle2,
-  SkipForward, AlertCircle, X, FileText, Loader2,
+  SkipForward, AlertCircle, X, FileText, Loader2, Sparkles,
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useOCRExtract } from '../../hooks/useOCRExtract';
 
 const inputCls = 'w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all';
 
@@ -54,6 +55,25 @@ export default function POBulkImportPage() {
   const { data: projectsData } = useQuery({ queryKey: ['projects-all'], queryFn: () => projectAPI.list() });
   const vendors  = vendorsData?.data?.data || vendorsData?.data || [];
   const projects = projectsData?.data?.data || projectsData?.data || [];
+
+  const { extract, ocrLoading } = useOCRExtract();
+
+  const handleAutoExtract = async () => {
+    if (!curItem) return;
+    toast('Scanning PDF… this takes ~15 seconds', { icon: '🔍' });
+    const result = await extract(curItem.file);
+    if (!result) { toast.error('Could not read PDF — please fill manually'); return; }
+    const updates = {};
+    if (result.date)   updates.po_date      = result.date;
+    if (result.amount) updates.grand_total   = result.amount;
+    if (result.gst)    updates.gst_pct       = result.gst;
+    if (Object.keys(updates).length) {
+      setQueue(prev => prev.map((q, i) => i === current ? { ...q, form: { ...q.form, ...updates } } : q));
+      toast.success(`Extracted: ${Object.keys(updates).join(', ')}`);
+    } else {
+      toast.error('Could not extract values — please fill manually');
+    }
+  };
 
   // ── Cleanup object URLs on unmount
   useEffect(() => () => queue.forEach(q => q.objectUrl && URL.revokeObjectURL(q.objectUrl)), [queue]);
@@ -256,6 +276,16 @@ export default function POBulkImportPage() {
 
               {/* Form fields */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
+
+                {/* Auto-Extract button */}
+                <button onClick={handleAutoExtract} disabled={ocrLoading}
+                  className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-xs font-semibold rounded-lg py-2 flex items-center justify-center gap-2">
+                  {ocrLoading
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Scanning PDF (~15s)…</>
+                    : <><Sparkles className="w-3.5 h-3.5" /> Auto-Extract Date &amp; Amount</>}
+                </button>
+                <p className="text-xs text-slate-400 text-center -mt-1">Reads the PDF using OCR — review &amp; correct after</p>
+
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">PO Number</label>
                   <input value={curItem.form.po_number} onChange={e => setField('po_number', e.target.value)}
