@@ -67,10 +67,9 @@ export function useOCRExtract() {
         import('tesseract.js'),
       ]);
 
-      // Use CDN worker to avoid Vite bundling issues
-      const pdfjsVersion = pdfjsLib.version;
+      // Use CDN worker (v4) — avoids Vite bundling issues with the worker file
       pdfjsLib.GlobalWorkerOptions.workerSrc =
-        `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.worker.min.mjs`;
+        `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
       const arrayBuffer = await file.arrayBuffer();
       const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
