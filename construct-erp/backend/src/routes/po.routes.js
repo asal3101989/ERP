@@ -323,51 +323,51 @@ router.post('/import/confirm', async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /purchase-orders/bulk-import
-// Bulk-insert historical POs (one transaction per record for safety).
+// Bulk-insert historical POs with multiple line items.
 // Body: { project_id, records: [{ po_number, vendor_id, po_date, delivery_date,
-//          quantity, unit, rate, grand_total, gst_pct, notes, status, subject }] }
+//          notes, status, items: [{ description, quantity, unit, rate, gst_rate }] }] }
 // Returns: { created, skipped, errors: [{po_number, reason}], created_ids }
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/bulk-import', async (req, res) => {
   try {
     const { project_id, records = [] } = req.body;
-    if (!project_id)        return res.status(400).json({ error: 'project_id is required' });
-    if (!records.length)    return res.status(400).json({ error: 'No records provided' });
+    if (!project_id)     return res.status(400).json({ error: 'project_id is required' });
+    if (!records.length) return res.status(400).json({ error: 'No records provided' });
 
     let created = 0, skipped = 0;
-    const errors  = [];
-    const created_ids = []; // { po_number, id } — for PDF upload after import
+    const errors      = [];
+    const created_ids = [];
 
     for (const rec of records) {
       try {
-        if (!rec.po_number) { errors.push({ po_number: '?', reason: 'po_number missing' }); continue; }
+        if (!rec.po_number) { errors.push({ po_number: '?',           reason: 'po_number missing' }); continue; }
         if (!rec.vendor_id) { errors.push({ po_number: rec.po_number, reason: 'vendor_id missing' }); continue; }
 
         // Check duplicate
         const dup = await query('SELECT id FROM purchase_orders WHERE po_number = $1', [rec.po_number]);
         if (dup.rows.length) { skipped++; continue; }
 
-        const grandTotal = parseFloat(rec.grand_total) || 0;
-        const gstPct     = parseFloat(rec.gst_pct)     || 0;
+        // Normalise items array (support both new multi-item and legacy single-item payloads)
+        let items = Array.isArray(rec.items) && rec.items.length
+          ? rec.items
+          : [{ description: rec.subject || rec.notes || 'Imported Item',
+               quantity: rec.quantity || 1,
+               unit:     rec.unit     || 'LS',
+               rate:     rec.rate     || (rec.grand_total || 0),
+               gst_rate: rec.gst_pct  || 0 }];
 
-        // Use provided qty/rate if available, otherwise back-calculate from grand total
-        const qty  = parseFloat(rec.quantity) || 1;
-        const unit = rec.unit || 'LS';
-        let subTotal, totalGst, rate;
+        // Filter out blank rows
+        items = items.filter(it => it.description?.trim() && parseFloat(it.quantity) > 0 && parseFloat(it.rate) > 0);
+        if (!items.length) { errors.push({ po_number: rec.po_number, reason: 'No valid line items' }); continue; }
 
-        if (rec.rate && parseFloat(rec.rate) > 0) {
-          // Use explicit rate: subTotal = qty × rate
-          rate     = parseFloat(rec.rate);
-          subTotal = qty * rate;
-          totalGst = subTotal * gstPct / 100;
-        } else {
-          // Fall back to back-calculating from grand total
-          subTotal = gstPct > 0 ? grandTotal / (1 + gstPct / 100) : grandTotal;
-          totalGst = grandTotal - subTotal;
-          rate     = qty > 0 ? subTotal / qty : subTotal;
+        // Compute totals
+        let subTotal = 0, totalGst = 0;
+        for (const it of items) {
+          const base = parseFloat(it.quantity) * parseFloat(it.rate);
+          subTotal += base;
+          totalGst += base * (parseFloat(it.gst_rate) || 0) / 100;
         }
-
-        const itemTotal = subTotal + totalGst;
+        const grandTotal = subTotal + totalGst;
 
         let newId;
         await withTransaction(async (client) => {
@@ -379,7 +379,7 @@ router.post('/bulk-import', async (req, res) => {
             [
               project_id, rec.vendor_id, rec.po_number,
               rec.po_date || null, rec.delivery_date || null,
-              subTotal.toFixed(2), totalGst.toFixed(2), itemTotal.toFixed(2),
+              subTotal.toFixed(2), totalGst.toFixed(2), grandTotal.toFixed(2),
               rec.notes || '',
               rec.status || 'approved',
               req.user.id,
@@ -387,12 +387,21 @@ router.post('/bulk-import', async (req, res) => {
           );
           newId = poRow.rows[0].id;
 
-          const matName = rec.subject || rec.notes || 'Imported Item';
-          await client.query(
-            `INSERT INTO po_items (po_id, material_name, quantity, unit, rate, gst_rate, gst_amount, total_amount, sort_order)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1)`,
-            [newId, matName, qty, unit, rate.toFixed(2), gstPct, totalGst.toFixed(2), itemTotal.toFixed(2)]
-          );
+          // Insert each line item
+          for (let idx = 0; idx < items.length; idx++) {
+            const it      = items[idx];
+            const qty     = parseFloat(it.quantity);
+            const rate    = parseFloat(it.rate);
+            const gstRate = parseFloat(it.gst_rate) || 0;
+            const base    = qty * rate;
+            const gstAmt  = base * gstRate / 100;
+            const total   = base + gstAmt;
+            await client.query(
+              `INSERT INTO po_items (po_id, material_name, quantity, unit, rate, gst_rate, gst_amount, total_amount, sort_order)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+              [newId, it.description, qty, it.unit || 'LS', rate.toFixed(2), gstRate, gstAmt.toFixed(2), total.toFixed(2), idx + 1]
+            );
+          }
         });
 
         created++;
