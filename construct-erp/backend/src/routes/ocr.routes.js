@@ -8,7 +8,7 @@ const { authenticate } = require('../middleware/auth');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 router.post('/extract-po', authenticate, async (req, res) => {
   try {
