@@ -98,6 +98,9 @@ export default function POBulkImportPage() {
           vendor_id:    matched?.id || '',
           po_date:      '',
           delivery_date:'',
+          quantity:     '',
+          unit:         'LS',
+          rate:         '',
           grand_total:  '',
           gst_pct:      '18',
           notes:        '',
@@ -112,18 +115,30 @@ export default function POBulkImportPage() {
 
   const curItem = queue[current];
 
-  // ── Update form field for current item
+  // ── Update form field for current item (auto-calc grand_total from qty×rate×gst)
   const setField = (key, val) => {
-    setQueue(prev => prev.map((q, i) => i === current
-      ? { ...q, form: { ...q.form, [key]: val }, vendorId: key === 'vendor_id' ? val : q.vendorId }
-      : q
-    ));
+    setQueue(prev => prev.map((q, i) => {
+      if (i !== current) return q;
+      const updated = { ...q.form, [key]: val };
+      // Auto-calculate grand total when quantity, rate, or gst_pct changes
+      if (['quantity', 'rate', 'gst_pct'].includes(key)) {
+        const qty  = parseFloat(key === 'quantity' ? val : updated.quantity) || 0;
+        const rate = parseFloat(key === 'rate'     ? val : updated.rate)     || 0;
+        const gst  = parseFloat(key === 'gst_pct'  ? val : updated.gst_pct)  || 0;
+        if (qty > 0 && rate > 0) {
+          const sub = qty * rate;
+          updated.grand_total = (sub + sub * gst / 100).toFixed(2);
+        }
+      }
+      return { ...q, form: updated, vendorId: key === 'vendor_id' ? val : q.vendorId };
+    }));
   };
 
   // ── Save current record and advance
   const handleSaveNext = () => {
     const item = queue[current];
-    if (!item.form.vendor_id) { toast.error('Please select a vendor'); return; }
+    if (!item.form.vendor_id)   { toast.error('Please select a vendor'); return; }
+    if (!item.form.po_date)     { toast.error('Please enter the PO / Order Date'); return; }
     if (!item.form.grand_total) { toast.error('Please enter the Grand Total amount'); return; }
 
     setSaved(prev => [...prev.filter(s => s.po_number !== item.form.po_number), { ...item.form }]);
@@ -333,7 +348,7 @@ export default function POBulkImportPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">PO Date</label>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Order / Release Date <span className="text-red-500">*</span></label>
                   <input type="date" value={curItem.form.po_date} onChange={e => setField('po_date', e.target.value)}
                     className={inputCls} />
                 </div>
@@ -344,10 +359,36 @@ export default function POBulkImportPage() {
                     className={inputCls} />
                 </div>
 
+                {/* Quantity / Unit / Rate */}
+                <div className="bg-slate-50 rounded-lg p-3 space-y-2 border border-slate-100">
+                  <p className="text-xs font-semibold text-slate-600">Order Item</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Quantity</label>
+                      <input type="number" value={curItem.form.quantity} onChange={e => setField('quantity', e.target.value)}
+                        className={inputCls} placeholder="1" step="0.001" min="0" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Unit</label>
+                      <select value={curItem.form.unit} onChange={e => setField('unit', e.target.value)} className={inputCls}>
+                        {['LS','Nos','Kg','MT','Sqm','Sqft','Rmt','Rft','Ltr','Cum','Bags','Sets','Lot'].map(u =>
+                          <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Rate (₹ per unit)</label>
+                    <input type="number" value={curItem.form.rate} onChange={e => setField('rate', e.target.value)}
+                      className={inputCls} placeholder="0.00" step="0.01" min="0" />
+                  </div>
+                  <p className="text-xs text-slate-400">Fill Qty × Rate to auto-calculate total below</p>
+                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Grand Total (₹) <span className="text-red-500">*</span></label>
                   <input type="number" value={curItem.form.grand_total} onChange={e => setField('grand_total', e.target.value)}
                     className={inputCls} placeholder="0.00" step="0.01" />
+                  <p className="text-xs text-slate-400 mt-0.5">Auto-filled from Qty × Rate × GST, or enter manually</p>
                 </div>
 
                 <div>

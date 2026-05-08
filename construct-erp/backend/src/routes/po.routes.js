@@ -325,8 +325,8 @@ router.post('/import/confirm', async (req, res) => {
 // POST /purchase-orders/bulk-import
 // Bulk-insert historical POs (one transaction per record for safety).
 // Body: { project_id, records: [{ po_number, vendor_id, po_date, delivery_date,
-//          grand_total, gst_pct, notes, status, subject }] }
-// Returns: { created, skipped, errors: [{po_number, reason}] }
+//          quantity, unit, rate, grand_total, gst_pct, notes, status, subject }] }
+// Returns: { created, skipped, errors: [{po_number, reason}], created_ids }
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/bulk-import', async (req, res) => {
   try {
@@ -348,9 +348,26 @@ router.post('/bulk-import', async (req, res) => {
         if (dup.rows.length) { skipped++; continue; }
 
         const grandTotal = parseFloat(rec.grand_total) || 0;
-        const gstPct     = parseFloat(rec.gst_pct) || 0;
-        const subTotal   = gstPct > 0 ? grandTotal / (1 + gstPct / 100) : grandTotal;
-        const totalGst   = grandTotal - subTotal;
+        const gstPct     = parseFloat(rec.gst_pct)     || 0;
+
+        // Use provided qty/rate if available, otherwise back-calculate from grand total
+        const qty  = parseFloat(rec.quantity) || 1;
+        const unit = rec.unit || 'LS';
+        let subTotal, totalGst, rate;
+
+        if (rec.rate && parseFloat(rec.rate) > 0) {
+          // Use explicit rate: subTotal = qty × rate
+          rate     = parseFloat(rec.rate);
+          subTotal = qty * rate;
+          totalGst = subTotal * gstPct / 100;
+        } else {
+          // Fall back to back-calculating from grand total
+          subTotal = gstPct > 0 ? grandTotal / (1 + gstPct / 100) : grandTotal;
+          totalGst = grandTotal - subTotal;
+          rate     = qty > 0 ? subTotal / qty : subTotal;
+        }
+
+        const itemTotal = subTotal + totalGst;
 
         let newId;
         await withTransaction(async (client) => {
@@ -362,7 +379,7 @@ router.post('/bulk-import', async (req, res) => {
             [
               project_id, rec.vendor_id, rec.po_number,
               rec.po_date || null, rec.delivery_date || null,
-              subTotal.toFixed(2), totalGst.toFixed(2), grandTotal.toFixed(2),
+              subTotal.toFixed(2), totalGst.toFixed(2), itemTotal.toFixed(2),
               rec.notes || '',
               rec.status || 'approved',
               req.user.id,
@@ -374,7 +391,7 @@ router.post('/bulk-import', async (req, res) => {
           await client.query(
             `INSERT INTO po_items (po_id, material_name, quantity, unit, rate, gst_rate, gst_amount, total_amount, sort_order)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1)`,
-            [newId, matName, 1, 'LS', subTotal.toFixed(2), gstPct, totalGst.toFixed(2), grandTotal.toFixed(2)]
+            [newId, matName, qty, unit, rate.toFixed(2), gstPct, totalGst.toFixed(2), itemTotal.toFixed(2)]
           );
         });
 
