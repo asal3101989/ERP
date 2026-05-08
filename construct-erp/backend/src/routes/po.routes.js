@@ -321,4 +321,74 @@ router.post('/import/confirm', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /purchase-orders/bulk-import
+// Bulk-insert historical POs (one transaction per record for safety).
+// Body: { project_id, records: [{ po_number, vendor_id, po_date, delivery_date,
+//          grand_total, gst_pct, notes, status, subject }] }
+// Returns: { created, skipped, errors: [{po_number, reason}] }
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/bulk-import', async (req, res) => {
+  try {
+    const { project_id, records = [] } = req.body;
+    if (!project_id)        return res.status(400).json({ error: 'project_id is required' });
+    if (!records.length)    return res.status(400).json({ error: 'No records provided' });
+
+    let created = 0, skipped = 0;
+    const errors = [];
+
+    for (const rec of records) {
+      try {
+        if (!rec.po_number) { errors.push({ po_number: '?', reason: 'po_number missing' }); continue; }
+        if (!rec.vendor_id) { errors.push({ po_number: rec.po_number, reason: 'vendor_id missing' }); continue; }
+
+        // Check duplicate
+        const dup = await query('SELECT id FROM purchase_orders WHERE po_number = $1', [rec.po_number]);
+        if (dup.rows.length) { skipped++; continue; }
+
+        const grandTotal = parseFloat(rec.grand_total) || 0;
+        const gstPct     = parseFloat(rec.gst_pct) || 0;
+        // Back-calculate: grand_total = sub_total * (1 + gstPct/100)
+        const subTotal   = gstPct > 0 ? grandTotal / (1 + gstPct / 100) : grandTotal;
+        const totalGst   = grandTotal - subTotal;
+
+        await withTransaction(async (client) => {
+          const poRow = await client.query(
+            `INSERT INTO purchase_orders
+               (project_id, vendor_id, po_number, po_date, delivery_date,
+                sub_total, total_gst, grand_total, notes, status, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+            [
+              project_id, rec.vendor_id, rec.po_number,
+              rec.po_date || null, rec.delivery_date || null,
+              subTotal.toFixed(2), totalGst.toFixed(2), grandTotal.toFixed(2),
+              rec.notes || '',
+              rec.status || 'approved',
+              req.user.id,
+            ]
+          );
+          const po_id = poRow.rows[0].id;
+
+          // Insert a single lump-sum item
+          const matName = rec.subject || rec.notes || 'Imported Item';
+          await client.query(
+            `INSERT INTO po_items (po_id, material_name, quantity, unit, rate, gst_rate, gst_amount, total_amount, sort_order)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1)`,
+            [po_id, matName, 1, 'LS', subTotal.toFixed(2), gstPct, totalGst.toFixed(2), grandTotal.toFixed(2)]
+          );
+        });
+
+        created++;
+      } catch (e) {
+        errors.push({ po_number: rec.po_number, reason: e.message });
+      }
+    }
+
+    res.json({ created, skipped, errors });
+  } catch (err) {
+    console.error('[PO Bulk Import]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

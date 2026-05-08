@@ -106,6 +106,7 @@ export const subcontractorAPI = {
   updateWorkOrder:   (id, d)  => api.patch(`/subcontractors/work-orders/${id}`, d),
   importWOPreview:   (file)   => { const fd = new FormData(); fd.append('file', file); return api.post('/subcontractors/work-orders/import/preview', fd, { headers: { 'Content-Type': undefined } }); },
   importWOConfirm:   (data)   => api.post('/subcontractors/work-orders/import/confirm', data),
+  bulkImportWOs:     (data)   => api.post('/subcontractors/work-orders/bulk-import', data),
   // Measurements
   getMeasurements:   (params) => api.get('/subcontractors/measurements', { params }),
   recordMeasurement: (data)   => api.post('/subcontractors/measurements', data),
@@ -191,6 +192,7 @@ export const poAPI = {
   receive: (id, data) => api.patch(`/purchase-orders/${id}/receive`, data),
   importPreview: (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/purchase-orders/import/preview', fd, { headers: { 'Content-Type': undefined } }); },
   importConfirm: (data) => api.post('/purchase-orders/import/confirm', data),
+  bulkImport:    (data) => api.post('/purchase-orders/bulk-import', data),
 };
 
 export const poAmendmentAPI = {

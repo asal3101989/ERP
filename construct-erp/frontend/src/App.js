@@ -70,6 +70,8 @@ const QuotationPage       = lazy(() => import('./pages/procurement/QuotationPage
 const QuotationEntryPage  = lazy(() => import('./pages/procurement/QuotationEntryPage'));
 const ComparativeStatementPage = lazy(() => import('./pages/procurement/ComparativeStatementPage'));
 const WorkOrderPage         = lazy(() => import('./pages/procurement/WorkOrderPage'));
+const POBulkImportPage      = lazy(() => import('./pages/procurement/POBulkImportPage'));
+const WOBulkImportPage      = lazy(() => import('./pages/procurement/WOBulkImportPage'));
 const TenderRegisterPage          = lazy(() => import('./pages/tender-mgmt/TenderRegisterPage'));
 const TenderMgmtDetailPage        = lazy(() => import('./pages/tender-mgmt/TenderDetailPage'));
 const TenderIssuancePage          = lazy(() => import('./pages/tender-mgmt/TenderIssuancePage'));
@@ -260,9 +262,11 @@ export default function App() {
                 <Route path="procurement/quotations/entry/:id" element={<QuotationEntryPage />} />
                 <Route path="procurement/quotations/comparison/:id" element={<ComparativeStatementPage />} />
                 <Route path="procurement/po" element={<POPage />} />
+                <Route path="procurement/po-bulk-import" element={<POBulkImportPage />} />
                 <Route path="stores/grn" element={<GRNPage />} />
                 <Route path="procurement/inventory" element={<InventoryPage />} />
                 <Route path="procurement/work-orders" element={<WorkOrderPage />} />
+                <Route path="procurement/wo-bulk-import" element={<WOBulkImportPage />} />
                 <Route path="tender-management" element={<TenderRegisterPage />} />
                 <Route path="tender-management/issue" element={<TenderIssuancePage />} />
                 <Route path="tender-management/issue/:id" element={<TenderIssuanceDetailPage />} />

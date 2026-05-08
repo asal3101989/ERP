@@ -60,7 +60,9 @@ const navGroups = [
       { to: '/procurement/vendor-payments', icon: Wallet, label: 'Vendor Payments' },
       { to: '/procurement/quotations',   icon: ScrollText,   label: 'Quotations & CS' },
       { to: '/procurement/po',           icon: ShoppingCart, label: 'Purchase Orders' },
+      { to: '/procurement/po-bulk-import', icon: Upload,     label: 'Import POs (Bulk)' },
       { to: '/procurement/work-orders',  icon: Hammer,       label: 'Work Orders' },
+      { to: '/procurement/wo-bulk-import', icon: Upload,     label: 'Import WOs (Bulk)' },
       { to: '/procurement/inventory',    icon: Package,      label: 'Inventory' },
     ]
   },

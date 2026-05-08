@@ -102,4 +102,59 @@ router.post('/work-orders/import/confirm', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /subcontractors/work-orders/bulk-import
+// Bulk-insert historical Work Orders.
+// Body: { project_id, records: [{ wo_number, vendor_id, wo_date, start_date,
+//          end_date, subject, total_value, status }] }
+// Returns: { created, skipped, errors: [{wo_number, reason}] }
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/work-orders/bulk-import', async (req, res) => {
+  try {
+    const { project_id, records = [] } = req.body;
+    if (!project_id)     return res.status(400).json({ error: 'project_id is required' });
+    if (!records.length) return res.status(400).json({ error: 'No records provided' });
+
+    let created = 0, skipped = 0;
+    const errors = [];
+
+    for (const rec of records) {
+      try {
+        if (!rec.wo_number) { errors.push({ wo_number: '?', reason: 'wo_number missing' }); continue; }
+        if (!rec.vendor_id) { errors.push({ wo_number: rec.wo_number, reason: 'vendor_id missing' }); continue; }
+
+        // Check duplicate
+        const dup = await query('SELECT id FROM work_orders WHERE wo_number = $1', [rec.wo_number]);
+        if (dup.rows.length) { skipped++; continue; }
+
+        await query(
+          `INSERT INTO work_orders
+             (project_id, vendor_id, wo_number, wo_date, subject, scope_of_work,
+              start_date, end_date, total_value, status, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [
+            project_id, rec.vendor_id, rec.wo_number,
+            rec.wo_date || null,
+            rec.subject || rec.wo_number,
+            rec.scope_of_work || '',
+            rec.start_date || null,
+            rec.end_date   || null,
+            parseFloat(rec.total_value) || 0,
+            rec.status || 'approved',
+            req.user.id,
+          ]
+        );
+        created++;
+      } catch (e) {
+        errors.push({ wo_number: rec.wo_number, reason: e.message });
+      }
+    }
+
+    res.json({ created, skipped, errors });
+  } catch (err) {
+    console.error('[WO Bulk Import]:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
