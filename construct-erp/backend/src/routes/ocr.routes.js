@@ -4,13 +4,13 @@
 // returns structured JSON: { po_date, grand_total, gst_pct, items[] }
 const express = require('express');
 const router  = express.Router();
-const { authenticateToken } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-router.post('/extract-po', authenticateToken, async (req, res) => {
+router.post('/extract-po', authenticate, async (req, res) => {
   try {
     if (!GEMINI_API_KEY) {
       return res.status(503).json({ error: 'GEMINI_API_KEY not configured in .env' });
