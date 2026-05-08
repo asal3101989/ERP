@@ -787,34 +787,54 @@ function sortRows(rows, col, dir) {
 function EditBillModal({ bill, projects, onClose }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    vendor_name:      bill.vendor_name      || '',
-    vendor_id:        bill.vendor_id        || '',
-    po_number:        bill.po_number        || '',
-    po_date:          bill.po_date          ? bill.po_date.slice(0, 10) : '',
-    inv_number:       bill.inv_number       || '',
-    inv_date:         bill.inv_date         ? bill.inv_date.slice(0, 10) : '',
-    inv_month:        bill.inv_month        || '',
-    received_date:    bill.received_date    ? bill.received_date.slice(0, 10) : '',
-    bill_type:        bill.bill_type        || 'po',
-    work_desc:        bill.work_desc        || '',
-    tax_mode:         bill.tax_mode         || 'intrastate',
-    basic_amount:     bill.basic_amount     || '',
-    cgst_pct:         bill.cgst_pct         || '',
-    cgst_amt:         bill.cgst_amt         || '',
-    sgst_pct:         bill.sgst_pct         || '',
-    sgst_amt:         bill.sgst_amt         || '',
-    igst_pct:         bill.igst_pct         || '',
-    igst_amt:         bill.igst_amt         || '',
-    transport_charges:bill.transport_charges|| '',
-    other_charges:    bill.other_charges    || '',
-    credit_note_num:  bill.credit_note_num  || '',
-    credit_note_val:  bill.credit_note_val  || '',
-    total_amount:     bill.total_amount     || '',
-    remarks:          bill.remarks          || '',
+    vendor_name:      bill.vendor_name       || '',
+    vendor_id:        bill.vendor_id         || '',
+    project_id:       bill.project_id        || '',
+    po_number:        bill.po_number         || '',
+    po_date:          bill.po_date           ? bill.po_date.slice(0, 10) : '',
+    inv_number:       bill.inv_number        || '',
+    inv_date:         bill.inv_date          ? bill.inv_date.slice(0, 10) : '',
+    inv_month:        bill.inv_month         || '',
+    received_date:    bill.received_date     ? bill.received_date.slice(0, 10) : '',
+    bill_type:        bill.bill_type         || 'po',
+    work_desc:        bill.work_desc         || '',
+    tax_mode:         bill.tax_mode          || 'intrastate',
+    basic_amount:     bill.basic_amount      || '',
+    cgst_pct:         bill.cgst_pct          || '9',
+    sgst_pct:         bill.sgst_pct          || '9',
+    igst_pct:         bill.igst_pct          || '0',
+    transport_charges:bill.transport_charges || '',
+    transport_gst_pct:bill.transport_gst_pct || '',
+    other_charges:    bill.other_charges     || '',
+    credit_note_num:  bill.credit_note_num   || '',
+    credit_note_val:  bill.credit_note_val   || '',
+    remarks:          bill.remarks           || '',
   });
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  const n   = (v) => parseFloat(v) || 0;
+
+  // ── Live calculations ─────────────────────────────────────────────────────
+  const basicAmt     = parseFloat(form.basic_amount)      || 0;
+  const taxMode      = form.tax_mode;
+  const cgstAmt      = taxMode === 'intrastate' ? basicAmt * (parseFloat(form.cgst_pct) || 0) / 100 : 0;
+  const sgstAmt      = taxMode === 'intrastate' ? basicAmt * (parseFloat(form.sgst_pct) || 0) / 100 : 0;
+  const igstAmt      = taxMode === 'interstate' ? basicAmt * (parseFloat(form.igst_pct) || 0) / 100 : 0;
+  const totalGST     = cgstAmt + sgstAmt + igstAmt;
+  const transportAmt = parseFloat(form.transport_charges)  || 0;
+  const transportGST = transportAmt * (parseFloat(form.transport_gst_pct) || 0) / 100;
+  const otherAmt     = parseFloat(form.other_charges)      || 0;
+  const creditVal    = parseFloat(form.credit_note_val)    || 0;
+  const grandTotal   = basicAmt + totalGST + transportAmt + transportGST + otherAmt - creditVal;
+
+  // Quick GST buttons
+  const applyGST = (pct, isIGST = false) => {
+    if (isIGST) {
+      setForm(f => ({ ...f, tax_mode: 'interstate', cgst_pct: '0', sgst_pct: '0', igst_pct: String(pct) }));
+    } else {
+      const half = (pct / 2).toFixed(1);
+      setForm(f => ({ ...f, tax_mode: 'intrastate', cgst_pct: half, sgst_pct: half, igst_pct: '0' }));
+    }
+  };
 
   const updateMut = useMutation({
     mutationFn: (data) => tqsBillsAPI.update(bill.id, data),
@@ -832,142 +852,301 @@ function EditBillModal({ bill, projects, onClose }) {
     if (!form.inv_number?.trim())  return toast.error('Invoice number is required');
     if (!form.inv_date)            return toast.error('Invoice date is required');
 
-    const gstAmt = n(form.cgst_amt) + n(form.sgst_amt) + n(form.igst_amt);
-    const total  = n(form.basic_amount) + gstAmt + n(form.transport_charges) + n(form.other_charges) - n(form.credit_note_val);
-
     updateMut.mutate({
       ...form,
-      gst_amount:   gstAmt.toFixed(2),
-      total_amount: total.toFixed(2),
+      basic_amount:      basicAmt.toFixed(2),
+      cgst_pct:          taxMode === 'intrastate' ? parseFloat(form.cgst_pct) || 0 : 0,
+      cgst_amt:          cgstAmt.toFixed(2),
+      sgst_pct:          taxMode === 'intrastate' ? parseFloat(form.sgst_pct) || 0 : 0,
+      sgst_amt:          sgstAmt.toFixed(2),
+      igst_pct:          taxMode === 'interstate' ? parseFloat(form.igst_pct) || 0 : 0,
+      igst_amt:          igstAmt.toFixed(2),
+      gst_amount:        totalGST.toFixed(2),
+      transport_charges: transportAmt.toFixed(2),
+      transport_gst_pct: parseFloat(form.transport_gst_pct) || 0,
+      transport_gst_amt: transportGST.toFixed(2),
+      other_charges:     otherAmt.toFixed(2),
+      credit_note_val:   creditVal.toFixed(2),
+      total_amount:      grandTotal.toFixed(2),
     });
   };
 
+  const inrFmt = (v) => Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-indigo-600 rounded-t-2xl">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col">
+
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-indigo-600 rounded-t-2xl flex-shrink-0">
           <div className="flex items-center gap-3">
             <Pencil className="w-4 h-4 text-white" />
-            <h2 className="text-sm font-semibold text-white">Edit Bill — SL #{bill.sl_number}</h2>
+            <div>
+              <h2 className="text-sm font-semibold text-white">Edit Bill — SL #{bill.sl_number}</h2>
+              <p className="text-xs text-indigo-200">{bill.vendor_name} · {bill.inv_number}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-indigo-200 hover:text-white"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="text-indigo-200 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {/* Vendor & Invoice */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Lbl req>Vendor Name</Lbl>
-              <input className={F} value={form.vendor_name} onChange={e => set('vendor_name', e.target.value)} />
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+
+          {/* ── SECTION 1: Bill Info ── */}
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Bill Information</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <Lbl req>Vendor Name</Lbl>
+                <input className={F} value={form.vendor_name} onChange={e => set('vendor_name', e.target.value)} />
+              </div>
+              <div>
+                <Lbl req>Invoice Number</Lbl>
+                <input className={F} value={form.inv_number} onChange={e => set('inv_number', e.target.value)} />
+              </div>
+              <div>
+                <Lbl req>Invoice Date</Lbl>
+                <input type="date" className={F} value={form.inv_date}
+                  onChange={e => {
+                    const d = e.target.value;
+                    const autoMonth = d ? new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }).toUpperCase().replace(' ', '-') : '';
+                    setForm(f => ({ ...f, inv_date: d, inv_month: autoMonth || f.inv_month }));
+                  }} />
+              </div>
+              <div>
+                <Lbl>Invoice Month</Lbl>
+                <input className={F} placeholder="e.g. APRIL-2026" value={form.inv_month} onChange={e => set('inv_month', e.target.value)} />
+              </div>
+              <div>
+                <Lbl>PO / WO Number</Lbl>
+                <input className={F} value={form.po_number} onChange={e => set('po_number', e.target.value)} />
+              </div>
+              <div>
+                <Lbl>PO / WO Date</Lbl>
+                <input type="date" className={F} value={form.po_date} onChange={e => set('po_date', e.target.value)} />
+              </div>
+              <div>
+                <Lbl>Received Date</Lbl>
+                <input type="date" className={F} value={form.received_date} onChange={e => set('received_date', e.target.value)} />
+              </div>
+              <div>
+                <Lbl>Bill Type</Lbl>
+                <select className={F} value={form.bill_type} onChange={e => set('bill_type', e.target.value)}>
+                  <option value="po">Purchase Order (PO)</option>
+                  <option value="wo">Work Order (WO)</option>
+                  <option value="service">Service</option>
+                  <option value="advance">Advance</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              {projects.length > 0 && (
+                <div className="col-span-2">
+                  <Lbl>Project</Lbl>
+                  <select className={F} value={form.project_id} onChange={e => set('project_id', e.target.value)}>
+                    <option value="">— Select Project —</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              )}
+              {form.bill_type === 'wo' && (
+                <div className="col-span-2">
+                  <Lbl>Work Description</Lbl>
+                  <input className={F} value={form.work_desc} onChange={e => set('work_desc', e.target.value)} placeholder="Brief description of work done" />
+                </div>
+              )}
             </div>
-            <div>
-              <Lbl req>Invoice Number</Lbl>
-              <input className={F} value={form.inv_number} onChange={e => set('inv_number', e.target.value)} />
-            </div>
-            <div>
-              <Lbl req>Invoice Date</Lbl>
-              <input type="date" className={F} value={form.inv_date} onChange={e => set('inv_date', e.target.value)} />
-            </div>
-            <div>
-              <Lbl>Received Date</Lbl>
-              <input type="date" className={F} value={form.received_date} onChange={e => set('received_date', e.target.value)} />
-            </div>
-            <div>
-              <Lbl>PO Number</Lbl>
-              <input className={F} value={form.po_number} onChange={e => set('po_number', e.target.value)} />
-            </div>
-            <div>
-              <Lbl>PO Date</Lbl>
-              <input type="date" className={F} value={form.po_date} onChange={e => set('po_date', e.target.value)} />
-            </div>
-            <div>
-              <Lbl>Bill Type</Lbl>
-              <select className={F} value={form.bill_type} onChange={e => set('bill_type', e.target.value)}>
-                <option value="po">Purchase Order</option>
-                <option value="wo">Work Order</option>
-                <option value="service">Service</option>
-                <option value="advance">Advance</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div>
-              <Lbl>Tax Mode</Lbl>
-              <select className={F} value={form.tax_mode} onChange={e => set('tax_mode', e.target.value)}>
-                <option value="intrastate">Intrastate (CGST+SGST)</option>
+          </div>
+
+          {/* ── SECTION 2: GST & Amounts ── */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Invoice Amounts & GST</p>
+              <select
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 focus:ring-2 focus:ring-indigo-400 outline-none bg-white"
+                value={form.tax_mode} onChange={e => set('tax_mode', e.target.value)}
+              >
+                <option value="intrastate">Intrastate (CGST + SGST)</option>
                 <option value="interstate">Interstate (IGST)</option>
               </select>
             </div>
-          </div>
 
-          {/* Amounts */}
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Amounts</p>
-            <div className="grid grid-cols-3 gap-3">
+            {/* Quick GST buttons */}
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              <span className="text-xs text-slate-400 self-center">Quick GST:</span>
+              {[0, 5, 12, 18, 28].map(pct => {
+                const active = taxMode === 'intrastate' &&
+                  parseFloat(form.cgst_pct) * 2 === pct;
+                return (
+                  <button key={pct} type="button" onClick={() => applyGST(pct)}
+                    className={`px-2.5 py-1 text-xs rounded-full border font-medium transition-colors ${
+                      active ? 'bg-indigo-600 text-white border-indigo-600'
+                             : 'border-slate-200 hover:bg-indigo-50 hover:border-indigo-300 text-slate-600'
+                    }`}>
+                    {pct}%
+                  </button>
+                );
+              })}
+              <button type="button" onClick={() => applyGST(18, true)}
+                className={`px-2.5 py-1 text-xs rounded-full border font-medium transition-colors ${
+                  taxMode === 'interstate' ? 'bg-amber-500 text-white border-amber-500'
+                                          : 'border-amber-200 hover:bg-amber-50 text-amber-700'
+                }`}>
+                IGST 18%
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {/* Basic Amount */}
               <div>
-                <Lbl>Basic Amount (₹)</Lbl>
-                <input type="number" step="0.01" className={F} value={form.basic_amount} onChange={e => set('basic_amount', e.target.value)} />
+                <Lbl req>Basic Amount (₹)</Lbl>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
+                  <input type="number" step="0.01" className={F + ' pl-7'} placeholder="0.00"
+                    value={form.basic_amount} onChange={e => set('basic_amount', e.target.value)} />
+                </div>
               </div>
-              {form.tax_mode === 'intrastate' ? (<>
+
+              {/* GST inputs — intrastate */}
+              {taxMode === 'intrastate' ? (<>
                 <div>
                   <Lbl>CGST %</Lbl>
-                  <input type="number" step="0.5" className={F} value={form.cgst_pct} onChange={e => set('cgst_pct', e.target.value)} />
-                </div>
-                <div>
-                  <Lbl>CGST Amt</Lbl>
-                  <input type="number" step="0.01" className={F} value={form.cgst_amt} onChange={e => set('cgst_amt', e.target.value)} />
+                  <input type="number" step="0.5" className={F} placeholder="9"
+                    value={form.cgst_pct} onChange={e => set('cgst_pct', e.target.value)} />
+                  <p className="text-xs text-indigo-600 font-semibold mt-1">
+                    = ₹{inrFmt(cgstAmt)} <span className="text-slate-400 font-normal">(auto)</span>
+                  </p>
                 </div>
                 <div>
                   <Lbl>SGST %</Lbl>
-                  <input type="number" step="0.5" className={F} value={form.sgst_pct} onChange={e => set('sgst_pct', e.target.value)} />
+                  <input type="number" step="0.5" className={F} placeholder="9"
+                    value={form.sgst_pct} onChange={e => set('sgst_pct', e.target.value)} />
+                  <p className="text-xs text-indigo-600 font-semibold mt-1">
+                    = ₹{inrFmt(sgstAmt)} <span className="text-slate-400 font-normal">(auto)</span>
+                  </p>
                 </div>
-                <div>
-                  <Lbl>SGST Amt</Lbl>
-                  <input type="number" step="0.01" className={F} value={form.sgst_amt} onChange={e => set('sgst_amt', e.target.value)} />
-                </div>
-              </>) : (<>
+              </>) : (
                 <div>
                   <Lbl>IGST %</Lbl>
-                  <input type="number" step="0.5" className={F} value={form.igst_pct} onChange={e => set('igst_pct', e.target.value)} />
+                  <input type="number" step="0.5" className={F} placeholder="18"
+                    value={form.igst_pct} onChange={e => set('igst_pct', e.target.value)} />
+                  <p className="text-xs text-amber-600 font-semibold mt-1">
+                    = ₹{inrFmt(igstAmt)} <span className="text-slate-400 font-normal">(auto)</span>
+                  </p>
                 </div>
-                <div>
-                  <Lbl>IGST Amt</Lbl>
-                  <input type="number" step="0.01" className={F} value={form.igst_amt} onChange={e => set('igst_amt', e.target.value)} />
-                </div>
-              </>)}
+              )}
+
+              {/* Transport */}
               <div>
-                <Lbl>Transport Charges</Lbl>
-                <input type="number" step="0.01" className={F} value={form.transport_charges} onChange={e => set('transport_charges', e.target.value)} />
+                <Lbl>Transport Charges (₹)</Lbl>
+                <input type="number" step="0.01" className={F} placeholder="0.00"
+                  value={form.transport_charges} onChange={e => set('transport_charges', e.target.value)} />
               </div>
               <div>
-                <Lbl>Other Charges</Lbl>
-                <input type="number" step="0.01" className={F} value={form.other_charges} onChange={e => set('other_charges', e.target.value)} />
+                <Lbl>Transport GST %</Lbl>
+                <input type="number" step="0.5" className={F} placeholder="18"
+                  value={form.transport_gst_pct} onChange={e => set('transport_gst_pct', e.target.value)} />
+                {transportGST > 0 && (
+                  <p className="text-xs text-slate-500 mt-1">= ₹{inrFmt(transportGST)}</p>
+                )}
+              </div>
+
+              {/* Other & Credit */}
+              <div>
+                <Lbl>Other Charges (₹)</Lbl>
+                <input type="number" step="0.01" className={F} placeholder="0.00"
+                  value={form.other_charges} onChange={e => set('other_charges', e.target.value)} />
               </div>
               <div>
-                <Lbl>Credit Note Value</Lbl>
-                <input type="number" step="0.01" className={F} value={form.credit_note_val} onChange={e => set('credit_note_val', e.target.value)} />
+                <Lbl>Credit Note Number</Lbl>
+                <input className={F} placeholder="CN-001"
+                  value={form.credit_note_num} onChange={e => set('credit_note_num', e.target.value)} />
+              </div>
+              <div>
+                <Lbl>Credit Note Value (₹)</Lbl>
+                <input type="number" step="0.01" className={F} placeholder="0.00"
+                  value={form.credit_note_val} onChange={e => set('credit_note_val', e.target.value)} />
               </div>
             </div>
           </div>
 
-          {/* Remarks */}
-          <div>
-            <Lbl>Remarks</Lbl>
-            <textarea rows={2} className={F} value={form.remarks} onChange={e => set('remarks', e.target.value)} />
+          {/* ── SECTION 3: Live Totals ── */}
+          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+            <p className="text-xs font-semibold text-indigo-500 uppercase tracking-widest mb-3">Invoice Totals (Live)</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
+              <div className="text-center bg-white rounded-lg p-2.5 border border-indigo-100">
+                <p className="text-xs text-slate-500 mb-0.5">Basic Amount</p>
+                <p className="font-bold text-slate-800">₹{inrFmt(basicAmt)}</p>
+              </div>
+              {taxMode === 'intrastate' ? (<>
+                <div className="text-center bg-white rounded-lg p-2.5 border border-indigo-100">
+                  <p className="text-xs text-slate-500 mb-0.5">CGST ({form.cgst_pct || 0}%)</p>
+                  <p className="font-semibold text-indigo-700">₹{inrFmt(cgstAmt)}</p>
+                </div>
+                <div className="text-center bg-white rounded-lg p-2.5 border border-indigo-100">
+                  <p className="text-xs text-slate-500 mb-0.5">SGST ({form.sgst_pct || 0}%)</p>
+                  <p className="font-semibold text-indigo-700">₹{inrFmt(sgstAmt)}</p>
+                </div>
+              </>) : (
+                <div className="text-center bg-white rounded-lg p-2.5 border border-amber-100">
+                  <p className="text-xs text-slate-500 mb-0.5">IGST ({form.igst_pct || 0}%)</p>
+                  <p className="font-semibold text-amber-700">₹{inrFmt(igstAmt)}</p>
+                </div>
+              )}
+              <div className="text-center bg-white rounded-lg p-2.5 border border-indigo-100">
+                <p className="text-xs text-slate-500 mb-0.5">Total GST</p>
+                <p className="font-semibold text-slate-700">₹{inrFmt(totalGST)}</p>
+              </div>
+            </div>
+            {(transportAmt > 0 || otherAmt > 0 || creditVal > 0) && (
+              <div className="grid grid-cols-3 gap-3 text-sm mb-3">
+                {transportAmt > 0 && (
+                  <div className="text-center bg-white rounded-lg p-2 border border-slate-100">
+                    <p className="text-xs text-slate-500 mb-0.5">Transport + GST</p>
+                    <p className="font-semibold text-slate-700">₹{inrFmt(transportAmt + transportGST)}</p>
+                  </div>
+                )}
+                {otherAmt > 0 && (
+                  <div className="text-center bg-white rounded-lg p-2 border border-slate-100">
+                    <p className="text-xs text-slate-500 mb-0.5">Other Charges</p>
+                    <p className="font-semibold text-slate-700">₹{inrFmt(otherAmt)}</p>
+                  </div>
+                )}
+                {creditVal > 0 && (
+                  <div className="text-center bg-white rounded-lg p-2 border border-red-100">
+                    <p className="text-xs text-slate-500 mb-0.5">Credit Note</p>
+                    <p className="font-semibold text-red-600">− ₹{inrFmt(creditVal)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="border-t border-indigo-200 pt-3 flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-600">Total Invoice Amount:</span>
+              <span className="text-2xl font-black text-indigo-700">₹{inrFmt(grandTotal)}</span>
+            </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex justify-end gap-3 pt-2 border-t">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50">
-              Cancel
-            </button>
-            <button type="submit" disabled={updateMut.isPending}
-              className="px-5 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold disabled:opacity-60">
-              {updateMut.isPending ? 'Saving…' : 'Save Changes'}
-            </button>
+          {/* ── SECTION 4: Remarks ── */}
+          <div>
+            <Lbl>Remarks / Notes</Lbl>
+            <textarea rows={2} className={F + ' resize-none'}
+              placeholder="Any remarks…"
+              value={form.remarks} onChange={e => set('remarks', e.target.value)} />
           </div>
+
         </form>
+
+        {/* ── Footer ── */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t bg-slate-50 rounded-b-2xl flex-shrink-0">
+          <button type="button" onClick={onClose}
+            className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+            Cancel
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={updateMut.isPending}
+            className="px-6 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold disabled:opacity-60 transition-colors flex items-center gap-2">
+            {updateMut.isPending ? 'Saving…' : <><Pencil className="w-3.5 h-3.5" /> Save Changes</>}
+          </button>
+        </div>
       </div>
     </div>
   );
