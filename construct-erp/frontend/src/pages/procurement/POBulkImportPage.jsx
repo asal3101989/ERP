@@ -5,9 +5,11 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { poAPI, vendorAPI, projectAPI, documentsAPI } from '../../api/client';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 import {
   Upload, ChevronLeft, ChevronRight, CheckCircle2,
-  SkipForward, AlertCircle, X, FileText, Loader2, Sparkles, Plus, Trash2,
+  SkipForward, AlertCircle, FileText, Loader2, Sparkles, Plus, Trash2,
+  Download, TableIcon,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useOCRExtract } from '../../hooks/useOCRExtract';
@@ -56,7 +58,8 @@ function computeTotals(items) {
 const inr = (v) => Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
 export default function POBulkImportPage() {
-  const fileInputRef = useRef();
+  const fileInputRef  = useRef();
+  const excelInputRef = useRef();
 
   const [step, setStep]           = useState('select');
   const [projectId, setProjectId] = useState('');
@@ -103,6 +106,110 @@ export default function POBulkImportPage() {
     setQueue(items);
     setCurrent(0);
   }, [vendors]);
+
+  // ── Download Excel template pre-filled with PO# and vendor from filenames
+  const handleDownloadTemplate = () => {
+    if (!queue.length) { toast.error('Select PDF files first'); return; }
+    const rows = [
+      ['PO Number','Vendor Name','PO Date (DD/MM/YYYY)','Delivery Date (DD/MM/YYYY)',
+       'Item Description','Qty','Unit','Rate (₹)','GST%','Notes','Status'],
+      ...queue.map(q => [
+        q.poNumber, q.vendorName, '', '',
+        q.vendorName, '1', 'LS', '', '18', '', 'approved',
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    // Column widths
+    ws['!cols'] = [14,30,18,18,35,8,8,14,8,25,12].map(w => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'PO Import');
+    XLSX.writeFile(wb, 'PO_Import_Template.xlsx');
+    toast.success('Template downloaded — fill in dates, qty and rates, then upload');
+  };
+
+  // ── Parse uploaded Excel and build saved records
+  const handleUploadExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb   = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        // Skip header row
+        const dataRows = rows.slice(1).filter(r => r[0]); // must have PO number
+
+        const parseDate = (val) => {
+          if (!val) return '';
+          if (val instanceof Date) {
+            const y = val.getFullYear();
+            const m = String(val.getMonth()+1).padStart(2,'0');
+            const d = String(val.getDate()).padStart(2,'0');
+            return `${y}-${m}-${d}`;
+          }
+          // DD/MM/YYYY string
+          const s = String(val).trim();
+          const parts = s.split(/[\/\-\.]/);
+          if (parts.length === 3 && parts[2].length === 4)
+            return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+          return s;
+        };
+
+        // Group rows by PO number (multiple rows = multiple line items)
+        const poMap = {};
+        for (const r of dataRows) {
+          const poNum = String(r[0]).trim().toUpperCase();
+          if (!poMap[poNum]) {
+            const vendorName = String(r[1] || '').trim();
+            const matched    = matchVendor(vendors, vendorName);
+            poMap[poNum] = {
+              po_number:     poNum,
+              vendor_id:     matched?.id || '',
+              vendor_name:   vendorName,
+              po_date:       parseDate(r[2]),
+              delivery_date: parseDate(r[3]),
+              notes:         String(r[9] || ''),
+              status:        String(r[10] || 'approved').toLowerCase(),
+              items: [],
+            };
+          }
+          const desc = String(r[4] || '').trim();
+          const qty  = parseFloat(r[5]) || 0;
+          const rate = parseFloat(r[7]) || 0;
+          if (desc && qty > 0 && rate > 0) {
+            poMap[poNum].items.push({
+              description: desc,
+              quantity:    String(qty),
+              unit:        String(r[6] || 'LS').trim(),
+              rate:        String(rate),
+              gst_rate:    String(parseFloat(r[8]) || 18),
+            });
+          }
+        }
+
+        const records = Object.values(poMap);
+        const valid   = records.filter(r => r.vendor_id && r.items.length > 0);
+        const noVendor = records.filter(r => !r.vendor_id);
+
+        if (!valid.length) {
+          toast.error('No valid records found. Check vendor names match the system.');
+          return;
+        }
+
+        setSaved(valid);
+        if (noVendor.length)
+          toast(`${valid.length} records ready. ⚠️ ${noVendor.length} skipped (vendor not matched): ${noVendor.map(r=>r.po_number).join(', ')}`, { duration: 8000 });
+        else
+          toast.success(`${valid.length} PO records loaded from Excel — ready to import!`);
+        setStep('done');
+      } catch (err) {
+        toast.error('Could not read Excel file: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
 
   const curItem = queue[current];
 
@@ -312,12 +419,33 @@ export default function POBulkImportPage() {
                 onChange={e => { handleFiles(e.target.files); if (e.target.files.length) setStep('review'); }} />
             </div>
 
+            {/* Excel workflow */}
+            {queue.length > 0 && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-semibold text-emerald-800">⚡ Faster: Excel Import ({queue.length} files selected)</p>
+                <p className="text-xs text-emerald-700">Step 1: Download the template (pre-filled with PO# &amp; vendor names)</p>
+                <p className="text-xs text-emerald-700">Step 2: Open in Excel, fill in Date / Qty / Rate while looking at each PDF</p>
+                <p className="text-xs text-emerald-700">Step 3: Upload the filled Excel here → import all at once</p>
+                <div className="flex gap-2">
+                  <button onClick={handleDownloadTemplate}
+                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg py-2.5">
+                    <Download className="w-4 h-4" /> Download Template
+                  </button>
+                  <button onClick={() => excelInputRef.current?.click()}
+                    className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg py-2.5">
+                    <Upload className="w-4 h-4" /> Upload Filled Excel
+                  </button>
+                  <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleUploadExcel} />
+                </div>
+              </div>
+            )}
+
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800 space-y-1">
               <p className="font-semibold">How it works:</p>
               <p>• Select all PDF files from your PO folder at once</p>
-              <p>• Each PDF opens alongside a form — fill in Date, line items with Qty, Unit and Rate</p>
+              <p>• Use the Excel template (faster) or fill each PDF form manually</p>
               <p>• Grand Total is auto-calculated from your line items</p>
-              <p>• Save each record, then click "Import All to ERP" at the end</p>
+              <p>• Duplicate PO numbers are automatically skipped</p>
             </div>
           </div>
         )}
