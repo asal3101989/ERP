@@ -138,7 +138,7 @@ export default function POBulkImportPage() {
     }));
   };
 
-  // ── OCR Auto-extract — applies date + amount to current PO
+  // ── Gemini AI Auto-extract — applies all extracted fields
   const handleAutoExtract = async () => {
     if (!curItem) return;
     const result = await extract(curItem.file);
@@ -148,42 +148,49 @@ export default function POBulkImportPage() {
 
     setQueue(prev => prev.map((q, i) => {
       if (i !== current) return q;
-
-      let newForm = { ...q.form };
-      let newItems = q.form.items.map(it => ({ ...it }));
+      const newForm = { ...q.form };
 
       // ── Date
-      if (result.date) {
-        newForm.po_date = result.date;
+      if (result.po_date) {
+        newForm.po_date = result.po_date;
         extracted.push('date');
       }
 
-      // ── Amount → put into first item as rate (qty=1 if not set)
-      if (result.amount) {
-        const gst      = parseFloat(result.gst || newItems[0]?.gst_rate || 18);
-        const grandAmt = parseFloat(result.amount);
-        // Back-calculate sub-total (amount before GST)
-        const subTotal = gst > 0 ? grandAmt / (1 + gst / 100) : grandAmt;
+      // ── GST at header level
+      if (result.gst_pct != null) {
+        extracted.push('GST%');
+      }
 
-        const existingQty = parseFloat(newItems[0]?.quantity) || 0;
-        if (existingQty > 0) {
-          // Qty already filled — set rate = subTotal / qty
-          newItems[0] = { ...newItems[0], rate: (subTotal / existingQty).toFixed(2) };
-        } else {
-          // No qty yet — set qty=1, rate=subTotal (lump sum)
-          newItems[0] = { ...newItems[0], quantity: '1', unit: 'LS', rate: subTotal.toFixed(2) };
-        }
-        if (result.gst) newItems[0] = { ...newItems[0], gst_rate: result.gst };
-        newForm.items = newItems;
+      // ── Line items (Gemini may return full items array)
+      if (result.items && result.items.length > 0) {
+        newForm.items = result.items.map(it => ({
+          description: it.description || '',
+          quantity:    it.quantity    != null ? String(it.quantity) : '',
+          unit:        it.unit        || 'LS',
+          rate:        it.rate        != null ? String(it.rate)     : '',
+          gst_rate:    it.gst_rate    != null ? String(it.gst_rate) : (result.gst_pct != null ? String(result.gst_pct) : '18'),
+        }));
+        extracted.push(`${result.items.length} item${result.items.length > 1 ? 's' : ''}`);
+      } else if (result.grand_total) {
+        // No items but we have grand total — put into first item as lump sum
+        const gst      = parseFloat(result.gst_pct || q.form.items[0]?.gst_rate || 18);
+        const grandAmt = parseFloat(result.grand_total);
+        const subTotal = gst > 0 ? grandAmt / (1 + gst / 100) : grandAmt;
+        newForm.items = [{
+          description: q.form.items[0]?.description || q.vendorName || 'Imported Item',
+          quantity:    '1',
+          unit:        'LS',
+          rate:        subTotal.toFixed(2),
+          gst_rate:    String(gst),
+        }];
         extracted.push('amount');
-        if (result.gst) extracted.push('GST%');
       }
 
       return { ...q, form: newForm };
     }));
 
-    if (extracted.length) toast.success(`Extracted: ${extracted.join(', ')} — review & correct`);
-    else toast('OCR ran but could not find date or amount — fill manually');
+    if (extracted.length) toast.success(`AI extracted: ${extracted.join(', ')} — review & correct`);
+    else toast.error('AI could not extract data — fill manually');
   };
 
   // ── Save current record and advance

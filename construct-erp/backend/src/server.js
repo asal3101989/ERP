@@ -84,6 +84,7 @@ const snagRoutes          = require('./routes/snag.routes');
 const { tenderRouter, bidRouter } = require('./routes/tender.routes');
 const retentionRoutes             = require('./routes/retention.routes');
 const chatRoutes                  = require('./routes/chat.routes');
+const ocrRoutes                   = require('./routes/ocr.routes');
 
 const http   = require('http');
 const { Server: SocketIO } = require('socket.io');
@@ -285,6 +286,7 @@ app.use(`${API}/users`, usersRoutes);
 
 // ERP Chat
 app.use(`${API}/chat`, chatRoutes);
+app.use(`${API}/ocr`,  ocrRoutes);
 
 // ============================================
 // SOCKET.IO — Real-time Chat
