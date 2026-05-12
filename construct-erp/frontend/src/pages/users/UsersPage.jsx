@@ -35,7 +35,7 @@ const DEPARTMENTS = [
 
 const AVAILABLE_MODULES = [
   'Overview', 'Planning', 'HR & Admin', 'Procurement', 'Stores',
-  'Subcontractors', 'QS & Billing', 'Finance', 'TQS Tracker',
+  'Subcontractors', 'QS & Billing', 'Finance', 'DQS Tracker',
   'Quality (QA/QC)', 'HSE & Safety', 'CRM & Reports', 'Assets & IT',
   'Documents', 'Administration'
 ];

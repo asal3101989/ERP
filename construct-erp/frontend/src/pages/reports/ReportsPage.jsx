@@ -30,7 +30,7 @@ const C = {
 // ── Departments ────────────────────────────────────────────────────────────────
 const DEPTS = [
   { key:'all',            label:'All Reports',       icon:BarChart3,     color:'indigo' },
-  { key:'tqs',            label:'TQS Tracker',       icon:Send,          color:'indigo' },
+  { key:'tqs',            label:'DQS Tracker',       icon:Send,          color:'indigo' },
   { key:'finance',        label:'Finance',           icon:IndianRupee,   color:'emerald' },
   { key:'hr',             label:'HR & Admin',        icon:Users,         color:'violet' },
   { key:'procurement',    label:'Procurement',       icon:Truck,         color:'amber' },

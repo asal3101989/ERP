@@ -130,7 +130,7 @@ export default function VendorInvoicePage() {
             <div>
               <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">Vendor Payables</h1>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                {allInvoices.length} bills · Direct + TQS Tracker unified view
+                {allInvoices.length} bills · Direct + DQS Tracker unified view
               </p>
             </div>
           </div>
@@ -253,7 +253,7 @@ export default function VendorInvoicePage() {
                 className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 min-w-[140px]">
                 <option value="all">All Sources</option>
                 <option value="direct">Direct (Bill Booking)</option>
-                <option value="tqs">TQS Tracker</option>
+                <option value="tqs">DQS Tracker</option>
               </select>
             </div>
             {activeFilters > 0 && (

@@ -109,11 +109,11 @@ const navGroups = [
     ]
   },
 
-  // ── 9. TQS TRACKER (bill approval workflow) ──────────────────────────────────
+  // ── 9. DQS TRACKER (bill approval workflow) ──────────────────────────────────
   {
-    label: 'TQS Tracker',
+    label: 'DQS Tracker',
     items: [
-      { to: '/tqs',                  icon: LayoutDashboard, label: 'TQS Dashboard' },
+      { to: '/tqs',                  icon: LayoutDashboard, label: 'DQS Dashboard' },
       { to: '/tqs/bills',            icon: FileText,        label: 'Bills' },
       { to: '/tqs/transmittal',      icon: Send,            label: 'Transmittal' },
       { to: '/tqs/vendors',          icon: Users,           label: 'Vendors' },
@@ -203,7 +203,7 @@ const GROUP_COLORS = {
   'Stores':            '#14B8A6',
   'Subcontractors':    '#F97316',
   'QS & Billing':      '#10B981',
-  'TQS Tracker':       '#6366F1',
+  'DQS Tracker':       '#6366F1',
   'Quality (QA/QC)':   '#3B82F6',
   'HSE & Safety':      '#EF4444',
   'Assets & IT':       '#64748B',

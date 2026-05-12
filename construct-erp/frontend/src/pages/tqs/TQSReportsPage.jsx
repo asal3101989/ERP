@@ -262,7 +262,7 @@ export default function TQSReportsPage() {
 
   function exportSummaryPDF() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    pdfHeader(doc, 'TQS Tracker — Summary Report', subLine);
+    pdfHeader(doc, 'DQS Tracker — Summary Report', subLine);
     autoTable(doc, {
       startY: 70,
       head: [['Total Bills', 'Invoice Value (₹)', 'QS Certified (₹)', 'Paid (₹)', 'Balance Pending (₹)']],
@@ -286,7 +286,7 @@ export default function TQSReportsPage() {
 
   function exportBillRegisterPDF() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    pdfHeader(doc, 'TQS Tracker — Bill Register', subLine);
+    pdfHeader(doc, 'DQS Tracker — Bill Register', subLine);
     autoTable(doc, {
       startY: 70,
       head: [['SL No','Vendor','Invoice #','Inv Date','Month','PO/WO','Basic (₹)','GST (₹)','Total (₹)','Certified (₹)','Paid (₹)','Status']],
@@ -304,7 +304,7 @@ export default function TQSReportsPage() {
 
   function exportStatusPDF() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    pdfHeader(doc, 'TQS Tracker — Status-wise Report', subLine);
+    pdfHeader(doc, 'DQS Tracker — Status-wise Report', subLine);
     let y = 70;
     for (const [k, cfg] of Object.entries(STATUS_CFG)) {
       const stageBills = bills.filter(b => b.workflow_status === k);
@@ -329,7 +329,7 @@ export default function TQSReportsPage() {
 
   function exportMonthlyPDF() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    pdfHeader(doc, 'TQS Tracker — Month-wise Summary', subLine);
+    pdfHeader(doc, 'DQS Tracker — Month-wise Summary', subLine);
     autoTable(doc, {
       startY: 70,
       head: [['Month','Bills','Basic (₹)','GST (₹)','Invoice Total (₹)','Certified (₹)','Paid (₹)','Balance (₹)']],
@@ -345,7 +345,7 @@ export default function TQSReportsPage() {
 
   function exportVendorPDF() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    pdfHeader(doc, 'TQS Tracker — Vendor-wise Summary', subLine);
+    pdfHeader(doc, 'DQS Tracker — Vendor-wise Summary', subLine);
     autoTable(doc, {
       startY: 70,
       head: [['Vendor','Bills','Basic (₹)','GST (₹)','Invoice Total (₹)','Certified (₹)','Paid (₹)','Balance (₹)']],
@@ -360,7 +360,7 @@ export default function TQSReportsPage() {
 
   function exportAgingPDF() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    pdfHeader(doc, 'TQS Tracker — Aging / Outstanding Report', subLine);
+    pdfHeader(doc, 'DQS Tracker — Aging / Outstanding Report', subLine);
     autoTable(doc, {
       startY: 70,
       head: [['Aging Bucket','Bills Count','Outstanding Amount (₹)']],
@@ -384,7 +384,7 @@ export default function TQSReportsPage() {
 
   function exportGSTPDF() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    pdfHeader(doc, 'TQS Tracker — GST Summary', subLine);
+    pdfHeader(doc, 'DQS Tracker — GST Summary', subLine);
     autoTable(doc, {
       startY: 70,
       head: [['Month','Bills','Basic (₹)','CGST (₹)','SGST (₹)','IGST (₹)','Total GST (₹)','Invoice Total (₹)']],
@@ -404,7 +404,7 @@ export default function TQSReportsPage() {
 
   function exportPaymentPDF() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    pdfHeader(doc, 'TQS Tracker — Payment Register', subLine);
+    pdfHeader(doc, 'DQS Tracker — Payment Register', subLine);
     autoTable(doc, {
       startY: 70,
       head: [['SL No','Vendor','Invoice #','Inv Date','Invoice Total (₹)','Certified (₹)','Paid (₹)','Balance (₹)','Status']],

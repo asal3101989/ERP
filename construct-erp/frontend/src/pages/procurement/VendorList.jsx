@@ -161,10 +161,10 @@ export default function VendorList() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-            <Building2 className="w-3.5 h-3.5" /> Shared · Procurement &amp; TQS Tracker
+            <Building2 className="w-3.5 h-3.5" /> Shared · Procurement &amp; DQS Tracker
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Vendor Master</h1>
-          <p className="text-sm text-slate-400 mt-0.5">{allVendors.length} vendors · shared across Procurement &amp; TQS Tracker</p>
+          <p className="text-sm text-slate-400 mt-0.5">{allVendors.length} vendors · shared across Procurement &amp; DQS Tracker</p>
         </div>
         <div className="flex items-center gap-3">
           <DataToolbar
