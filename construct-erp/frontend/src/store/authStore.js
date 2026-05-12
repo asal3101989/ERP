@@ -9,6 +9,7 @@ const useAuthStore = create(
       user:         null,
       accessToken:  null,
       refreshToken: null,
+      loginAt:      null,
       isLoading:    false,
       isInitialized: false,   // true once startup token-check is done
       error:        null,
@@ -56,6 +57,7 @@ const useAuthStore = create(
             user:         data.user,
             accessToken:  data.accessToken,
             refreshToken: data.refreshToken,
+            loginAt:      Date.now(),
             isLoading:    false,
             isDemoMode:   false,
             error:        null,
@@ -80,6 +82,7 @@ const useAuthStore = create(
           user:         null,
           accessToken:  null,
           refreshToken: null,
+          loginAt:      null,
           isDemoMode:   false,
           error:        null,
         });
@@ -112,6 +115,7 @@ const useAuthStore = create(
         user:         state.user,
         accessToken:  state.accessToken,
         refreshToken: state.refreshToken,
+        loginAt:      state.loginAt,
       }),
     }
   )

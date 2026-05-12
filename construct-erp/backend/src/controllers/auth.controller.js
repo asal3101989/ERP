@@ -8,10 +8,10 @@ const { query, withTransaction } = require('../config/database');
 const generateTokens = (user) => {
   const payload = { id: user.id, role: user.role, company_id: user.company_id };
   const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '1h'
+    expiresIn: process.env.JWT_EXPIRES_IN || '15m'
   });
   const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
-    expiresIn: '30d'
+    expiresIn: '8h'
   });
   return { accessToken, refreshToken };
 };
@@ -91,8 +91,8 @@ const login = async (req, res) => {
     // Save refresh token
     const tokens = generateTokens(user);
     await query(
-      `INSERT INTO refresh_tokens (user_id, token, expires_at)
-       VALUES ($1, $2, NOW() + INTERVAL '30 days')`,
+      `INSERT INTO refresh_tokens (user_id, token, expires_at, login_at)
+       VALUES ($1, $2, NOW() + INTERVAL '8 hours', NOW())`,
       [user.id, tokens.refreshToken]
     );
 
@@ -128,18 +128,28 @@ const refreshToken = async (req, res) => {
       'SELECT * FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
       [refreshToken]
     );
-    if (!stored.rows[0]) return res.status(401).json({ error: 'Invalid or expired refresh token.' });
+    if (!stored.rows[0]) {
+      return res.status(401).json({ error: 'Session expired. Please log in again.', code: 'SESSION_EXPIRED' });
+    }
+
+    // Enforce absolute session limit — login_at never resets on rotation
+    const SESSION_MAX_MS = parseInt(process.env.SESSION_MAX_HOURS || '8', 10) * 60 * 60 * 1000;
+    const sessionAgeMs = Date.now() - new Date(stored.rows[0].login_at).getTime();
+    if (sessionAgeMs > SESSION_MAX_MS) {
+      await query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+      return res.status(401).json({ error: 'Your session has expired. Please log in again.', code: 'SESSION_EXPIRED' });
+    }
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
     const user = await query('SELECT * FROM users WHERE id = $1', [decoded.id]);
-
     const tokens = generateTokens(user.rows[0]);
 
-    // Rotate refresh token
+    // Rotate — carry login_at forward so the 8h clock is never reset
     await query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
     await query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'30 days\')',
-      [user.rows[0].id, tokens.refreshToken]
+      `INSERT INTO refresh_tokens (user_id, token, expires_at, login_at)
+       VALUES ($1, $2, NOW() + INTERVAL '8 hours', $3)`,
+      [user.rows[0].id, tokens.refreshToken, stored.rows[0].login_at]
     );
 
     res.json(tokens);

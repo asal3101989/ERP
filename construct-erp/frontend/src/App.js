@@ -158,8 +158,17 @@ const PublicRoute = ({ children }) => {
 function AuthInitializer({ children }) {
   const { user, initialize, logout } = useAuthStore();
   const IDLE_TIMEOUT = 60 * 60 * 1000; // 60 minutes
+  const SESSION_MAX_MS = 8 * 60 * 60 * 1000; // 8 hours absolute
 
   useEffect(() => {
+    // Check absolute session age before anything else
+    const { loginAt } = useAuthStore.getState();
+    if (loginAt && Date.now() - loginAt > SESSION_MAX_MS) {
+      logout();
+      window.location.replace('/login?reason=session_expired');
+      return;
+    }
+
     initialize();
 
     // Idle Timeout Logic

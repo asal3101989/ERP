@@ -1,6 +1,6 @@
 // src/pages/auth/LoginPage.jsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -30,6 +30,8 @@ export default function LoginPage() {
   const [lastError, setLastError] = useState('');
   const { login, isLoading }      = useAuthStore();
   const navigate                  = useNavigate();
+  const [searchParams]            = useSearchParams();
+  const redirectReason            = searchParams.get('reason');
 
   const { register, handleSubmit, formState: { errors } } = useForm({ resolver: zodResolver(schema) });
 
@@ -447,6 +449,20 @@ export default function LoginPage() {
               <h2>Welcome Back</h2>
               <p>Sign in with your credentials to access the system</p>
             </div>
+
+            {/* Session expiry banner */}
+            {redirectReason === 'session_expired' && !lastError && (
+              <div className="lp-error-banner" style={{ background: '#fffbeb', borderColor: '#fde68a', color: '#92400e' }}>
+                <AlertCircle style={{ width: 15, height: 15, flexShrink: 0 }} />
+                <span>Your session expired after 8 hours. Please sign in again.</span>
+              </div>
+            )}
+            {redirectReason === 'token_expired' && !lastError && (
+              <div className="lp-error-banner">
+                <AlertCircle style={{ width: 15, height: 15, flexShrink: 0 }} />
+                <span>Your session has ended. Please sign in to continue.</span>
+              </div>
+            )}
 
             {/* Error */}
             {lastError && (

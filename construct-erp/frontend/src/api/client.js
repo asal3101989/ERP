@@ -66,7 +66,9 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         localStorage.clear();
-        window.location.href = '/login';
+        const code = refreshError?.response?.data?.code;
+        const reason = code === 'SESSION_EXPIRED' ? 'session_expired' : 'token_expired';
+        window.location.href = `/login?reason=${reason}`;
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
